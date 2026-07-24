@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
 import { enviarMensagemIA } from "../data/aiChatApi";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
 import { createWorker, type Worker } from "tesseract.js";
@@ -33,6 +34,7 @@ interface Documento {
     origemVolta?: string;
     destinoVolta?: string;
     duracaoVolta?: string;
+    politicaAlteracoesCancelamentos?: string;
   };
 }
 
@@ -56,6 +58,7 @@ interface Pacote {
   origemVolta?: string;
   destinoVolta?: string;
   duracaoVolta?: string;
+  politicaAlteracoesCancelamentos?: string;
   logAnalise?: string;
   documentos: Documento[];
 }
@@ -95,6 +98,7 @@ const pacoteVazio: Omit<Pacote, "id"> = {
   origemVolta: "",
   destinoVolta: "",
   duracaoVolta: "",
+  politicaAlteracoesCancelamentos: "",
   logAnalise: "",
   documentos: []
 };
@@ -417,6 +421,36 @@ async function identificarOperadorPorOcr(imageUrl: string, worker: Worker): Prom
   }
 }
 
+function extrairPoliticaAlteracoesCancelamentos(texto: string): string {
+  if (!texto?.trim()) return "";
+
+  const matchInicio = texto.match(/pol[ií]tica\s+de\s+altera[cç][oõ]es\s+e\s+cancelamentos/i);
+  if (!matchInicio || matchInicio.index === undefined) return "";
+
+  let conteudo = texto.slice(matchInicio.index + matchInicio[0].length).trim();
+
+  const padroesFim = [
+    /\bcondi[cç][oõ]es\s+gerais\b/i,
+    /\binforma[cç][oõ]es\s+importantes\b/i,
+    /\bobserva[cç][oõ]es\b/i,
+    /\btermos\s+e\s+condi[cç][oõ]es\b/i,
+    /\bnotas\s+importantes\b/i,
+    /\bdocumenta[cç][oõ]es\s+necess[aá]rias\b/i,
+    /\bdados\s+do\s+passageiro\b/i,
+    /\bdados\s+da\s+reserva\b/i,
+  ];
+
+  let fim = conteudo.length;
+  for (const padrao of padroesFim) {
+    const matchFim = conteudo.match(padrao);
+    if (matchFim?.index !== undefined && matchFim.index > 0 && matchFim.index < fim) {
+      fim = matchFim.index;
+    }
+  }
+
+  return conteudo.slice(0, fim).trim().replace(/\s{2,}/g, " ");
+}
+
 function extrairDadosIADeAnalise(analise: string) {
   const extrair = (regex: RegExp) => {
     const valor = analise.match(regex)?.[1];
@@ -440,6 +474,11 @@ function extrairDadosIADeAnalise(analise: string) {
     origemVolta: extrair(/\*\*Origem \(Volta\):\*\*\s*(.+)/),
     destinoVolta: extrair(/\*\*Destino \(Volta\):\*\*\s*(.+)/),
     duracaoVolta: extrair(/\*\*Duração \(Volta\):\*\*\s*(.+)/i),
+    politicaAlteracoesCancelamentos: (() => {
+      const match = analise.match(/\*\*Política de alterações e cancelamentos:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
+      const valor = match?.[1]?.trim();
+      return valor && valor.toLowerCase() !== "não informado" ? valor : "";
+    })(),
   };
 }
 
@@ -458,7 +497,8 @@ function temDadosExtraidos(dados: Documento["dadosIA"]) {
     dados.duracaoIda ||
     dados.origemVolta ||
     dados.destinoVolta ||
-    dados.duracaoVolta,
+    dados.duracaoVolta ||
+    dados.politicaAlteracoesCancelamentos,
   );
 }
 
@@ -515,6 +555,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                 origemVolta: form.origemVolta?.trim(),
                 destinoVolta: form.destinoVolta?.trim(),
                 duracaoVolta: form.duracaoVolta?.trim(),
+                politicaAlteracoesCancelamentos: form.politicaAlteracoesCancelamentos?.trim(),
                 documentos: form.documentos || [],
                 logAnalise: logAnaliseIA.join("\n"),
               }
@@ -548,6 +589,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
         origemVolta: form.origemVolta?.trim(),
         destinoVolta: form.destinoVolta?.trim(),
         duracaoVolta: form.duracaoVolta?.trim(),
+        politicaAlteracoesCancelamentos: form.politicaAlteracoesCancelamentos?.trim(),
         logAnalise: logAnaliseIA.join("\n"),
         documentos: form.documentos,
       },
@@ -585,6 +627,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       origemVolta: pacote.origemVolta || "",
       destinoVolta: pacote.destinoVolta || "",
       duracaoVolta: pacote.duracaoVolta || "",
+      politicaAlteracoesCancelamentos: pacote.politicaAlteracoesCancelamentos || "",
       logAnalise: pacote.logAnalise || "",
     });
     setValorInput(pacote.valor ? formatarMoeda(Number(pacote.valor) || 0) : "");
@@ -669,6 +712,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       origemVolta: dadosIA.origemVolta || f.origemVolta || "",
       destinoVolta: dadosIA.destinoVolta || f.destinoVolta || "",
       duracaoVolta: dadosIA.duracaoVolta || f.duracaoVolta || "",
+      politicaAlteracoesCancelamentos: dadosIA.politicaAlteracoesCancelamentos || f.politicaAlteracoesCancelamentos || "",
     }));
   }
 
@@ -770,6 +814,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
           let contextoArquivo = "Nome do arquivo: " + doc.nome + "\n\n";
           let temConteudoPdf = false;
           let operadorDetectado = "";
+          let politicaAlteracoesCancelamentos = "";
 
           if (doc.tipo === 'application/pdf' && doc.arquivo) {
             try {
@@ -783,6 +828,12 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
               }
               contextoArquivo += "--- Conteúdo do arquivo: " + doc.nome + " ---\n" + textContent + "\n--- Fim do arquivo: " + doc.nome + " ---\n\n";
               temConteudoPdf = true;
+
+              politicaAlteracoesCancelamentos = extrairPoliticaAlteracoesCancelamentos(textContent);
+              if (politicaAlteracoesCancelamentos) {
+                adicionarLog(`Política de alterações e cancelamentos identificada em "${doc.nome}".`);
+                contextoArquivo += "--- Política de alterações e cancelamentos ---\n" + politicaAlteracoesCancelamentos + "\n\n";
+              }
 
               adicionarLog(`Extraindo logo do fornecedor em "${doc.nome}"...`);
               const logoEmbutido = await extrairPrimeiraImagemEmbutidaDoPdf(pdf);
@@ -834,8 +885,9 @@ Instruções:
 4.  O campo "ciaAerea" deve conter o nome da companhia aérea (ex: LATAM Airlines Group, GOL, Azul). Não confunda com operadora de turismo.
 5.  Identifique origem, destino e duração separadamente para o trecho de IDA e para o trecho de VOLTA (procure seções "Ida", "Volta", "Outbound", "Return" ou equivalentes no PDF).
 6.  A duração do voo deve estar no formato legível (ex: "2h 30min", "11h 45min", "1h 05min").
-7.  Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
-${!temConteudoPdf ? "\n8. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise **exclusivamente no nome do arquivo**." : ""}
+7.  Localize a seção "Política de alterações e cancelamentos" no PDF e copie todo o texto dessa seção integralmente para o campo "politicaAlteracoesCancelamentos", sem resumir.
+8.  Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
+${!temConteudoPdf ? "\n9. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise **exclusivamente no nome do arquivo**." : ""}
 Formato JSON esperado:
 {
   "ciaAerea": "string",
@@ -853,7 +905,8 @@ Formato JSON esperado:
   "horaChegadaVolta": "string",
   "origemVolta": "string",
   "destinoVolta": "string",
-  "duracaoVolta": "string"
+  "duracaoVolta": "string",
+  "politicaAlteracoesCancelamentos": "string"
 }`;
 
           const tentarComProvedor = async (provedor?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
@@ -913,6 +966,10 @@ Formato JSON esperado:
             const fmtData = (d: string) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não informado';
             const fmtCampo = (v: string) => v || 'Não informado';
             const ciaAerea = respostaJson.ciaAerea || respostaJson.operador || "";
+            const politicaFinal =
+              politicaAlteracoesCancelamentos ||
+              respostaJson.politicaAlteracoesCancelamentos ||
+              "";
 const relatorio = `**Relatório do Pacote (Analisado com ${provedorUsado})**
 --------------------
 **Operador:** ${padronizarOperador(operadorDetectado) || 'Não informado'}
@@ -931,7 +988,9 @@ const relatorio = `**Relatório do Pacote (Analisado com ${provedorUsado})**
 **Destino (Volta):** ${fmtCampo(respostaJson.destinoVolta)}
 **Duração (Volta):** ${fmtCampo(respostaJson.duracaoVolta)}
 **Horário de Saída (Volta):** ${respostaJson.horaSaidaVolta || 'Não informado'}
-**Horário de Chegada (Volta):** ${respostaJson.horaChegadaVolta || 'Não informado'}`;
+**Horário de Chegada (Volta):** ${respostaJson.horaChegadaVolta || 'Não informado'}
+**Política de alterações e cancelamentos:**
+${politicaFinal || 'Não informado'}`;
 
             return {
               ...doc,
@@ -950,6 +1009,7 @@ const relatorio = `**Relatório do Pacote (Analisado com ${provedorUsado})**
                 origemVolta: respostaJson.origemVolta || "",
                 destinoVolta: respostaJson.destinoVolta || "",
                 duracaoVolta: respostaJson.duracaoVolta || "",
+                politicaAlteracoesCancelamentos: politicaFinal,
               },
             };
           } catch (error) {
@@ -1265,7 +1325,17 @@ const relatorio = `**Relatório do Pacote (Analisado com ${provedorUsado})**
 
 
                   <div className="sm:col-span-2">
-                    <Label className="text-xs">URL</Label>
+                    <Label className="text-xs">Política de alterações e cancelamentos</Label>
+                    <Textarea
+                      className="mt-1 min-h-28"
+                      placeholder="Texto extraído do voucher sobre alterações e cancelamentos"
+                      value={form.politicaAlteracoesCancelamentos || ""}
+                      onChange={(e) => setForm((prev) => ({ ...prev, politicaAlteracoesCancelamentos: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <Label className="text-xs">Foto (Link)</Label>
                     <div className="relative mt-1">
                       <Image className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                       <Input
