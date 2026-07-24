@@ -6,6 +6,9 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { enviarMensagemIA } from "../data/aiChatApi";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
+import { createWorker, type Worker } from "tesseract.js";
+
+const LOGO_HOTELDO_REF = "/assets/logos/hoteldo.png";
 
 // Configura o worker para o pdf.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.mjs", import.meta.url).toString();
@@ -18,17 +21,25 @@ interface Documento {
   analise?: string;
   dadosIA?: {
     operador?: string;
+    ciaAerea?: string;
     reserva?: string;
     destino?: string;
     passageiros?: string;
     dataIda?: string;
     dataVolta?: string;
+    origemIda?: string;
+    destinoIda?: string;
+    duracaoIda?: string;
+    origemVolta?: string;
+    destinoVolta?: string;
+    duracaoVolta?: string;
   };
 }
 
 interface Pacote {
   id: number;
   operador: string;
+  ciaAerea?: string;
   origem: string;
   destino: string;
   reserva?: string;
@@ -39,6 +50,12 @@ interface Pacote {
   dataIda?: string;
   dataVolta?: string;
   passageiros?: string;
+  origemIda?: string;
+  destinoIda?: string;
+  duracaoIda?: string;
+  origemVolta?: string;
+  destinoVolta?: string;
+  duracaoVolta?: string;
   logAnalise?: string;
   documentos: Documento[];
 }
@@ -61,6 +78,7 @@ const operadoresPadrao = [
 
 const pacoteVazio: Omit<Pacote, "id"> = {
   operador: "",
+  ciaAerea: "",
   origem: "",
   destino: "",
   reserva: "",
@@ -71,6 +89,12 @@ const pacoteVazio: Omit<Pacote, "id"> = {
   dataIda: "",
   dataVolta: "",
   passageiros: "",
+  origemIda: "",
+  destinoIda: "",
+  duracaoIda: "",
+  origemVolta: "",
+  destinoVolta: "",
+  duracaoVolta: "",
   logAnalise: "",
   documentos: []
 };
@@ -135,6 +159,264 @@ function dataBrParaIso(dataBr: string) {
   return `${ano}-${mes}-${dia}`;
 }
 
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+function imagemPdfParaDataUrl(img: unknown): string {
+  if (!img || typeof img !== "object") return "";
+
+  const obj = img as {
+    bitmap?: ImageBitmap;
+    data?: Uint8ClampedArray | Uint8Array;
+    width?: number;
+    height?: number;
+  };
+
+  if (obj.data instanceof Uint8Array && obj.data.length > 2) {
+    const isJpeg = obj.data[0] === 0xff && obj.data[1] === 0xd8;
+    const isPng =
+      obj.data[0] === 0x89 &&
+      obj.data[1] === 0x50 &&
+      obj.data[2] === 0x4e &&
+      obj.data[3] === 0x47;
+
+    if (isJpeg) {
+      return `data:image/jpeg;base64,${uint8ArrayToBase64(obj.data)}`;
+    }
+
+    if (isPng) {
+      return `data:image/png;base64,${uint8ArrayToBase64(obj.data)}`;
+    }
+  }
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return "";
+
+  if (obj.bitmap) {
+    canvas.width = obj.bitmap.width;
+    canvas.height = obj.bitmap.height;
+    ctx.drawImage(obj.bitmap, 0, 0);
+    return canvas.toDataURL("image/png");
+  }
+
+  if (obj.data && obj.width && obj.height) {
+    canvas.width = obj.width;
+    canvas.height = obj.height;
+    const imageData = ctx.createImageData(obj.width, obj.height);
+    imageData.data.set(obj.data);
+    ctx.putImageData(imageData, 0, 0);
+    return canvas.toDataURL("image/png");
+  }
+
+  return "";
+}
+
+async function resolvePdfObject(
+  objs: { get: (name: string, callback?: (data: unknown) => void) => unknown },
+  name: string,
+): Promise<unknown> {
+  const result = objs.get(name);
+  if (result && typeof (result as Promise<unknown>).then === "function") {
+    return result as Promise<unknown>;
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      objs.get(name, (data: unknown) => {
+        if (data) resolve(data);
+        else reject(new Error("Objeto de imagem vazio"));
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+async function extrairPrimeiraImagemEmbutidaDoPdf(pdf: pdfjsLib.PDFDocumentProxy): Promise<string> {
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const ops = await page.getOperatorList();
+
+    for (let i = 0; i < ops.fnArray.length; i++) {
+      const fn = ops.fnArray[i];
+      if (fn !== pdfjsLib.OPS.paintImageXObject && fn !== pdfjsLib.OPS.paintInlineImageXObject) {
+        continue;
+      }
+
+      const imgName = ops.argsArray[i][0];
+      if (typeof imgName !== "string") continue;
+
+      try {
+        let img: unknown;
+        try {
+          img = await resolvePdfObject(page.objs, imgName);
+        } catch {
+          img = await resolvePdfObject(pdf.commonObjs, imgName);
+        }
+
+        const dataUrl = imagemPdfParaDataUrl(img);
+        if (dataUrl) return dataUrl;
+      } catch {
+        // tenta a próxima imagem
+      }
+    }
+  }
+
+  return "";
+}
+
+async function extrairLogoDoTopoDoPdf(pdf: pdfjsLib.PDFDocumentProxy): Promise<string> {
+  const page = await pdf.getPage(1);
+  const viewport = page.getViewport({ scale: 2 });
+  const alturaLogo = Math.min(220, viewport.height * 0.18);
+
+  const fullCanvas = document.createElement("canvas");
+  fullCanvas.width = viewport.width;
+  fullCanvas.height = viewport.height;
+  const fullCtx = fullCanvas.getContext("2d");
+  if (!fullCtx) return "";
+
+  await page.render({
+    canvasContext: fullCtx,
+    viewport,
+  }).promise;
+
+  const logoCanvas = document.createElement("canvas");
+  logoCanvas.width = viewport.width;
+  logoCanvas.height = alturaLogo;
+  const logoCtx = logoCanvas.getContext("2d");
+  if (!logoCtx) return "";
+
+  logoCtx.drawImage(fullCanvas, 0, 0, viewport.width, alturaLogo, 0, 0, viewport.width, alturaLogo);
+  return logoCanvas.toDataURL("image/png");
+}
+
+function detectarOperadorNoTexto(texto: string): string {
+  const normalizado = normalizarChave(texto.slice(0, 1500));
+  if (!normalizado) return "";
+
+  const mapaOperadores: Record<string, string> = {
+    hoteldo: "HotelDO",
+    decolar: "Decolar",
+    cvc: "CVC",
+    flytour: "Flytour",
+    orinter: "Orinter",
+    abreu: "Abreu",
+    visualturismo: "Visual Turismo",
+    diversaturismo: "Diversa Turismo",
+  };
+
+  const porContem = Object.entries(mapaOperadores).find(([chave]) => normalizado.includes(chave));
+  if (porContem) return porContem[1];
+
+  if (normalizado.includes("hotel") && (normalizado.includes("do") || normalizado.includes("d0"))) {
+    return "HotelDO";
+  }
+
+  return "";
+}
+
+function carregarImagem(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Falha ao carregar imagem"));
+    img.src = src;
+  });
+}
+
+async function prepararImagemParaOcr(imageUrl: string): Promise<string> {
+  try {
+    const img = await carregarImagem(imageUrl);
+    const escala = Math.max(2, Math.ceil(400 / Math.max(img.width, img.height, 1)));
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width * escala;
+    canvas.height = img.height * escala;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return imageUrl;
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/png");
+  } catch {
+    return imageUrl;
+  }
+}
+
+async function compararComLogoReferencia(imageUrl: string, referenciaUrl: string): Promise<boolean> {
+  try {
+    const [imgOrigem, imgRef] = await Promise.all([
+      carregarImagem(imageUrl),
+      carregarImagem(referenciaUrl),
+    ]);
+
+    const tamanho = 128;
+    const canvas = document.createElement("canvas");
+    canvas.width = tamanho;
+    canvas.height = tamanho;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return false;
+
+    const extrairPixels = (img: HTMLImageElement) => {
+      ctx.clearRect(0, 0, tamanho, tamanho);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, tamanho, tamanho);
+      const escala = Math.min(tamanho / img.width, tamanho / img.height);
+      const largura = img.width * escala;
+      const altura = img.height * escala;
+      const x = (tamanho - largura) / 2;
+      const y = (tamanho - altura) / 2;
+      ctx.drawImage(img, x, y, largura, altura);
+      return ctx.getImageData(0, 0, tamanho, tamanho).data;
+    };
+
+    const pixelsOrigem = extrairPixels(imgOrigem);
+    const pixelsRef = extrairPixels(imgRef);
+
+    let diff = 0;
+    let total = 0;
+    for (let i = 0; i < pixelsOrigem.length; i += 4) {
+      const r1 = pixelsOrigem[i];
+      const g1 = pixelsOrigem[i + 1];
+      const b1 = pixelsOrigem[i + 2];
+      const r2 = pixelsRef[i];
+      const g2 = pixelsRef[i + 1];
+      const b2 = pixelsRef[i + 2];
+      const branco1 = r1 > 235 && g1 > 235 && b1 > 235;
+      const branco2 = r2 > 235 && g2 > 235 && b2 > 235;
+      if (branco1 && branco2) continue;
+      diff += Math.abs(r1 - r2) + Math.abs(g1 - g2) + Math.abs(b1 - b2);
+      total += 3;
+    }
+
+    if (total === 0) return false;
+    return diff / total < 40;
+  } catch {
+    return false;
+  }
+}
+
+async function identificarOperadorPorOcr(imageUrl: string, worker: Worker): Promise<string> {
+  if (!imageUrl) return "";
+
+  try {
+    const imagemPreparada = await prepararImagemParaOcr(imageUrl);
+    const { data: { text } } = await worker.recognize(imagemPreparada);
+    return detectarOperadorNoTexto(text);
+  } catch {
+    return "";
+  }
+}
+
 function extrairDadosIADeAnalise(analise: string) {
   const extrair = (regex: RegExp) => {
     const valor = analise.match(regex)?.[1];
@@ -146,12 +428,38 @@ function extrairDadosIADeAnalise(analise: string) {
 
   return {
     operador: padronizarOperador(extrair(/\*\*Operador:\*\*\s*(.+)/)),
+    ciaAerea: extrair(/\*\*CIA A[eé]rea:\*\*\s*(.+)/i),
     reserva: extrair(/\*\*Nº de Reserva\/Localizador:\*\*\s*(.+)/),
     destino: extrair(/\*\*Destino Principal:\*\*\s*(.+)/),
     passageiros: extrair(/\*\*Passageiros:\*\*\s*(.+)/),
     dataIda: dataIdaBr ? dataBrParaIso(dataIdaBr) : "",
     dataVolta: dataVoltaBr ? dataBrParaIso(dataVoltaBr) : "",
+    origemIda: extrair(/\*\*Origem \(Ida\):\*\*\s*(.+)/),
+    destinoIda: extrair(/\*\*Destino \(Ida\):\*\*\s*(.+)/),
+    duracaoIda: extrair(/\*\*Duração \(Ida\):\*\*\s*(.+)/i),
+    origemVolta: extrair(/\*\*Origem \(Volta\):\*\*\s*(.+)/),
+    destinoVolta: extrair(/\*\*Destino \(Volta\):\*\*\s*(.+)/),
+    duracaoVolta: extrair(/\*\*Duração \(Volta\):\*\*\s*(.+)/i),
   };
+}
+
+function temDadosExtraidos(dados: Documento["dadosIA"]) {
+  if (!dados) return false;
+  return Boolean(
+    dados.operador ||
+    dados.ciaAerea ||
+    dados.reserva ||
+    dados.destino ||
+    dados.passageiros ||
+    dados.dataIda ||
+    dados.dataVolta ||
+    dados.origemIda ||
+    dados.destinoIda ||
+    dados.duracaoIda ||
+    dados.origemVolta ||
+    dados.destinoVolta ||
+    dados.duracaoVolta,
+  );
 }
 
 export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormProps) {
@@ -190,8 +498,9 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
             ? {
                 ...item,
                 operador: form.operador.trim(),
-                origem: form.origem.trim(),
-                destino: form.destino.trim(),
+                ciaAerea: form.ciaAerea?.trim(),
+                origem: (form.origemIda || form.origem).trim(),
+                destino: (form.destinoIda || form.destino).trim(),
                 reserva: form.reserva?.trim(),
                 link: form.link.trim(),
 
@@ -199,7 +508,13 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                 valor: form.valor,
                 dataIda: form.dataIda,
                 dataVolta: form.dataVolta,
-                passageiros: form.passageiros,                
+                passageiros: form.passageiros,
+                origemIda: form.origemIda?.trim(),
+                destinoIda: form.destinoIda?.trim(),
+                duracaoIda: form.duracaoIda?.trim(),
+                origemVolta: form.origemVolta?.trim(),
+                destinoVolta: form.destinoVolta?.trim(),
+                duracaoVolta: form.duracaoVolta?.trim(),
                 documentos: form.documentos || [],
                 logAnalise: logAnaliseIA.join("\n"),
               }
@@ -216,8 +531,9 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       {
         id: Date.now(),
         operador: form.operador.trim(),
-        origem: form.origem.trim(),
-        destino: form.destino.trim(),
+        ciaAerea: form.ciaAerea?.trim(),
+        origem: (form.origemIda || form.origem).trim(),
+        destino: (form.destinoIda || form.destino).trim(),
         reserva: form.reserva?.trim(),
         link: form.link.trim(),
 
@@ -226,6 +542,12 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
         dataIda: form.dataIda,
         dataVolta: form.dataVolta,
         passageiros: form.passageiros,
+        origemIda: form.origemIda?.trim(),
+        destinoIda: form.destinoIda?.trim(),
+        duracaoIda: form.duracaoIda?.trim(),
+        origemVolta: form.origemVolta?.trim(),
+        destinoVolta: form.destinoVolta?.trim(),
+        duracaoVolta: form.duracaoVolta?.trim(),
         logAnalise: logAnaliseIA.join("\n"),
         documentos: form.documentos,
       },
@@ -245,6 +567,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     setLogAnaliseIA(logPacote);
     setForm({
       operador: pacote.operador || "",
+      ciaAerea: pacote.ciaAerea || "",
       origem: pacote.origem || "",
       destino: pacote.destino || "",
       reserva: pacote.reserva || "",
@@ -256,6 +579,12 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       dataIda: pacote.dataIda || "",
       dataVolta: pacote.dataVolta || "",
       passageiros: pacote.passageiros || "",
+      origemIda: pacote.origemIda || pacote.origem || "",
+      destinoIda: pacote.destinoIda || pacote.destino || "",
+      duracaoIda: pacote.duracaoIda || "",
+      origemVolta: pacote.origemVolta || "",
+      destinoVolta: pacote.destinoVolta || "",
+      duracaoVolta: pacote.duracaoVolta || "",
       logAnalise: pacote.logAnalise || "",
     });
     setValorInput(pacote.valor ? formatarMoeda(Number(pacote.valor) || 0) : "");
@@ -318,7 +647,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     }
 
     const dadosIA = documentoComResultado.dadosIA || extrairDadosIADeAnalise(documentoComResultado.analise || "");
-    if (!dadosIA.operador && !dadosIA.reserva && !dadosIA.destino && !dadosIA.passageiros && !dadosIA.dataIda && !dadosIA.dataVolta) {
+    if (!temDadosExtraidos(dadosIA)) {
       setErro("Não foi possível extrair dados do resultado da IA para atualizar os campos.");
       return;
     }
@@ -327,22 +656,30 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     setForm((f) => ({
       ...f,
       operador: dadosIA.operador || f.operador || "",
+      ciaAerea: dadosIA.ciaAerea || f.ciaAerea || "",
       reserva: dadosIA.reserva || f.reserva || "",
-      destino: dadosIA.destino || f.destino || "",
+      destino: dadosIA.destinoIda || dadosIA.destino || f.destino || "",
+      origem: dadosIA.origemIda || f.origem || "",
       dataIda: dadosIA.dataIda || f.dataIda || "",
       dataVolta: dadosIA.dataVolta || f.dataVolta || "",
       passageiros: dadosIA.passageiros || f.passageiros || "",
+      origemIda: dadosIA.origemIda || f.origemIda || "",
+      destinoIda: dadosIA.destinoIda || f.destinoIda || "",
+      duracaoIda: dadosIA.duracaoIda || f.duracaoIda || "",
+      origemVolta: dadosIA.origemVolta || f.origemVolta || "",
+      destinoVolta: dadosIA.destinoVolta || f.destinoVolta || "",
+      duracaoVolta: dadosIA.duracaoVolta || f.duracaoVolta || "",
     }));
   }
 
-  async function identificarOperadorNoIcone(doc: Documento) {
-    if (!doc.tipo.startsWith("image/") || !doc.arquivo) return "";
+  async function identificarOperadorNaImagem(imageUrl: string) {
+    if (!imageUrl) return "";
 
     const promptOperador = [
-      "Identifique o nome da operadora de turismo exibida no logo da imagem.",
-      "Responda APENAS com um nome de operadora, sem frases extras.",
+      "Esta imagem contém o logo do fornecedor/operadora de turismo no topo de um voucher ou cotação.",
+      "Identifique o nome da operadora exibida no logo (ex: HotelDO, Decolar, CVC, Flytour, Orinter, Abreu, Visual Turismo, Diversa Turismo).",
+      "Responda APENAS com o nome da operadora, sem frases extras.",
       "Se não conseguir identificar com confiança, responda apenas com string vazia.",
-      "Operadoras válidas: HotelDO, Decolar, CVC, Flytour, Orinter, Abreu, Visual Turismo, Diversa Turismo.",
     ].join("\n");
 
     try {
@@ -352,7 +689,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
             role: "user",
             content: [
               { type: "text", text: promptOperador },
-              { type: "image_url", image_url: { url: doc.arquivo } },
+              { type: "image_url", image_url: { url: imageUrl } },
             ],
           },
         ],
@@ -363,6 +700,42 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     } catch {
       return "";
     }
+  }
+
+  async function identificarOperadorNoLogo(
+    imageUrl: string,
+    workerOcr: Worker | null,
+    adicionarLog: (mensagem: string) => void,
+  ) {
+    if (!imageUrl) return "";
+
+    if (workerOcr) {
+      adicionarLog("Identificando operador por OCR no logo...");
+      const operadorOcr = await identificarOperadorPorOcr(imageUrl, workerOcr);
+      if (operadorOcr) {
+        adicionarLog(`Operador identificado por OCR: ${operadorOcr}`);
+        return operadorOcr;
+      }
+    }
+
+    adicionarLog("Comparando logo com referência HotelDO...");
+    const ehHotelDo = await compararComLogoReferencia(imageUrl, LOGO_HOTELDO_REF);
+    if (ehHotelDo) {
+      adicionarLog("Logo identificado como HotelDO por comparação visual.");
+      return "HotelDO";
+    }
+
+    adicionarLog("Tentando identificar operador pela IA no logo...");
+    const operadorIa = await identificarOperadorNaImagem(imageUrl);
+    if (operadorIa) {
+      adicionarLog(`Operador identificado pela IA no logo: ${operadorIa}`);
+    }
+    return operadorIa;
+  }
+
+  async function identificarOperadorNoIcone(doc: Documento, workerOcr: Worker | null, adicionarLog: (mensagem: string) => void) {
+    if (!doc.tipo.startsWith("image/") || !doc.arquivo) return "";
+    return identificarOperadorNoLogo(doc.arquivo, workerOcr, adicionarLog);
   }
 
   async function analisarDocumentosComIA() {
@@ -384,7 +757,14 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       setLogAnaliseIA([...logEntries]);
     };
 
+    let workerOcr: Worker | null = null;
     try {
+      try {
+        workerOcr = await createWorker("eng");
+      } catch {
+        adicionarLog("OCR indisponível; tentando identificação por IA e comparação visual.");
+      }
+
       const novasAnalises = await Promise.all(
         form.documentos.map(async (doc) => {
           let contextoArquivo = "Nome do arquivo: " + doc.nome + "\n\n";
@@ -403,13 +783,40 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
               }
               contextoArquivo += "--- Conteúdo do arquivo: " + doc.nome + " ---\n" + textContent + "\n--- Fim do arquivo: " + doc.nome + " ---\n\n";
               temConteudoPdf = true;
+
+              adicionarLog(`Extraindo logo do fornecedor em "${doc.nome}"...`);
+              const logoEmbutido = await extrairPrimeiraImagemEmbutidaDoPdf(pdf);
+              if (logoEmbutido) {
+                operadorDetectado = await identificarOperadorNoLogo(logoEmbutido, workerOcr, adicionarLog);
+              }
+
+              if (!operadorDetectado) {
+                adicionarLog(`Tentando identificar operador pelo topo do PDF...`);
+                const logoTopo = await extrairLogoDoTopoDoPdf(pdf);
+                if (logoTopo) {
+                  operadorDetectado = await identificarOperadorNoLogo(logoTopo, workerOcr, adicionarLog);
+                }
+              }
+
+              if (!operadorDetectado) {
+                operadorDetectado = detectarOperadorNoTexto(textContent);
+                if (operadorDetectado) {
+                  adicionarLog(`Operador identificado no texto: ${operadorDetectado}`);
+                }
+              }
+
+              if (operadorDetectado) {
+                contextoArquivo += `--- Operador identificado no logo: ${operadorDetectado} ---\n\n`;
+              } else {
+                adicionarLog(`Não foi possível identificar o operador pelo logo do fornecedor.`);
+              }
             } catch (e) {
               contextoArquivo += "--- Erro ao ler o conteúdo do PDF: " + doc.nome + " ---\n";
             }
           }
 
           if (doc.tipo.startsWith("image/") && doc.arquivo) {
-            operadorDetectado = await identificarOperadorNoIcone(doc);
+            operadorDetectado = await identificarOperadorNoIcone(doc, workerOcr, adicionarLog);
             if (operadorDetectado) {
               contextoArquivo += `--- Operador identificado no ícone: ${operadorDetectado} ---\n\n`;
             }
@@ -424,20 +831,29 @@ Instruções:
 1.  Extraia as seguintes informações do nome do arquivo e, se disponível, do conteúdo do PDF.
 2.  Se uma informação não for encontrada, retorne uma string vazia "" para o campo correspondente.
 3.  Para datas, use o formato AAAA-MM-DD.
-4.  Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
-${!temConteudoPdf ? "\n5. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise **exclusivamente no nome do arquivo**." : ""}
+4.  O campo "ciaAerea" deve conter o nome da companhia aérea (ex: LATAM Airlines Group, GOL, Azul). Não confunda com operadora de turismo.
+5.  Identifique origem, destino e duração separadamente para o trecho de IDA e para o trecho de VOLTA (procure seções "Ida", "Volta", "Outbound", "Return" ou equivalentes no PDF).
+6.  A duração do voo deve estar no formato legível (ex: "2h 30min", "11h 45min", "1h 05min").
+7.  Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
+${!temConteudoPdf ? "\n8. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise **exclusivamente no nome do arquivo**." : ""}
 Formato JSON esperado:
 {
-  "operador": "string",
+  "ciaAerea": "string",
   "reserva": "string",
   "destino": "string",
   "passageiros": "string",
   "dataIda": "string",
   "horaSaidaIda": "string",
   "horaChegadaIda": "string",
+  "origemIda": "string",
+  "destinoIda": "string",
+  "duracaoIda": "string",
   "dataVolta": "string",
   "horaSaidaVolta": "string",
-  "horaChegadaVolta": "string"
+  "horaChegadaVolta": "string",
+  "origemVolta": "string",
+  "destinoVolta": "string",
+  "duracaoVolta": "string"
 }`;
 
           const tentarComProvedor = async (provedor?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
@@ -495,40 +911,45 @@ Formato JSON esperado:
             const respostaJson = JSON.parse(respostaLimpa);
 
             const fmtData = (d: string) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não informado';
+            const fmtCampo = (v: string) => v || 'Não informado';
+            const ciaAerea = respostaJson.ciaAerea || respostaJson.operador || "";
 const relatorio = `**Relatório do Pacote (Analisado com ${provedorUsado})**
 --------------------
-**Operador:** ${padronizarOperador(respostaJson.operador || operadorDetectado || '') || 'Não informado'}
+**Operador:** ${padronizarOperador(operadorDetectado) || 'Não informado'}
+**CIA Aérea:** ${ciaAerea || 'Não informado'}
 **Nº de Reserva/Localizador:** ${respostaJson.reserva || 'Não informado'}
-**Destino Principal:** ${respostaJson.destino || 'Não informado'}
+**Destino Principal:** ${respostaJson.destino || respostaJson.destinoIda || 'Não informado'}
 **Passageiros:** ${respostaJson.passageiros || 'Não informado'}
 **Data de Ida:** ${fmtData(respostaJson.dataIda)}
+**Origem (Ida):** ${fmtCampo(respostaJson.origemIda)}
+**Destino (Ida):** ${fmtCampo(respostaJson.destinoIda)}
+**Duração (Ida):** ${fmtCampo(respostaJson.duracaoIda)}
 **Horário de Saída (Ida):** ${respostaJson.horaSaidaIda || 'Não informado'}
 **Horário de Chegada (Ida):** ${respostaJson.horaChegadaIda || 'Não informado'}
 **Data de Volta:** ${fmtData(respostaJson.dataVolta)}
+**Origem (Volta):** ${fmtCampo(respostaJson.origemVolta)}
+**Destino (Volta):** ${fmtCampo(respostaJson.destinoVolta)}
+**Duração (Volta):** ${fmtCampo(respostaJson.duracaoVolta)}
 **Horário de Saída (Volta):** ${respostaJson.horaSaidaVolta || 'Não informado'}
 **Horário de Chegada (Volta):** ${respostaJson.horaChegadaVolta || 'Não informado'}`;
-
-            // Atualiza o formulário com os dados extraídos da análise.
-            setForm((f) => ({
-              ...f,
-              operador: f.operador || padronizarOperador(respostaJson.operador || operadorDetectado || ''),
-              reserva: f.reserva || respostaJson.reserva || '',
-              destino: f.destino || respostaJson.destino || '',
-              dataIda: f.dataIda || respostaJson.dataIda || '',
-              dataVolta: f.dataVolta || respostaJson.dataVolta || '',
-              passageiros: f.passageiros || respostaJson.passageiros || '',
-            }));
 
             return {
               ...doc,
               analise: relatorio,
               dadosIA: {
-                operador: padronizarOperador(respostaJson.operador || operadorDetectado || ""),
+                operador: padronizarOperador(operadorDetectado),
+                ciaAerea,
                 reserva: respostaJson.reserva || "",
-                destino: respostaJson.destino || "",
+                destino: respostaJson.destino || respostaJson.destinoIda || "",
                 passageiros: respostaJson.passageiros || "",
                 dataIda: respostaJson.dataIda || "",
                 dataVolta: respostaJson.dataVolta || "",
+                origemIda: respostaJson.origemIda || "",
+                destinoIda: respostaJson.destinoIda || "",
+                duracaoIda: respostaJson.duracaoIda || "",
+                origemVolta: respostaJson.origemVolta || "",
+                destinoVolta: respostaJson.destinoVolta || "",
+                duracaoVolta: respostaJson.duracaoVolta || "",
               },
             };
           } catch (error) {
@@ -545,6 +966,9 @@ const relatorio = `**Relatório do Pacote (Analisado com ${provedorUsado})**
       adicionarLog(mensagemErro);
       setErro(`Falha na análise com IA: ${mensagemErro}`);
     } finally {
+      if (workerOcr) {
+        await workerOcr.terminate();
+      }
       setAnalisandoIA(false);
       // Persiste o log no formulário para exibir após a análise (usa o array local que tem os valores corretos)
       setForm((f) => ({ ...f, logAnalise: logEntries.join("\n") }));
@@ -710,6 +1134,16 @@ const relatorio = `**Relatório do Pacote (Analisado com ${provedorUsado})**
                   </div>
 
                   <div className="sm:col-span-2">
+                    <Label className="text-xs">CIA Aérea</Label>
+                    <Input
+                      className="mt-1"
+                      placeholder="Ex: LATAM Airlines Group"
+                      value={form.ciaAerea || ""}
+                      onChange={(e) => setForm((prev) => ({ ...prev, ciaAerea: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
                     <Label className="text-xs">Nº de Reserva</Label>
                     <Input
                       className="mt-1"
@@ -732,24 +1166,70 @@ const relatorio = `**Relatório do Pacote (Analisado com ${provedorUsado})**
                     </div>
                   </div>
 
-                  <div>
-                    <Label className="text-xs">Origem</Label>
-                    <Input
-                      className="mt-1"
-                      placeholder="Ex: São Paulo"
-                      value={form.origem}
-                      onChange={(e) => setForm((prev) => ({ ...prev, origem: e.target.value }))}
-                    />
+                  <div className="sm:col-span-2">
+                    <p className="text-xs font-semibold text-gray-700 mb-2">Trecho de Ida</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <Label className="text-xs">Origem (Ida)</Label>
+                        <Input
+                          className="mt-1"
+                          placeholder="Ex: São Paulo (GRU)"
+                          value={form.origemIda || ""}
+                          onChange={(e) => setForm((prev) => ({ ...prev, origemIda: e.target.value, origem: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Destino (Ida)</Label>
+                        <Input
+                          className="mt-1"
+                          placeholder="Ex: Lisboa (LIS)"
+                          value={form.destinoIda || ""}
+                          onChange={(e) => setForm((prev) => ({ ...prev, destinoIda: e.target.value, destino: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Duração (Ida)</Label>
+                        <Input
+                          className="mt-1"
+                          placeholder="Ex: 11h 30min"
+                          value={form.duracaoIda || ""}
+                          onChange={(e) => setForm((prev) => ({ ...prev, duracaoIda: e.target.value }))}
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <div>
-                    <Label className="text-xs">Destino</Label>
-                    <Input
-                      className="mt-1"
-                      placeholder="Ex: Lisboa"
-                      value={form.destino}
-                      onChange={(e) => setForm((prev) => ({ ...prev, destino: e.target.value }))}
-                    />
+                  <div className="sm:col-span-2">
+                    <p className="text-xs font-semibold text-gray-700 mb-2">Trecho de Volta</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <Label className="text-xs">Origem (Volta)</Label>
+                        <Input
+                          className="mt-1"
+                          placeholder="Ex: Lisboa (LIS)"
+                          value={form.origemVolta || ""}
+                          onChange={(e) => setForm((prev) => ({ ...prev, origemVolta: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Destino (Volta)</Label>
+                        <Input
+                          className="mt-1"
+                          placeholder="Ex: São Paulo (GRU)"
+                          value={form.destinoVolta || ""}
+                          onChange={(e) => setForm((prev) => ({ ...prev, destinoVolta: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Duração (Volta)</Label>
+                        <Input
+                          className="mt-1"
+                          placeholder="Ex: 11h 30min"
+                          value={form.duracaoVolta || ""}
+                          onChange={(e) => setForm((prev) => ({ ...prev, duracaoVolta: e.target.value }))}
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -785,7 +1265,7 @@ const relatorio = `**Relatório do Pacote (Analisado com ${provedorUsado})**
 
 
                   <div className="sm:col-span-2">
-                    <Label className="text-xs">Foto (URL)</Label>
+                    <Label className="text-xs">URL</Label>
                     <div className="relative mt-1">
                       <Image className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                       <Input
@@ -851,8 +1331,17 @@ const relatorio = `**Relatório do Pacote (Analisado com ${provedorUsado})**
                 {pacote.reserva && (
                   <p className="text-xs text-gray-500 mt-0.5">Reserva: {pacote.reserva}</p>
                 )}
-                {(pacote.origem || pacote.destino) && (
-                  <p className="text-xs text-gray-500 mt-0.5">{pacote.origem || "Origem"} -&gt; {pacote.destino || "Destino"}</p>
+                {(pacote.origemIda || pacote.destinoIda || pacote.origem || pacote.destino) && (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Ida: {pacote.origemIda || pacote.origem || "Origem"} → {pacote.destinoIda || pacote.destino || "Destino"}
+                    {pacote.duracaoIda ? ` (${pacote.duracaoIda})` : ""}
+                  </p>
+                )}
+                {(pacote.origemVolta || pacote.destinoVolta) && (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Volta: {pacote.origemVolta || "Origem"} → {pacote.destinoVolta || "Destino"}
+                    {pacote.duracaoVolta ? ` (${pacote.duracaoVolta})` : ""}
+                  </p>
                 )}
               </div>
               <div className="flex items-center gap-1">
