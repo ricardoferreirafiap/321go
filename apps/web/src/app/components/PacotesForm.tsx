@@ -59,6 +59,15 @@ interface Pacote {
   destinoVolta?: string;
   duracaoVolta?: string;
   politicaAlteracoesCancelamentos?: string;
+  hospedagemNome?: string;
+  hospedagemEndereco?: string;
+  hospedagemCheckin?: string;
+  hospedagemCheckout?: string;
+  hospedagemTipoQuarto?: string;
+  hospedagemRegime?: string;
+  hospedagemNoites?: string;
+  hospedagemLink?: string;
+  hospedagemFoto?: string | null;
   logAnalise?: string;
   documentos: Documento[];
 }
@@ -99,6 +108,15 @@ const pacoteVazio: Omit<Pacote, "id"> = {
   destinoVolta: "",
   duracaoVolta: "",
   politicaAlteracoesCancelamentos: "",
+  hospedagemNome: "",
+  hospedagemEndereco: "",
+  hospedagemCheckin: "",
+  hospedagemCheckout: "",
+  hospedagemTipoQuarto: "",
+  hospedagemRegime: "",
+  hospedagemNoites: "",
+  hospedagemLink: "",
+  hospedagemFoto: null,
   logAnalise: "",
   documentos: []
 };
@@ -508,6 +526,8 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   const [erro, setErro] = useState("");
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [formMinimizado, setFormMinimizado] = useState(true);
+  const [hospedagemMinimizado, setHospedagemMinimizado] = useState(true);
+  const [logAnaliseMinimizado, setLogAnaliseMinimizado] = useState(true);
   const [vouchersMinimizado, setVouchersMinimizado] = useState(false);
   const [analisandoIA, setAnalisandoIA] = useState(false);
   const [logAnaliseIA, setLogAnaliseIA] = useState<string[]>([]);
@@ -523,6 +543,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     setForm(pacoteVazio);
     setValorInput("");
     setEditandoId(null);
+    setFormMinimizado(true);
   }
 
   function salvarPacote() {
@@ -556,6 +577,15 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                 destinoVolta: form.destinoVolta?.trim(),
                 duracaoVolta: form.duracaoVolta?.trim(),
                 politicaAlteracoesCancelamentos: form.politicaAlteracoesCancelamentos?.trim(),
+                hospedagemNome: form.hospedagemNome?.trim(),
+                hospedagemEndereco: form.hospedagemEndereco?.trim(),
+                hospedagemCheckin: form.hospedagemCheckin,
+                hospedagemCheckout: form.hospedagemCheckout,
+                hospedagemTipoQuarto: form.hospedagemTipoQuarto?.trim(),
+                hospedagemRegime: form.hospedagemRegime?.trim(),
+                hospedagemNoites: form.hospedagemNoites?.trim(),
+                hospedagemLink: form.hospedagemLink?.trim(),
+                hospedagemFoto: form.hospedagemFoto,
                 documentos: form.documentos || [],
                 logAnalise: logAnaliseIA.join("\n"),
               }
@@ -590,6 +620,15 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
         destinoVolta: form.destinoVolta?.trim(),
         duracaoVolta: form.duracaoVolta?.trim(),
         politicaAlteracoesCancelamentos: form.politicaAlteracoesCancelamentos?.trim(),
+        hospedagemNome: form.hospedagemNome?.trim(),
+        hospedagemEndereco: form.hospedagemEndereco?.trim(),
+        hospedagemCheckin: form.hospedagemCheckin,
+        hospedagemCheckout: form.hospedagemCheckout,
+        hospedagemTipoQuarto: form.hospedagemTipoQuarto?.trim(),
+        hospedagemRegime: form.hospedagemRegime?.trim(),
+        hospedagemNoites: form.hospedagemNoites?.trim(),
+        hospedagemLink: form.hospedagemLink?.trim(),
+        hospedagemFoto: form.hospedagemFoto,
         logAnalise: logAnaliseIA.join("\n"),
         documentos: form.documentos,
       },
@@ -601,6 +640,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   function editarPacote(pacote: Pacote) {
     setVouchersMinimizado(false);
     setFormMinimizado(false);
+    setHospedagemMinimizado(false);
     setEditandoId(pacote.id);
     const logPacote = (pacote.logAnalise || "")
       .split("\n")
@@ -628,6 +668,15 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       destinoVolta: pacote.destinoVolta || "",
       duracaoVolta: pacote.duracaoVolta || "",
       politicaAlteracoesCancelamentos: pacote.politicaAlteracoesCancelamentos || "",
+      hospedagemNome: pacote.hospedagemNome || "",
+      hospedagemEndereco: pacote.hospedagemEndereco || "",
+      hospedagemCheckin: pacote.hospedagemCheckin || "",
+      hospedagemCheckout: pacote.hospedagemCheckout || "",
+      hospedagemTipoQuarto: pacote.hospedagemTipoQuarto || "",
+      hospedagemRegime: pacote.hospedagemRegime || "",
+      hospedagemNoites: pacote.hospedagemNoites || "",
+      hospedagemLink: pacote.hospedagemLink || "",
+      hospedagemFoto: pacote.hospedagemFoto || null,
       logAnalise: pacote.logAnalise || "",
     });
     setValorInput(pacote.valor ? formatarMoeda(Number(pacote.valor) || 0) : "");
@@ -683,36 +732,56 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       return;
     }
 
-    const documentoComResultado = documentos.find((doc) => doc.dadosIA || doc.analise);
-    if (!documentoComResultado) {
-      setErro("Nenhum resultado de IA encontrado para atualizar os campos.");
+    // Os campos de Detalhes do Voo só devem ser populados com dados extraídos
+    // de um documento cujo nome de arquivo comece com "voucher_flight_".
+    const documentoVoo = documentos.find(
+      (doc) => doc.nome.toLowerCase().startsWith("voucher_flight_") && (doc.dadosIA || doc.analise)
+    );
+    const dadosIAVoo = documentoVoo
+      ? documentoVoo.dadosIA || extrairDadosIADeAnalise(documentoVoo.analise || "")
+      : null;
+
+    // Os campos de Detalhes da Hospedagem só devem ser populados com dados extraídos
+    // de um documento cujo nome de arquivo comece com "voucher_hotel_".
+    const documentoHospedagem = documentos.find(
+      (doc) => doc.nome.toLowerCase().startsWith("voucher_hotel_") && (doc.dadosIA || doc.analise)
+    );
+    const dadosIAHospedagem = documentoHospedagem
+      ? documentoHospedagem.dadosIA || extrairDadosIADeAnalise(documentoHospedagem.analise || "")
+      : null;
+
+    if (!dadosIAVoo && !dadosIAHospedagem) {
+      setErro('Nenhum documento "voucher_flight_" ou "voucher_hotel_" com resultado de IA foi encontrado.');
       return;
     }
 
-    const dadosIA = documentoComResultado.dadosIA || extrairDadosIADeAnalise(documentoComResultado.analise || "");
-    if (!temDadosExtraidos(dadosIA)) {
-      setErro("Não foi possível extrair dados do resultado da IA para atualizar os campos.");
+    if (dadosIAVoo && !temDadosExtraidos(dadosIAVoo)) {
+      setErro("Não foi possível extrair dados do voucher de voo para atualizar os campos.");
       return;
     }
 
     setErro("");
     setForm((f) => ({
       ...f,
-      operador: dadosIA.operador || f.operador || "",
-      ciaAerea: dadosIA.ciaAerea || f.ciaAerea || "",
-      reserva: dadosIA.reserva || f.reserva || "",
-      destino: dadosIA.destinoIda || dadosIA.destino || f.destino || "",
-      origem: dadosIA.origemIda || f.origem || "",
-      dataIda: dadosIA.dataIda || f.dataIda || "",
-      dataVolta: dadosIA.dataVolta || f.dataVolta || "",
-      passageiros: dadosIA.passageiros || f.passageiros || "",
-      origemIda: dadosIA.origemIda || f.origemIda || "",
-      destinoIda: dadosIA.destinoIda || f.destinoIda || "",
-      duracaoIda: dadosIA.duracaoIda || f.duracaoIda || "",
-      origemVolta: dadosIA.origemVolta || f.origemVolta || "",
-      destinoVolta: dadosIA.destinoVolta || f.destinoVolta || "",
-      duracaoVolta: dadosIA.duracaoVolta || f.duracaoVolta || "",
-      politicaAlteracoesCancelamentos: dadosIA.politicaAlteracoesCancelamentos || f.politicaAlteracoesCancelamentos || "",
+      operador: dadosIAVoo?.operador || f.operador || "",
+      ciaAerea: dadosIAVoo?.ciaAerea || f.ciaAerea || "",
+      reserva: dadosIAVoo?.reserva || f.reserva || "",
+      destino: dadosIAVoo?.destinoIda || dadosIAVoo?.destino || f.destino || "",
+      origem: dadosIAVoo?.origemIda || f.origem || "",
+      dataIda: dadosIAVoo?.dataIda || f.dataIda || "",
+      dataVolta: dadosIAVoo?.dataVolta || f.dataVolta || "",
+      passageiros: dadosIAVoo?.passageiros || f.passageiros || "",
+      origemIda: dadosIAVoo?.origemIda || f.origemIda || "",
+      destinoIda: dadosIAVoo?.destinoIda || f.destinoIda || "",
+      duracaoIda: dadosIAVoo?.duracaoIda || f.duracaoIda || "",
+      origemVolta: dadosIAVoo?.origemVolta || f.origemVolta || "",
+      destinoVolta: dadosIAVoo?.destinoVolta || f.destinoVolta || "",
+      duracaoVolta: dadosIAVoo?.duracaoVolta || f.duracaoVolta || "",
+      politicaAlteracoesCancelamentos: dadosIAVoo?.politicaAlteracoesCancelamentos || f.politicaAlteracoesCancelamentos || "",
+      hospedagemNome: dadosIAHospedagem ? dadosIAHospedagem.destinoIda || "" : f.hospedagemNome || "",
+      hospedagemCheckin: dadosIAHospedagem ? dadosIAHospedagem.dataIda || "" : f.hospedagemCheckin || "",
+      hospedagemCheckout: dadosIAHospedagem ? dadosIAHospedagem.dataVolta || "" : f.hospedagemCheckout || "",
+      hospedagemNoites: dadosIAHospedagem ? dadosIAHospedagem.duracaoIda || "" : f.hospedagemNoites || "",
     }));
   }
 
@@ -1139,15 +1208,31 @@ ${politicaFinal || 'Não informado'}`;
               </select>
             </div>
             {logAnaliseIA.length > 0 && (
-              <div className={`mt-2 text-xs space-y-1 ${analisandoIA ? "text-gray-500" : "text-gray-600 p-2 border rounded-md bg-gray-50"}`}>
-                {!analisandoIA && <p className="font-semibold">Log da última análise:</p>}
-                <pre className="whitespace-pre-wrap font-sans">{logAnaliseIA.join("\n")}</pre>
+              <div className={`mt-2 text-xs ${analisandoIA ? "text-gray-500" : "text-gray-600 p-2 border rounded-md bg-gray-50"}`}>
+                {!analisandoIA && (
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold">Log da última análise:</p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setLogAnaliseMinimizado((prev) => !prev)}
+                      className="h-6 gap-1 px-2 text-gray-600 hover:text-gray-900"
+                    >
+                      {logAnaliseMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                      {logAnaliseMinimizado ? "Maximizar" : "Minimizar"}
+                    </Button>
+                  </div>
+                )}
+                {(analisandoIA || !logAnaliseMinimizado) && (
+                  <pre className="whitespace-pre-wrap font-sans space-y-1 mt-1">{logAnaliseIA.join("\n")}</pre>
+                )}
               </div>
             )}
             <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
               <h4 className="flex items-center gap-2 font-semibold text-gray-900">
                 <Plus className="h-4 w-4 text-indigo-500" />
-                Detalhes
+                Detalhes do Voo
               </h4>
               <div className="flex items-center gap-2">
                 <Button
@@ -1369,7 +1454,133 @@ ${politicaFinal || 'Não informado'}`;
                     />
                   </div>
                 </div>
+              </>
+            )}
 
+            <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
+              <h4 className="flex items-center gap-2 font-semibold text-gray-900">
+                <Plus className="h-4 w-4 text-indigo-500" />
+                Detalhes da Hospedagem
+              </h4>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setHospedagemMinimizado((prev) => !prev)}
+                className="gap-2 text-gray-600 hover:text-gray-900"
+              >
+                {hospedagemMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                {hospedagemMinimizado ? "Maximizar" : "Minimizar"}
+              </Button>
+            </div>
+
+            {!hospedagemMinimizado && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mt-4">
+                <div className="sm:col-span-2">
+                  <Label className="text-xs">Nome do Hotel</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="Ex: Hotel Ibis Lisboa"
+                    value={form.hospedagemNome || ""}
+                    onChange={(e) => setForm((prev) => ({ ...prev, hospedagemNome: e.target.value }))}
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <Label className="text-xs">Endereço</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="Ex: Rua Augusta, 123 - Lisboa"
+                    value={form.hospedagemEndereco || ""}
+                    onChange={(e) => setForm((prev) => ({ ...prev, hospedagemEndereco: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs">Check-in</Label>
+                  <Input
+                    type="date"
+                    className="mt-1"
+                    value={form.hospedagemCheckin || ""}
+                    onChange={(e) => setForm((prev) => ({ ...prev, hospedagemCheckin: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs">Check-out</Label>
+                  <Input
+                    type="date"
+                    className="mt-1"
+                    value={form.hospedagemCheckout || ""}
+                    onChange={(e) => setForm((prev) => ({ ...prev, hospedagemCheckout: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs">Tipo de Quarto</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="Ex: Duplo Standard"
+                    value={form.hospedagemTipoQuarto || ""}
+                    onChange={(e) => setForm((prev) => ({ ...prev, hospedagemTipoQuarto: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs">Regime / Pensão</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="Ex: Café da manhã"
+                    value={form.hospedagemRegime || ""}
+                    onChange={(e) => setForm((prev) => ({ ...prev, hospedagemRegime: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs">Noites</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="Ex: 7"
+                    value={form.hospedagemNoites || ""}
+                    onChange={(e) => setForm((prev) => ({ ...prev, hospedagemNoites: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs">Link do Hotel</Label>
+                  <div className="relative mt-1">
+                    <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <Input
+                      placeholder="https://..."
+                      className="pl-8"
+                      value={form.hospedagemLink || ""}
+                      onChange={(e) => setForm((prev) => ({ ...prev, hospedagemLink: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <Label className="text-xs">Foto da Hospedagem (Link)</Label>
+                  <div className="relative mt-1">
+                    <Image className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <Input
+                      placeholder="https://..."
+                      className="pl-8"
+                      value={form.hospedagemFoto || ""}
+                      onChange={(e) => setForm((prev) => ({ ...prev, hospedagemFoto: e.target.value.trim() || null }))}
+                    />
+                  </div>
+                  {form.hospedagemFoto && (
+                    <div className="mt-2 overflow-hidden rounded-md border border-gray-200">
+                      <img src={form.hospedagemFoto} alt="Prévia da foto da hospedagem" className="h-28 w-full object-cover" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {(!formMinimizado || !hospedagemMinimizado) && (
+              <>
                 {erro && <p className="mt-3 text-xs text-red-500">{erro}</p>}
 
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -1411,6 +1622,14 @@ ${politicaFinal || 'Não informado'}`;
                   <p className="text-xs text-gray-500 mt-0.5">
                     Volta: {pacote.origemVolta || "Origem"} → {pacote.destinoVolta || "Destino"}
                     {pacote.duracaoVolta ? ` (${pacote.duracaoVolta})` : ""}
+                  </p>
+                )}
+                {pacote.hospedagemNome && (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Hotel: {pacote.hospedagemNome}
+                    {pacote.hospedagemCheckin && pacote.hospedagemCheckout
+                      ? ` (${pacote.hospedagemCheckin} → ${pacote.hospedagemCheckout})`
+                      : ""}
                   </p>
                 )}
               </div>
