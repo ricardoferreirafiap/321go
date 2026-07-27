@@ -1036,12 +1036,7 @@ export default function RoteiroOrcamento() {
           <div className="bg-[#0b0635] p-4 sm:p-5 space-y-4">
             {orc.pacotes.map((pacote: any, idx: number) => (
               <div key={pacote.id || idx} className="rounded-[22px] bg-[#1c1848] px-4 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-5 sm:py-5">
-                {pacote.operador && (
-                  <p className="text-[13px] font-extrabold uppercase tracking-[0.18em] text-[#ff8b1f]">
-                    {pacote.operador}
-                  </p>
-                )}
-                <p className="mt-2 text-[14px] leading-7 text-white/82">
+                <p className="text-[14px] leading-7 text-white/82">
                   {(pacote.descricao || gerarResumoPacote(pacote as any)).replace(/AgaxTur\s*/gi, '')}
                 </p>
                 {pacote.reserva && (
