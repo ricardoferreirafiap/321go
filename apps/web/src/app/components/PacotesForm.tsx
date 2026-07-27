@@ -58,6 +58,18 @@ type DadosIAExtraidos = {
   linkHotel?: string;
   fotoHotel?: string;
   politicasCondicoesInformacoesEspeciais?: string;
+  trasladoTipo?: string;
+  trasladoData?: string;
+  trasladoHorario?: string;
+  trasladoLocalPartida?: string;
+  trasladoLocalChegada?: string;
+  trasladoVeiculoEmpresa?: string;
+  trasladoObservacoes?: string;
+  ingressoNomeAtracao?: string;
+  ingressoData?: string;
+  ingressoHorario?: string;
+  ingressoQuantidade?: string;
+  ingressoObservacoes?: string;
 }
 
 interface Pacote {
@@ -94,6 +106,18 @@ interface Pacote {
   hospedagemNoites?: string;
   hospedagemLink?: string;
   hospedagemFoto?: string | null;
+  trasladoTipo?: string;
+  trasladoData?: string;
+  trasladoHorario?: string;
+  trasladoLocalPartida?: string;
+  trasladoLocalChegada?: string;
+  trasladoVeiculoEmpresa?: string;
+  trasladoObservacoes?: string;
+  ingressoNomeAtracao?: string;
+  ingressoData?: string;
+  ingressoHorario?: string;
+  ingressoQuantidade?: string;
+  ingressoObservacoes?: string;
   logAnalise?: string;
   documentos: Documento[];
 }
@@ -147,6 +171,18 @@ const pacoteVazio: Omit<Pacote, "id"> = {
   hospedagemNoites: "",
   hospedagemLink: "",
   hospedagemFoto: null,
+  trasladoTipo: "",
+  trasladoData: "",
+  trasladoHorario: "",
+  trasladoLocalPartida: "",
+  trasladoLocalChegada: "",
+  trasladoVeiculoEmpresa: "",
+  trasladoObservacoes: "",
+  ingressoNomeAtracao: "",
+  ingressoData: "",
+  ingressoHorario: "",
+  ingressoQuantidade: "",
+  ingressoObservacoes: "",
   logAnalise: "",
   documentos: []
 };
@@ -553,6 +589,32 @@ function extrairDadosIADeAnalise(analise: string): DadosIAExtraidos {
       const valor = match?.[1]?.trim();
       return valor && valor.toLowerCase() !== "não informado" ? valor : "";
     })(),
+    trasladoTipo: extrair(/\*\*Tipo de Traslado:\*\*\s*(.+)/i),
+    trasladoData: (() => {
+      const dataBr = extrair(/\*\*Data do Traslado:\*\*\s*(.+)/i);
+      return dataBr ? dataBrParaIso(dataBr) : "";
+    })(),
+    trasladoHorario: extrair(/\*\*Horário do Traslado:\*\*\s*(.+)/i),
+    trasladoLocalPartida: extrair(/\*\*Local de Partida \(Traslado\):\*\*\s*(.+)/i),
+    trasladoLocalChegada: extrair(/\*\*Local de Chegada \(Traslado\):\*\*\s*(.+)/i),
+    trasladoVeiculoEmpresa: extrair(/\*\*Veículo\/Empresa \(Traslado\):\*\*\s*(.+)/i),
+    trasladoObservacoes: (() => {
+      const match = analise.match(/\*\*Observações do Traslado:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
+      const valor = match?.[1]?.trim();
+      return valor && valor.toLowerCase() !== "não informado" ? valor : "";
+    })(),
+    ingressoNomeAtracao: extrair(/\*\*Nome da Atração\/Ingresso:\*\*\s*(.+)/i),
+    ingressoData: (() => {
+      const dataBr = extrair(/\*\*Data do Ingresso:\*\*\s*(.+)/i);
+      return dataBr ? dataBrParaIso(dataBr) : "";
+    })(),
+    ingressoHorario: extrair(/\*\*Horário do Ingresso:\*\*\s*(.+)/i),
+    ingressoQuantidade: extrair(/\*\*Quantidade de Ingressos:\*\*\s*(.+)/i),
+    ingressoObservacoes: (() => {
+      const match = analise.match(/\*\*Observações do Ingresso:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
+      const valor = match?.[1]?.trim();
+      return valor && valor.toLowerCase() !== "não informado" ? valor : "";
+    })(),
   };
 }
 
@@ -628,6 +690,18 @@ function montarDadosIAFromJson(
     linkHotel: respostaJson.linkHotel || "",
     fotoHotel: respostaJson.fotoHotel || "",
     politicasCondicoesInformacoesEspeciais: respostaJson.politicasCondicoesInformacoesEspeciais || "",
+    trasladoTipo: respostaJson.trasladoTipo || "",
+    trasladoData: respostaJson.trasladoData || "",
+    trasladoHorario: respostaJson.trasladoHorario || "",
+    trasladoLocalPartida: respostaJson.trasladoLocalPartida || "",
+    trasladoLocalChegada: respostaJson.trasladoLocalChegada || "",
+    trasladoVeiculoEmpresa: respostaJson.trasladoVeiculoEmpresa || "",
+    trasladoObservacoes: respostaJson.trasladoObservacoes || "",
+    ingressoNomeAtracao: respostaJson.ingressoNomeAtracao || "",
+    ingressoData: respostaJson.ingressoData || "",
+    ingressoHorario: respostaJson.ingressoHorario || "",
+    ingressoQuantidade: respostaJson.ingressoQuantidade || "",
+    ingressoObservacoes: respostaJson.ingressoObservacoes || "",
   };
 }
 
@@ -678,6 +752,20 @@ function montarRelatorioCompleto(
     `**Foto da Hospedagem:** ${fmtCampo(dados.fotoHotel)}`,
     "**Políticas, Condições e Informações Especiais:**",
     dados.politicasCondicoesInformacoesEspeciais || "Não informado",
+    `**Tipo de Traslado:** ${fmtCampo(dados.trasladoTipo)}`,
+    `**Data do Traslado:** ${fmtData(dados.trasladoData)}`,
+    `**Horário do Traslado:** ${fmtCampo(dados.trasladoHorario)}`,
+    `**Local de Partida (Traslado):** ${fmtCampo(dados.trasladoLocalPartida)}`,
+    `**Local de Chegada (Traslado):** ${fmtCampo(dados.trasladoLocalChegada)}`,
+    `**Veículo/Empresa (Traslado):** ${fmtCampo(dados.trasladoVeiculoEmpresa)}`,
+    "**Observações do Traslado:**",
+    dados.trasladoObservacoes || "Não informado",
+    `**Nome da Atração/Ingresso:** ${fmtCampo(dados.ingressoNomeAtracao)}`,
+    `**Data do Ingresso:** ${fmtData(dados.ingressoData)}`,
+    `**Horário do Ingresso:** ${fmtCampo(dados.ingressoHorario)}`,
+    `**Quantidade de Ingressos:** ${fmtCampo(dados.ingressoQuantidade)}`,
+    "**Observações do Ingresso:**",
+    dados.ingressoObservacoes || "Não informado",
   ].join("\n");
 }
 
@@ -702,8 +790,10 @@ Instruções:
 12. O campo "noitesHotel" deve conter apenas o número de noites (ex: "7").
 13. Localize a seção "Política de alterações e cancelamentos" e copie todo o texto integralmente para "politicaAlteracoesCancelamentos", sem resumir.
 14. Localize seções de "Políticas", "Condições" ou "Informações Especiais" da hospedagem e copie integralmente para "politicasCondicoesInformacoesEspeciais".
-15. Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
-${!temConteudoArquivo ? "\n16. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise no nome do arquivo e na imagem anexada (se houver)." : ""}
+15. Identifique informações de TRASLADO (transfer), quando houver: tipo (ex: "Aeroporto-Hotel", "Hotel-Aeroporto", "Hotel-Passeio"), data, horário, local de partida, local de chegada, veículo/empresa responsável e observações relevantes (ex: regular, privativo, ponto de encontro).
+16. Identifique informações de INGRESSO (tickets/atrações), quando houver: nome da atração/local, data, horário, quantidade de ingressos e observações relevantes (ex: categoria do ingresso, se inclui guia).
+17. Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
+${!temConteudoArquivo ? "\n18. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise no nome do arquivo e na imagem anexada (se houver)." : ""}
 Formato JSON esperado:
 {
   "ciaAerea": "string",
@@ -738,7 +828,19 @@ Formato JSON esperado:
   "linkHotel": "string",
   "fotoHotel": "string",
   "politicasCondicoesInformacoesEspeciais": "string",
-  "politicaAlteracoesCancelamentos": "string"
+  "politicaAlteracoesCancelamentos": "string",
+  "trasladoTipo": "string",
+  "trasladoData": "string",
+  "trasladoHorario": "string",
+  "trasladoLocalPartida": "string",
+  "trasladoLocalChegada": "string",
+  "trasladoVeiculoEmpresa": "string",
+  "trasladoObservacoes": "string",
+  "ingressoNomeAtracao": "string",
+  "ingressoData": "string",
+  "ingressoHorario": "string",
+  "ingressoQuantidade": "string",
+  "ingressoObservacoes": "string"
 }`;
 }
 
@@ -837,6 +939,85 @@ function mapearDetalhesHospedagem<T extends Pick<
   };
 }
 
+function mapearDetalhesTraslado<T extends Pick<
+    Pacote,
+    | "trasladoTipo"
+    | "trasladoData"
+    | "trasladoHorario"
+    | "trasladoLocalPartida"
+    | "trasladoLocalChegada"
+    | "trasladoVeiculoEmpresa"
+    | "trasladoObservacoes"
+>>(formAtual: T, dadosIA: NonNullable<Documento["dadosIA"]>): T {
+  return {
+    ...formAtual,
+    trasladoTipo: dadosIA.trasladoTipo || formAtual.trasladoTipo || "",
+    trasladoData: dadosIA.trasladoData || formAtual.trasladoData || "",
+    trasladoHorario: dadosIA.trasladoHorario || formAtual.trasladoHorario || "",
+    trasladoLocalPartida: dadosIA.trasladoLocalPartida || formAtual.trasladoLocalPartida || "",
+    trasladoLocalChegada: dadosIA.trasladoLocalChegada || formAtual.trasladoLocalChegada || "",
+    trasladoVeiculoEmpresa: dadosIA.trasladoVeiculoEmpresa || formAtual.trasladoVeiculoEmpresa || "",
+    trasladoObservacoes: dadosIA.trasladoObservacoes || formAtual.trasladoObservacoes || "",
+  };
+}
+
+function mapearDetalhesIngresso<T extends Pick<
+    Pacote,
+    | "ingressoNomeAtracao"
+    | "ingressoData"
+    | "ingressoHorario"
+    | "ingressoQuantidade"
+    | "ingressoObservacoes"
+>>(formAtual: T, dadosIA: NonNullable<Documento["dadosIA"]>): T {
+  return {
+    ...formAtual,
+    ingressoNomeAtracao: dadosIA.ingressoNomeAtracao || formAtual.ingressoNomeAtracao || "",
+    ingressoData: dadosIA.ingressoData || formAtual.ingressoData || "",
+    ingressoHorario: dadosIA.ingressoHorario || formAtual.ingressoHorario || "",
+    ingressoQuantidade: dadosIA.ingressoQuantidade || formAtual.ingressoQuantidade || "",
+    ingressoObservacoes: dadosIA.ingressoObservacoes || formAtual.ingressoObservacoes || "",
+  };
+}
+
+function possuiDadosTraslado(dados?: DadosIAExtraidos | null) {
+  if (!dados) return false;
+  return Boolean(
+      dados.trasladoTipo?.trim() ||
+      dados.trasladoData?.trim() ||
+      dados.trasladoHorario?.trim() ||
+      dados.trasladoLocalPartida?.trim() ||
+      dados.trasladoLocalChegada?.trim() ||
+      dados.trasladoVeiculoEmpresa?.trim() ||
+      dados.trasladoObservacoes?.trim()
+  );
+}
+
+function possuiDadosIngresso(dados?: DadosIAExtraidos | null) {
+  if (!dados) return false;
+  return Boolean(
+      dados.ingressoNomeAtracao?.trim() ||
+      dados.ingressoData?.trim() ||
+      dados.ingressoHorario?.trim() ||
+      dados.ingressoQuantidade?.trim() ||
+      dados.ingressoObservacoes?.trim()
+  );
+}
+
+// O Traslado e o Ingresso podem estar descritos em qualquer documento do pacote
+// (geralmente no próprio "Voucheraereo"), então a busca considera todos os anexos,
+// dando prioridade ao documento de voo quando houver mais de um candidato.
+function encontrarDocumentoTraslado(documentos: Documento[]) {
+  const documentoVoo = documentos.find((doc) => ehDocumentoVoo(doc.nome) && possuiDadosTraslado(obterDadosIADocumento(doc)));
+  if (documentoVoo) return documentoVoo;
+  return documentos.find((doc) => possuiDadosTraslado(obterDadosIADocumento(doc)));
+}
+
+function encontrarDocumentoIngresso(documentos: Documento[]) {
+  const documentoVoo = documentos.find((doc) => ehDocumentoVoo(doc.nome) && possuiDadosIngresso(obterDadosIADocumento(doc)));
+  if (documentoVoo) return documentoVoo;
+  return documentos.find((doc) => possuiDadosIngresso(obterDadosIADocumento(doc)));
+}
+
 export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormProps) {
   const [form, setForm] = useState<Omit<Pacote, "id">>(pacoteVazio);
   const [valorInput, setValorInput] = useState("");
@@ -845,6 +1026,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   const [formMinimizado, setFormMinimizado] = useState(true);
   const [hospedagemMinimizado, setHospedagemMinimizado] = useState(true);
   const [trasladoMinimizado, setTrasladoMinimizado] = useState(true);
+  const [ingressoMinimizado, setIngressoMinimizado] = useState(true);
   const [logAnaliseMinimizado, setLogAnaliseMinimizado] = useState(true);
   const [vouchersMinimizado, setVouchersMinimizado] = useState(true);
   const [comodidadesMinimizado, setComodidadesMinimizado] = useState(true);
@@ -1089,6 +1271,11 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       return;
     }
 
+    const documentoTraslado = encontrarDocumentoTraslado(documentos);
+    const dadosIATraslado = documentoTraslado ? obterDadosIADocumento(documentoTraslado) : null;
+    const documentoIngresso = encontrarDocumentoIngresso(documentos);
+    const dadosIAIngresso = documentoIngresso ? obterDadosIADocumento(documentoIngresso) : null;
+
     setErro("");
     setForm((f) => {
       let proximo = { ...f };
@@ -1097,6 +1284,12 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       }
       if (dadosIAHospedagem && temDadosExtraidos(dadosIAHospedagem)) {
         proximo = mapearDetalhesHospedagem(proximo, dadosIAHospedagem);
+      }
+      if (dadosIATraslado && possuiDadosTraslado(dadosIATraslado)) {
+        proximo = mapearDetalhesTraslado(proximo, dadosIATraslado);
+      }
+      if (dadosIAIngresso && possuiDadosIngresso(dadosIAIngresso)) {
+        proximo = mapearDetalhesIngresso(proximo, dadosIAIngresso);
       }
       return proximo;
     });
@@ -1129,7 +1322,29 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   }
 
   function atualizarDetalhesTraslado() {
-    setErro('Nenhum documento de traslado com resultado de IA foi encontrado.');
+    const documentoTraslado = encontrarDocumentoTraslado(form.documentos || []);
+    const dadosIATraslado = documentoTraslado ? obterDadosIADocumento(documentoTraslado) : null;
+
+    if (!possuiDadosTraslado(dadosIATraslado)) {
+      setErro('Nenhum documento com dados de Traslado analisados pela IA foi encontrado.');
+      return;
+    }
+
+    setErro("");
+    setForm((f) => mapearDetalhesTraslado(f, dadosIATraslado!));
+  }
+
+  function atualizarDetalhesIngresso() {
+    const documentoIngresso = encontrarDocumentoIngresso(form.documentos || []);
+    const dadosIAIngresso = documentoIngresso ? obterDadosIADocumento(documentoIngresso) : null;
+
+    if (!possuiDadosIngresso(dadosIAIngresso)) {
+      setErro('Nenhum documento com dados de Ingresso analisados pela IA foi encontrado.');
+      return;
+    }
+
+    setErro("");
+    setForm((f) => mapearDetalhesIngresso(f, dadosIAIngresso!));
   }
 
   async function identificarOperadorNaImagem(imageUrl: string) {
@@ -1303,8 +1518,10 @@ Instruções:
 6.  A duração do voo deve estar no formato legível (ex: "2h 30min", "11h 45min", "1h 05min").
 7.  Localize a seção "Política de alterações e cancelamentos" no PDF e copie todo o texto dessa seção integralmente para o campo "politicaAlteracoesCancelamentos", sem resumir.
 8.  O campo "nomeHotel" deve conter o nome do estabelecimento de hospedagem (hotel, resort, pousada), exatamente como aparece no documento.
-9.  Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
-${!temConteudoPdf ? "\n10. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise **exclusivamente no nome do arquivo**." : ""}
+9.  Identifique informações de TRASLADO (transfer), quando houver no documento: tipo (ex: "Aeroporto-Hotel", "Hotel-Aeroporto", "Hotel-Passeio"), data, horário, local de partida, local de chegada, veículo/empresa responsável e observações relevantes (ex: regular, privativo, ponto de encontro).
+10. Identifique informações de INGRESSO (tickets/atrações/passeios), quando houver no documento: nome da atração/local, data, horário, quantidade de ingressos e observações relevantes (ex: categoria do ingresso, se inclui guia).
+11. Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
+${!temConteudoPdf ? "\n12. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise **exclusivamente no nome do arquivo**." : ""}
 Formato JSON esperado:
 {
   "ciaAerea": "string",
@@ -1334,7 +1551,19 @@ Formato JSON esperado:
   "noitesHotel": "string",
   "linkHotel": "string",
   "politicasCondicoesInformacoesEspeciais": "string",
-  "politicaAlteracoesCancelamentos": "string"
+  "politicaAlteracoesCancelamentos": "string",
+  "trasladoTipo": "string",
+  "trasladoData": "string",
+  "trasladoHorario": "string",
+  "trasladoLocalPartida": "string",
+  "trasladoLocalChegada": "string",
+  "trasladoVeiculoEmpresa": "string",
+  "trasladoObservacoes": "string",
+  "ingressoNomeAtracao": "string",
+  "ingressoData": "string",
+  "ingressoHorario": "string",
+  "ingressoQuantidade": "string",
+  "ingressoObservacoes": "string"
 }`;
 
             const tentarComProvedor = async (provedor?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
@@ -1391,78 +1620,21 @@ Formato JSON esperado:
               const respostaLimpa = data.reply.replace(/^```json\s*/, "").replace(/```$/, "").trim();
               const respostaJson = JSON.parse(respostaLimpa);
 
-              const fmtData = (d: string) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não informado';
-              const fmtCampo = (v: string) => v || 'Não informado';
-              const ciaAerea = respostaJson.ciaAerea || respostaJson.operador || "";
               const politicaFinal =
                   politicaAlteracoesCancelamentos ||
                   respostaJson.politicaAlteracoesCancelamentos ||
                   "";
-              const relatorio = `**Relatório do Pacote (Analisado com ${provedorUsado})**
---------------------
-**Operador:** ${padronizarOperador(operadorDetectado) || 'Não informado'}
-**CIA Aérea:** ${ciaAerea || 'Não informado'}
-**Nº de Reserva/Localizador:** ${respostaJson.reserva || 'Não informado'}
-**Destino Principal:** ${respostaJson.destino || respostaJson.destinoIda || 'Não informado'}
-**Passageiros:** ${respostaJson.passageiros || 'Não informado'}
-**Data de Ida:** ${fmtData(respostaJson.dataIda)}
-**Origem (Ida):** ${fmtCampo(respostaJson.origemIda)}
-**Destino (Ida):** ${fmtCampo(respostaJson.destinoIda)}
-**Duração (Ida):** ${fmtCampo(respostaJson.duracaoIda)}
-**Horário de Saída (Ida):** ${respostaJson.horaSaidaIda || 'Não informado'}
-**Horário de Chegada (Ida):** ${respostaJson.horaChegadaIda || 'Não informado'}
-**Data de Volta:** ${fmtData(respostaJson.dataVolta)}
-**Origem (Volta):** ${fmtCampo(respostaJson.origemVolta)}
-**Destino (Volta):** ${fmtCampo(respostaJson.destinoVolta)}
-**Duração (Volta):** ${fmtCampo(respostaJson.duracaoVolta)}
-**Horário de Saída (Volta):** ${respostaJson.horaSaidaVolta || 'Não informado'}
-**Horário de Chegada (Volta):** ${respostaJson.horaChegadaVolta || 'Não informado'}
-**Política de alterações e cancelamentos:**
-${politicaFinal || 'Não informado'}`;
 
-              const relatorioCompleto = [
-                relatorio,
-                `**Nome do Hotel:** ${respostaJson.nomeHotel || "Não informado"}`,
-                `**Endereço do Hotel:** ${respostaJson.enderecoHotel || "Não informado"}`,
-                `**Telefone do Hotel:** ${respostaJson.telefoneHotel || "Não informado"}`,
-                `**E-mail do Hotel:** ${respostaJson.emailHotel || "Não informado"}`,
-                `**Tipo de Quarto:** ${respostaJson.quarto || "Não informado"}`,
-                `**Comodidades do Estabelecimento:** ${respostaJson.comodidades || "Não informado"}`,
-                `**Check-in:** ${fmtData(respostaJson.checkinHotel)}`,
-                `**Check-out:** ${fmtData(respostaJson.checkoutHotel)}`,
-                `**Noites:** ${respostaJson.noitesHotel || "Não informado"}`,
-                `**Link do Hotel:** ${respostaJson.linkHotel || "Não informado"}`,
-              ].join("\n");
+              // Usa as funções completas de montagem para garantir que TODAS as
+              // informações extraídas pela IA sejam aproveitadas, incluindo
+              // Traslado e Ingressos (que antes eram descartados aqui).
+              const dadosIACompletos = montarDadosIAFromJson(respostaJson, operadorDetectado, politicaFinal);
+              const relatorioCompleto = montarRelatorioCompleto(provedorUsado, operadorDetectado, dadosIACompletos);
 
               return {
                 ...doc,
                 analise: relatorioCompleto,
-                dadosIA: {
-                  operador: padronizarOperador(operadorDetectado),
-                  ciaAerea,
-                  reserva: respostaJson.reserva || "",
-                  destino: respostaJson.destino || respostaJson.destinoIda || "",
-                  passageiros: respostaJson.passageiros || "",
-                  dataIda: respostaJson.dataIda || "",
-                  dataVolta: respostaJson.dataVolta || "",
-                  origemIda: respostaJson.origemIda || "",
-                  destinoIda: respostaJson.destinoIda || "",
-                  duracaoIda: respostaJson.duracaoIda || "",
-                  origemVolta: respostaJson.origemVolta || "",
-                  destinoVolta: respostaJson.destinoVolta || "",
-                  duracaoVolta: respostaJson.duracaoVolta || "",
-                  nomeHotel: respostaJson.nomeHotel || "",
-                  enderecoHotel: respostaJson.enderecoHotel || "",
-                  telefoneHotel: respostaJson.telefoneHotel || "",
-                  emailHotel: respostaJson.emailHotel || "",
-                  quarto: respostaJson.quarto || "",
-                  comodidades: respostaJson.comodidades || "",
-                  checkinHotel: respostaJson.checkinHotel || "",
-                  checkoutHotel: respostaJson.checkoutHotel || "",
-                  noitesHotel: respostaJson.noitesHotel || "",
-                  linkHotel: respostaJson.linkHotel || "",
-                  politicaAlteracoesCancelamentos: politicaFinal,
-                },
+                dadosIA: dadosIACompletos,
               };
             } catch (error) {
               const mensagemErro = "Não foi possível analisar o documento. Tente novamente mais tarde.";
@@ -1476,6 +1648,10 @@ ${politicaFinal || 'Não informado'}`;
       const dadosIAVoo = documentoVoo ? obterDadosIADocumento(documentoVoo) : null;
       const documentoHospedagem = encontrarDocumentoHotel(novasAnalises);
       const dadosIAHospedagem = documentoHospedagem ? obterDadosIADocumento(documentoHospedagem) : null;
+      const documentoTraslado = encontrarDocumentoTraslado(novasAnalises);
+      const dadosIATraslado = documentoTraslado ? obterDadosIADocumento(documentoTraslado) : null;
+      const documentoIngresso = encontrarDocumentoIngresso(novasAnalises);
+      const dadosIAIngresso = documentoIngresso ? obterDadosIADocumento(documentoIngresso) : null;
 
       if (dadosIAVoo && temDadosExtraidos(dadosIAVoo)) {
         adicionarLog(`Preenchendo Detalhes do Voo com base no relatório de "${documentoVoo?.nome}".`);
@@ -1485,6 +1661,14 @@ ${politicaFinal || 'Não informado'}`;
         adicionarLog(`Preenchendo Detalhes da Hospedagem com base no relatório de "${documentoHospedagem?.nome}".`);
         setHospedagemMinimizado(false);
       }
+      if (dadosIATraslado && possuiDadosTraslado(dadosIATraslado)) {
+        adicionarLog(`Preenchendo Detalhes do Traslado com base no relatório de "${documentoTraslado?.nome}".`);
+        setTrasladoMinimizado(false);
+      }
+      if (dadosIAIngresso && possuiDadosIngresso(dadosIAIngresso)) {
+        adicionarLog(`Preenchendo Detalhes do Ingresso com base no relatório de "${documentoIngresso?.nome}".`);
+        setIngressoMinimizado(false);
+      }
 
       setForm((f) => {
         let proximo = { ...f, documentos: novasAnalises };
@@ -1493,6 +1677,12 @@ ${politicaFinal || 'Não informado'}`;
         }
         if (dadosIAHospedagem && temDadosExtraidos(dadosIAHospedagem)) {
           proximo = mapearDetalhesHospedagem(proximo, dadosIAHospedagem);
+        }
+        if (dadosIATraslado && possuiDadosTraslado(dadosIATraslado)) {
+          proximo = mapearDetalhesTraslado(proximo, dadosIATraslado);
+        }
+        if (dadosIAIngresso && possuiDadosIngresso(dadosIAIngresso)) {
+          proximo = mapearDetalhesIngresso(proximo, dadosIAIngresso);
         }
         return proximo;
       });
@@ -2109,6 +2299,164 @@ ${politicaFinal || 'Não informado'}`;
                   </div>
                 </div>
 
+                {!trasladoMinimizado && (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mt-4">
+                      <div>
+                        <Label className="text-xs">Tipo de Traslado</Label>
+                        <Input
+                            className="mt-1"
+                            placeholder="Ex: Aeroporto-Hotel"
+                            value={form.trasladoTipo || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, trasladoTipo: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Veículo/Empresa</Label>
+                        <Input
+                            className="mt-1"
+                            placeholder="Ex: Shuttle Regular XYZ"
+                            value={form.trasladoVeiculoEmpresa || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, trasladoVeiculoEmpresa: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Data do Traslado</Label>
+                        <Input
+                            type="date"
+                            className="mt-1"
+                            value={form.trasladoData || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, trasladoData: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Horário do Traslado</Label>
+                        <Input
+                            type="time"
+                            className="mt-1"
+                            value={form.trasladoHorario || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, trasladoHorario: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Local de Partida</Label>
+                        <Input
+                            className="mt-1"
+                            placeholder="Ex: Aeroporto de Lisboa"
+                            value={form.trasladoLocalPartida || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, trasladoLocalPartida: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Local de Chegada</Label>
+                        <Input
+                            className="mt-1"
+                            placeholder="Ex: Hotel Ibis Lisboa"
+                            value={form.trasladoLocalChegada || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, trasladoLocalChegada: e.target.value }))}
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs">Observações do Traslado</Label>
+                        <Textarea
+                            className="mt-1 min-h-20"
+                            placeholder="Ex: regular, privativo, ponto de encontro"
+                            value={form.trasladoObservacoes || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, trasladoObservacoes: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                )}
+
+                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
+                  <h4 className="flex items-center gap-2 font-semibold text-gray-900">
+                    <Plus className="h-4 w-4 text-indigo-500" />
+                    Detalhes do Ingresso
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={atualizarDetalhesIngresso}
+                        disabled={analisandoIA || (form.documentos || []).length === 0}
+                        className="gap-2"
+                    >
+                      <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
+                      Atualizar
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIngressoMinimizado((prev) => !prev)}
+                        className="gap-2 text-gray-600 hover:text-gray-900"
+                    >
+                      {ingressoMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                      {ingressoMinimizado ? "Maximizar" : "Minimizar"}
+                    </Button>
+                  </div>
+                </div>
+
+                {!ingressoMinimizado && (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mt-4">
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs">Nome da Atração/Ingresso</Label>
+                        <Input
+                            className="mt-1"
+                            placeholder="Ex: Torre Eiffel - Acesso ao topo"
+                            value={form.ingressoNomeAtracao || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, ingressoNomeAtracao: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Data do Ingresso</Label>
+                        <Input
+                            type="date"
+                            className="mt-1"
+                            value={form.ingressoData || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, ingressoData: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Horário do Ingresso</Label>
+                        <Input
+                            type="time"
+                            className="mt-1"
+                            value={form.ingressoHorario || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, ingressoHorario: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Quantidade de Ingressos</Label>
+                        <Input
+                            className="mt-1"
+                            placeholder="Ex: 2"
+                            value={form.ingressoQuantidade || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, ingressoQuantidade: e.target.value }))}
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs">Observações do Ingresso</Label>
+                        <Textarea
+                            className="mt-1 min-h-20"
+                            placeholder="Ex: categoria do ingresso, se inclui guia"
+                            value={form.ingressoObservacoes || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, ingressoObservacoes: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                )}
+
                 {(!formMinimizado || !hospedagemMinimizado) && (
                     <>
                       {erro && <p className="mt-3 text-xs text-red-500">{erro}</p>}
@@ -2160,6 +2508,34 @@ ${politicaFinal || 'Não informado'}`;
                           {pacote.hospedagemCheckin && pacote.hospedagemCheckout
                               ? ` (${pacote.hospedagemCheckin} → ${pacote.hospedagemCheckout})`
                               : ""}
+                        </p>
+                    )}
+                    {(pacote.trasladoTipo ||
+                        pacote.trasladoLocalPartida ||
+                        pacote.trasladoLocalChegada ||
+                        pacote.trasladoData ||
+                        pacote.trasladoHorario ||
+                        pacote.trasladoVeiculoEmpresa) && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Traslado: {pacote.trasladoTipo || "Tipo não informado"}
+                          {pacote.trasladoLocalPartida && pacote.trasladoLocalChegada
+                              ? ` (${pacote.trasladoLocalPartida} → ${pacote.trasladoLocalChegada})`
+                              : ""}
+                          {pacote.trasladoData || pacote.trasladoHorario
+                              ? ` - ${[pacote.trasladoData, pacote.trasladoHorario].filter(Boolean).join(" ")}`
+                              : ""}
+                          {pacote.trasladoVeiculoEmpresa ? ` - ${pacote.trasladoVeiculoEmpresa}` : ""}
+                        </p>
+                    )}
+                    {pacote.trasladoObservacoes && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Obs. Traslado: {pacote.trasladoObservacoes}
+                        </p>
+                    )}
+                    {pacote.ingressoNomeAtracao && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Ingresso: {pacote.ingressoNomeAtracao}
+                          {pacote.ingressoQuantidade ? ` (${pacote.ingressoQuantidade})` : ""}
                         </p>
                     )}
                   </div>
