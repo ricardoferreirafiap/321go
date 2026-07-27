@@ -216,7 +216,7 @@ function formatarDataIsoBr(dataIso?: string): string {
 // Monta um resumo curto da viagem com base nos Detalhes do Voo, Hospedagem,
 // Traslado e Ingresso já preenchidos no pacote. É esse texto que aparece
 // como descrição do pacote na tela pública do Roteiro.
-function gerarResumoPacote(dados: Omit<Pacote, "id" | "documentos">): string {
+export function gerarResumoPacote(dados: Omit<Pacote, "id" | "documentos">): string {
   const partes: string[] = [];
 
   const origemIda = dados.origemIda?.trim() || dados.origem?.trim();

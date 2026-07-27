@@ -7,6 +7,7 @@ import {
 import { JSX, useEffect, useMemo, useRef, useState } from "react";
 import { listarFuncionarios, type Funcionario } from "../data/funcionariosApi";
 import { buscarOrcamentoPublico } from "../data/orcamentosApi";
+import { gerarResumoPacote } from "./PacotesForm";
 
 const COR_PRINCIPAL = "#0a0534";
 const COR_DESTAQUE = "#e07b20";
@@ -1032,10 +1033,27 @@ export default function RoteiroOrcamento() {
           <div className="p-3" style={{ backgroundColor: COR_PRINCIPAL }}>
             <TituloSecao titulo="Pacotes" Icone={OrcamentoReferenceIcon} />
           </div>
-          <div className="p-4 space-y-3">
+          <div className="bg-[#0b0635] p-4 sm:p-5 space-y-4">
             {orc.pacotes.map((pacote: any, idx: number) => (
-              <div key={pacote.id || idx} className="rounded-lg bg-gray-50 p-3" style={{ fontFamily: "Montserrat, sans-serif" }}>
-                {pacote.descricao && <p className="text-[16px] leading-8 text-slate-700">{pacote.descricao}</p>}
+              <div key={pacote.id || idx} className="rounded-[22px] bg-[#1c1848] px-4 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-5 sm:py-5">
+                {pacote.operador && (
+                  <p className="text-[13px] font-extrabold uppercase tracking-[0.18em] text-[#ff8b1f]">
+                    {pacote.operador}
+                  </p>
+                )}
+                <p className="mt-2 text-[14px] leading-7 text-white/82">
+                  {(pacote.descricao || gerarResumoPacote(pacote as any)).replace(/AgaxTur\s*/gi, '')}
+                </p>
+                {pacote.reserva && (
+                  <p className="mt-2 text-[13px] text-white/60">
+                    Reserva: <span className="font-semibold text-white/90">{pacote.reserva}</span>
+                  </p>
+                )}
+                {pacote.valor > 0 && (
+                  <p className="mt-2 text-[14px] font-semibold text-[#ff8b1f]">
+                    {formatarMoeda(pacote.valor)}
+                  </p>
+                )}
               </div>
             ))}
           </div>
