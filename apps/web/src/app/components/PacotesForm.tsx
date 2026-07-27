@@ -844,6 +844,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [formMinimizado, setFormMinimizado] = useState(true);
   const [hospedagemMinimizado, setHospedagemMinimizado] = useState(true);
+  const [trasladoMinimizado, setTrasladoMinimizado] = useState(true);
   const [logAnaliseMinimizado, setLogAnaliseMinimizado] = useState(true);
   const [vouchersMinimizado, setVouchersMinimizado] = useState(true);
   const [comodidadesMinimizado, setComodidadesMinimizado] = useState(true);
@@ -1125,6 +1126,10 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
 
     setErro("");
     setForm((f) => mapearDetalhesHospedagem(f, dadosIAHospedagem));
+  }
+
+  function atualizarDetalhesTraslado() {
+    setErro('Nenhum documento de traslado com resultado de IA foi encontrado.');
   }
 
   async function identificarOperadorNaImagem(imageUrl: string) {
@@ -2073,6 +2078,36 @@ ${politicaFinal || 'Não informado'}`;
                       </div>
                     </div>
                 )}
+
+                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
+                  <h4 className="flex items-center gap-2 font-semibold text-gray-900">
+                    <Plus className="h-4 w-4 text-indigo-500" />
+                    Detalhes do Traslado
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={atualizarDetalhesTraslado}
+                        disabled={analisandoIA || (form.documentos || []).length === 0}
+                        className="gap-2"
+                    >
+                      <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
+                      Atualizar
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setTrasladoMinimizado((prev) => !prev)}
+                        className="gap-2 text-gray-600 hover:text-gray-900"
+                    >
+                      {trasladoMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                      {trasladoMinimizado ? "Maximizar" : "Minimizar"}
+                    </Button>
+                  </div>
+                </div>
 
                 {(!formMinimizado || !hospedagemMinimizado) && (
                     <>
