@@ -20,28 +20,44 @@ interface Documento {
   tipo: string;
   arquivo: string;
   analise?: string;
-  dadosIA?: {
-    operador?: string;
-    ciaAerea?: string;
-    reserva?: string;
-    destino?: string;
-    passageiros?: string;
-    dataIda?: string;
-    dataVolta?: string;
-    origemIda?: string;
-    destinoIda?: string;
-    duracaoIda?: string;
-    origemVolta?: string;
-    destinoVolta?: string;
-    duracaoVolta?: string;
-    politicaAlteracoesCancelamentos?: string;
-    enderecoHotel?: string;
-    telefoneHotel?: string;
-    emailHotel?: string;
-    quarto?: string;
-    comodidades?: string;
-    politicasCondicoesInformacoesEspeciais?: string;
-  };
+  dadosIA?: DadosIAExtraidos;
+}
+
+type DadosIAExtraidos = {
+  operador?: string;
+  ciaAerea?: string;
+  reserva?: string;
+  destino?: string;
+  passageiros?: string;
+  dataIda?: string;
+  dataVolta?: string;
+  origemIda?: string;
+  destinoIda?: string;
+  duracaoIda?: string;
+  origemVolta?: string;
+  destinoVolta?: string;
+  duracaoVolta?: string;
+  horaSaidaIda?: string;
+  horaChegadaIda?: string;
+  horaSaidaVolta?: string;
+  horaChegadaVolta?: string;
+  politicaAlteracoesCancelamentos?: string;
+  link?: string;
+  valor?: string;
+  foto?: string;
+  nomeHotel?: string;
+  enderecoHotel?: string;
+  telefoneHotel?: string;
+  emailHotel?: string;
+  quarto?: string;
+  regimeHotel?: string;
+  comodidades?: string;
+  checkinHotel?: string;
+  checkoutHotel?: string;
+  noitesHotel?: string;
+  linkHotel?: string;
+  fotoHotel?: string;
+  politicasCondicoesInformacoesEspeciais?: string;
 }
 
 interface Pacote {
@@ -483,7 +499,7 @@ function extrairPoliticaAlteracoesCancelamentos(texto: string): string {
   return conteudo.slice(0, fim).trim().replace(/\s{2,}/g, " ");
 }
 
-function extrairDadosIADeAnalise(analise: string) {
+function extrairDadosIADeAnalise(analise: string): DadosIAExtraidos {
   const extrair = (regex: RegExp) => {
     const valor = analise.match(regex)?.[1];
     return normalizarValorIA(valor);
@@ -491,6 +507,8 @@ function extrairDadosIADeAnalise(analise: string) {
 
   const dataIdaBr = extrair(/\*\*Data de Ida:\*\*\s*(.+)/);
   const dataVoltaBr = extrair(/\*\*Data de Volta:\*\*\s*(.+)/);
+  const checkinBr = extrair(/\*\*Check-in:\*\*\s*(.+)/i);
+  const checkoutBr = extrair(/\*\*Check-out:\*\*\s*(.+)/i);
 
   return {
     operador: padronizarOperador(extrair(/\*\*Operador:\*\*\s*(.+)/)),
@@ -506,6 +524,30 @@ function extrairDadosIADeAnalise(analise: string) {
     origemVolta: extrair(/\*\*Origem \(Volta\):\*\*\s*(.+)/),
     destinoVolta: extrair(/\*\*Destino \(Volta\):\*\*\s*(.+)/),
     duracaoVolta: extrair(/\*\*Duração \(Volta\):\*\*\s*(.+)/i),
+    horaSaidaIda: extrair(/\*\*Horário de Saída \(Ida\):\*\*\s*(.+)/i),
+    horaChegadaIda: extrair(/\*\*Horário de Chegada \(Ida\):\*\*\s*(.+)/i),
+    horaSaidaVolta: extrair(/\*\*Horário de Saída \(Volta\):\*\*\s*(.+)/i),
+    horaChegadaVolta: extrair(/\*\*Horário de Chegada \(Volta\):\*\*\s*(.+)/i),
+    link: extrair(/\*\*Link:\*\*\s*(.+)/i),
+    valor: extrair(/\*\*Valor:\*\*\s*(.+)/i),
+    foto: extrair(/\*\*Foto:\*\*\s*(.+)/i),
+    nomeHotel: extrair(/\*\*Nome do Hotel:\*\*\s*(.+)/i),
+    enderecoHotel: extrair(/\*\*Endereço do Hotel:\*\*\s*(.+)/i),
+    telefoneHotel: extrair(/\*\*Telefone do Hotel:\*\*\s*(.+)/i),
+    emailHotel: extrair(/\*\*E-mail do Hotel:\*\*\s*(.+)/i),
+    quarto: extrair(/\*\*Tipo de Quarto:\*\*\s*(.+)/i),
+    regimeHotel: extrair(/\*\*Regime \/ Pensão:\*\*\s*(.+)/i),
+    comodidades: extrair(/\*\*Comodidades do Estabelecimento:\*\*\s*(.+)/i),
+    checkinHotel: checkinBr ? dataBrParaIso(checkinBr) : "",
+    checkoutHotel: checkoutBr ? dataBrParaIso(checkoutBr) : "",
+    noitesHotel: extrair(/\*\*Noites:\*\*\s*(.+)/i),
+    linkHotel: extrair(/\*\*Link do Hotel:\*\*\s*(.+)/i),
+    fotoHotel: extrair(/\*\*Foto da Hospedagem:\*\*\s*(.+)/i),
+    politicasCondicoesInformacoesEspeciais: (() => {
+      const match = analise.match(/\*\*Políticas, Condições e Informações Especiais:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
+      const valor = match?.[1]?.trim();
+      return valor && valor.toLowerCase() !== "não informado" ? valor : "";
+    })(),
     politicaAlteracoesCancelamentos: (() => {
       const match = analise.match(/\*\*Política de alterações e cancelamentos:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
       const valor = match?.[1]?.trim();
@@ -514,26 +556,282 @@ function extrairDadosIADeAnalise(analise: string) {
   };
 }
 
-function temDadosExtraidos(dados: Documento["dadosIA"]) {
+function temDadosExtraidos(dados?: DadosIAExtraidos | null) {
   if (!dados) return false;
-  return Boolean(
-    dados.operador ||
-    dados.ciaAerea ||
-    dados.reserva ||
-    dados.destino ||
-    dados.passageiros ||
-    dados.dataIda ||
-    dados.dataVolta ||
-    dados.origemIda ||
-    dados.destinoIda ||
-    dados.duracaoIda ||
-    dados.origemVolta ||
-    dados.destinoVolta ||
-    dados.duracaoVolta ||
-    dados.quarto ||
-    dados.comodidades ||
-    dados.politicaAlteracoesCancelamentos,
-  );
+  return Object.values(dados).some((valor) => Boolean(valor?.trim()));
+}
+
+function mesclarDadosIA(...fontes: (DadosIAExtraidos | null | undefined)[]): DadosIAExtraidos {
+  const resultado: DadosIAExtraidos = {};
+  for (const fonte of fontes) {
+    if (!fonte) continue;
+    for (const [chave, valor] of Object.entries(fonte) as [keyof DadosIAExtraidos, string | undefined][]) {
+      if (valor?.trim() && !resultado[chave]?.trim()) {
+        resultado[chave] = valor.trim();
+      }
+    }
+  }
+  return resultado;
+}
+
+function mesclarDadosIADocumentos(documentos: Documento[]): DadosIAExtraidos {
+  const docsVoo = documentos.filter((doc) => ehDocumentoVoo(doc.nome));
+  const docsHotel = documentos.filter((doc) => ehDocumentoHotel(doc.nome));
+  const docsGerais = documentos.filter((doc) => !ehDocumentoVoo(doc.nome) && !ehDocumentoHotel(doc.nome));
+
+  const fontesVoo = [...docsVoo, ...docsGerais].map((doc) => obterDadosIADocumento(doc));
+  const fontesHotel = [...docsHotel, ...docsGerais].map((doc) => obterDadosIADocumento(doc));
+
+  return mesclarDadosIA(...fontesVoo, ...fontesHotel);
+}
+
+function montarDadosIAFromJson(
+  respostaJson: Record<string, string>,
+  operadorDetectado: string,
+  politicaExtraida: string,
+): DadosIAExtraidos {
+  const ciaAerea = respostaJson.ciaAerea || "";
+  const politicaFinal = politicaExtraida || respostaJson.politicaAlteracoesCancelamentos || "";
+
+  return {
+    operador: padronizarOperador(operadorDetectado),
+    ciaAerea,
+    reserva: respostaJson.reserva || "",
+    destino: respostaJson.destino || respostaJson.destinoIda || "",
+    passageiros: respostaJson.passageiros || "",
+    dataIda: respostaJson.dataIda || "",
+    dataVolta: respostaJson.dataVolta || "",
+    origemIda: respostaJson.origemIda || "",
+    destinoIda: respostaJson.destinoIda || "",
+    duracaoIda: respostaJson.duracaoIda || "",
+    origemVolta: respostaJson.origemVolta || "",
+    destinoVolta: respostaJson.destinoVolta || "",
+    duracaoVolta: respostaJson.duracaoVolta || "",
+    horaSaidaIda: respostaJson.horaSaidaIda || "",
+    horaChegadaIda: respostaJson.horaChegadaIda || "",
+    horaSaidaVolta: respostaJson.horaSaidaVolta || "",
+    horaChegadaVolta: respostaJson.horaChegadaVolta || "",
+    politicaAlteracoesCancelamentos: politicaFinal,
+    link: respostaJson.link || "",
+    valor: respostaJson.valor || "",
+    foto: respostaJson.foto || "",
+    nomeHotel: respostaJson.nomeHotel || "",
+    enderecoHotel: respostaJson.enderecoHotel || "",
+    telefoneHotel: respostaJson.telefoneHotel || "",
+    emailHotel: respostaJson.emailHotel || "",
+    quarto: respostaJson.quarto || "",
+    regimeHotel: respostaJson.regimeHotel || "",
+    comodidades: respostaJson.comodidades || "",
+    checkinHotel: respostaJson.checkinHotel || "",
+    checkoutHotel: respostaJson.checkoutHotel || "",
+    noitesHotel: respostaJson.noitesHotel || "",
+    linkHotel: respostaJson.linkHotel || "",
+    fotoHotel: respostaJson.fotoHotel || "",
+    politicasCondicoesInformacoesEspeciais: respostaJson.politicasCondicoesInformacoesEspeciais || "",
+  };
+}
+
+function montarRelatorioCompleto(
+  provedorUsado: string,
+  operadorDetectado: string,
+  dados: DadosIAExtraidos,
+) {
+  const fmtData = (d?: string) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString("pt-BR") : "Não informado");
+  const fmtCampo = (v?: string) => v || "Não informado";
+
+  return [
+    `**Relatório do Pacote (Analisado com ${provedorUsado})**`,
+    "--------------------",
+    `**Operador:** ${dados.operador || padronizarOperador(operadorDetectado) || "Não informado"}`,
+    `**CIA Aérea:** ${fmtCampo(dados.ciaAerea)}`,
+    `**Nº de Reserva/Localizador:** ${fmtCampo(dados.reserva)}`,
+    `**Destino Principal:** ${fmtCampo(dados.destino || dados.destinoIda)}`,
+    `**Passageiros:** ${fmtCampo(dados.passageiros)}`,
+    `**Data de Ida:** ${fmtData(dados.dataIda)}`,
+    `**Origem (Ida):** ${fmtCampo(dados.origemIda)}`,
+    `**Destino (Ida):** ${fmtCampo(dados.destinoIda)}`,
+    `**Duração (Ida):** ${fmtCampo(dados.duracaoIda)}`,
+    `**Horário de Saída (Ida):** ${fmtCampo(dados.horaSaidaIda)}`,
+    `**Horário de Chegada (Ida):** ${fmtCampo(dados.horaChegadaIda)}`,
+    `**Data de Volta:** ${fmtData(dados.dataVolta)}`,
+    `**Origem (Volta):** ${fmtCampo(dados.origemVolta)}`,
+    `**Destino (Volta):** ${fmtCampo(dados.destinoVolta)}`,
+    `**Duração (Volta):** ${fmtCampo(dados.duracaoVolta)}`,
+    `**Horário de Saída (Volta):** ${fmtCampo(dados.horaSaidaVolta)}`,
+    `**Horário de Chegada (Volta):** ${fmtCampo(dados.horaChegadaVolta)}`,
+    `**Link:** ${fmtCampo(dados.link)}`,
+    `**Valor:** ${fmtCampo(dados.valor)}`,
+    `**Foto:** ${fmtCampo(dados.foto)}`,
+    "**Política de alterações e cancelamentos:**",
+    dados.politicaAlteracoesCancelamentos || "Não informado",
+    `**Nome do Hotel:** ${fmtCampo(dados.nomeHotel)}`,
+    `**Endereço do Hotel:** ${fmtCampo(dados.enderecoHotel)}`,
+    `**Telefone do Hotel:** ${fmtCampo(dados.telefoneHotel)}`,
+    `**E-mail do Hotel:** ${fmtCampo(dados.emailHotel)}`,
+    `**Check-in:** ${fmtData(dados.checkinHotel)}`,
+    `**Check-out:** ${fmtData(dados.checkoutHotel)}`,
+    `**Tipo de Quarto:** ${fmtCampo(dados.quarto)}`,
+    `**Regime / Pensão:** ${fmtCampo(dados.regimeHotel)}`,
+    `**Comodidades do Estabelecimento:** ${fmtCampo(dados.comodidades)}`,
+    `**Noites:** ${fmtCampo(dados.noitesHotel)}`,
+    `**Link do Hotel:** ${fmtCampo(dados.linkHotel)}`,
+    `**Foto da Hospedagem:** ${fmtCampo(dados.fotoHotel)}`,
+    "**Políticas, Condições e Informações Especiais:**",
+    dados.politicasCondicoesInformacoesEspeciais || "Não informado",
+  ].join("\n");
+}
+
+function criarPromptAnaliseCompleta(contextoArquivo: string, temConteudoArquivo: boolean) {
+  return `Você é um assistente especialista em turismo. Analise o contexto de um arquivo de um pacote de viagem e extraia TODAS as informações disponíveis no documento para o formato JSON.
+
+Contexto do arquivo para análise:
+${contextoArquivo}
+
+Instruções:
+1. Extraia todas as informações do conteúdo do arquivo (PDF, OCR ou imagem). Seja exaustivo e procure em todas as seções do documento.
+2. Se uma informação não for encontrada, retorne uma string vazia "" para o campo correspondente.
+3. Para datas (dataIda, dataVolta, checkinHotel, checkoutHotel), use o formato AAAA-MM-DD.
+4. O campo "ciaAerea" deve conter o nome da companhia aérea (ex: LATAM Airlines Group, GOL, Azul). Não confunda com operadora de turismo.
+5. Identifique origem, destino e duração separadamente para o trecho de IDA e para o trecho de VOLTA.
+6. A duração do voo deve estar no formato legível (ex: "2h 30min", "11h 45min", "1h 05min").
+7. Horários devem estar no formato HH:MM (ex: "08:35", "23:10").
+8. O campo "valor" deve conter o valor total do pacote/reserva como aparece no documento (ex: "R$ 5.432,10").
+9. Os campos "link" e "foto" devem conter URLs completas quando existirem no documento.
+10. O campo "nomeHotel" deve conter o nome do estabelecimento de hospedagem.
+11. O campo "regimeHotel" deve conter o regime de pensão (ex: "Café da manhã", "Meia pensão", "All inclusive").
+12. O campo "noitesHotel" deve conter apenas o número de noites (ex: "7").
+13. Localize a seção "Política de alterações e cancelamentos" e copie todo o texto integralmente para "politicaAlteracoesCancelamentos", sem resumir.
+14. Localize seções de "Políticas", "Condições" ou "Informações Especiais" da hospedagem e copie integralmente para "politicasCondicoesInformacoesEspeciais".
+15. Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
+${!temConteudoArquivo ? "\n16. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise no nome do arquivo e na imagem anexada (se houver)." : ""}
+Formato JSON esperado:
+{
+  "ciaAerea": "string",
+  "reserva": "string",
+  "destino": "string",
+  "passageiros": "string",
+  "dataIda": "string",
+  "horaSaidaIda": "string",
+  "horaChegadaIda": "string",
+  "origemIda": "string",
+  "destinoIda": "string",
+  "duracaoIda": "string",
+  "dataVolta": "string",
+  "horaSaidaVolta": "string",
+  "horaChegadaVolta": "string",
+  "origemVolta": "string",
+  "destinoVolta": "string",
+  "duracaoVolta": "string",
+  "link": "string",
+  "valor": "string",
+  "foto": "string",
+  "nomeHotel": "string",
+  "enderecoHotel": "string",
+  "telefoneHotel": "string",
+  "emailHotel": "string",
+  "checkinHotel": "string",
+  "checkoutHotel": "string",
+  "quarto": "string",
+  "regimeHotel": "string",
+  "comodidades": "string",
+  "noitesHotel": "string",
+  "linkHotel": "string",
+  "fotoHotel": "string",
+  "politicasCondicoesInformacoesEspeciais": "string",
+  "politicaAlteracoesCancelamentos": "string"
+}`;
+}
+
+function chaveNomeArquivo(nomeArquivo: string) {
+  const semExtensao = nomeArquivo.replace(/\.[^.]+$/, "");
+  return normalizarChave(semExtensao);
+}
+
+function ehDocumentoVoo(nomeArquivo: string) {
+  const chave = chaveNomeArquivo(nomeArquivo);
+  return chave.startsWith("voucherflight") || chave.startsWith("voucheraereo") || chave.includes("voucheraereo");
+}
+
+function ehDocumentoHotel(nomeArquivo: string) {
+  const chave = chaveNomeArquivo(nomeArquivo);
+  return chave.startsWith("voucherhotel") || chave.includes("voucherhotel");
+}
+
+function obterDadosIADocumento(doc: Documento) {
+  if (!doc.dadosIA && !doc.analise) return null;
+  return doc.dadosIA || extrairDadosIADeAnalise(doc.analise || "");
+}
+
+function encontrarDocumentoVoo(documentos: Documento[]) {
+  return documentos.find((doc) => ehDocumentoVoo(doc.nome) && (doc.dadosIA || doc.analise));
+}
+
+function encontrarDocumentoHotel(documentos: Documento[]) {
+  return documentos.find((doc) => ehDocumentoHotel(doc.nome) && (doc.dadosIA || doc.analise));
+}
+
+function mapearDetalhesVoo<T extends Pick<
+  Pacote,
+  | "operador"
+  | "ciaAerea"
+  | "reserva"
+  | "destino"
+  | "origem"
+  | "dataIda"
+  | "dataVolta"
+  | "passageiros"
+  | "origemIda"
+  | "destinoIda"
+  | "duracaoIda"
+  | "origemVolta"
+  | "destinoVolta"
+  | "duracaoVolta"
+  | "politicaAlteracoesCancelamentos"
+>>(formAtual: T, dadosIAVoo: NonNullable<Documento["dadosIA"]>): T {
+  return {
+    ...formAtual,
+    operador: dadosIAVoo.operador || formAtual.operador || "",
+    ciaAerea: dadosIAVoo.ciaAerea || formAtual.ciaAerea || "",
+    reserva: dadosIAVoo.reserva || formAtual.reserva || "",
+    destino: dadosIAVoo.destinoIda || dadosIAVoo.destino || formAtual.destino || "",
+    origem: dadosIAVoo.origemIda || formAtual.origem || "",
+    dataIda: dadosIAVoo.dataIda || formAtual.dataIda || "",
+    dataVolta: dadosIAVoo.dataVolta || formAtual.dataVolta || "",
+    passageiros: dadosIAVoo.passageiros || formAtual.passageiros || "",
+    origemIda: dadosIAVoo.origemIda || formAtual.origemIda || "",
+    destinoIda: dadosIAVoo.destinoIda || formAtual.destinoIda || "",
+    duracaoIda: dadosIAVoo.duracaoIda || formAtual.duracaoIda || "",
+    origemVolta: dadosIAVoo.origemVolta || formAtual.origemVolta || "",
+    destinoVolta: dadosIAVoo.destinoVolta || formAtual.destinoVolta || "",
+    duracaoVolta: dadosIAVoo.duracaoVolta || formAtual.duracaoVolta || "",
+    politicaAlteracoesCancelamentos: dadosIAVoo.politicaAlteracoesCancelamentos || formAtual.politicaAlteracoesCancelamentos || "",
+  };
+}
+
+function mapearDetalhesHospedagem<T extends Pick<
+  Pacote,
+  | "hospedagemNome"
+  | "hospedagemEndereco"
+  | "hospedagemTelefone"
+  | "hospedagemEmail"
+  | "hospedagemTipoQuarto"
+  | "hospedagemComodidades"
+  | "hospedagemCheckin"
+  | "hospedagemCheckout"
+  | "hospedagemNoites"
+>>(formAtual: T, dadosIAHospedagem: NonNullable<Documento["dadosIA"]>): T {
+  return {
+    ...formAtual,
+    hospedagemNome: dadosIAHospedagem.destinoIda || formAtual.hospedagemNome || "",
+    hospedagemEndereco: dadosIAHospedagem.enderecoHotel || formAtual.hospedagemEndereco || "",
+    hospedagemTelefone: dadosIAHospedagem.telefoneHotel || formAtual.hospedagemTelefone || "",
+    hospedagemEmail: dadosIAHospedagem.emailHotel || formAtual.hospedagemEmail || "",
+    hospedagemTipoQuarto: dadosIAHospedagem.quarto || formAtual.hospedagemTipoQuarto || "",
+    hospedagemComodidades: dadosIAHospedagem.comodidades || formAtual.hospedagemComodidades || "",
+    hospedagemCheckin: dadosIAHospedagem.dataIda || formAtual.hospedagemCheckin || "",
+    hospedagemCheckout: dadosIAHospedagem.dataVolta || formAtual.hospedagemCheckout || "",
+    hospedagemNoites: dadosIAHospedagem.duracaoIda || formAtual.hospedagemNoites || "",
+  };
 }
 
 export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormProps) {
@@ -768,25 +1066,17 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     }
 
     // Os campos de Detalhes do Voo só devem ser populados com dados extraídos
-    // de um documento cujo nome de arquivo comece com "voucher_flight_".
-    const documentoVoo = documentos.find(
-      (doc) => doc.nome.toLowerCase().startsWith("voucher_flight_") && (doc.dadosIA || doc.analise)
-    );
-    const dadosIAVoo = documentoVoo
-      ? documentoVoo.dadosIA || extrairDadosIADeAnalise(documentoVoo.analise || "")
-      : null;
+    // de um documento cujo nome seja "Voucheraereo" ou comece com "voucher_flight_".
+    const documentoVoo = encontrarDocumentoVoo(documentos);
+    const dadosIAVoo = documentoVoo ? obterDadosIADocumento(documentoVoo) : null;
 
     // Os campos de Detalhes da Hospedagem só devem ser populados com dados extraídos
-    // de um documento cujo nome de arquivo comece com "voucher_hotel_".
-    const documentoHospedagem = documentos.find(
-      (doc) => doc.nome.toLowerCase().startsWith("voucher_hotel_") && (doc.dadosIA || doc.analise)
-    );
-    const dadosIAHospedagem = documentoHospedagem
-      ? documentoHospedagem.dadosIA || extrairDadosIADeAnalise(documentoHospedagem.analise || "")
-      : null;
+    // de um documento cujo nome seja "VoucherHotel" ou comece com "voucher_hotel_".
+    const documentoHospedagem = encontrarDocumentoHotel(documentos);
+    const dadosIAHospedagem = documentoHospedagem ? obterDadosIADocumento(documentoHospedagem) : null;
 
     if (!dadosIAVoo && !dadosIAHospedagem) {
-      setErro('Nenhum documento "voucher_flight_" ou "voucher_hotel_" com resultado de IA foi encontrado.');
+      setErro('Nenhum documento "Voucheraereo", "voucher_flight_", "VoucherHotel" ou "voucher_hotel_" com resultado de IA foi encontrado.');
       return;
     }
 
@@ -796,90 +1086,42 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     }
 
     setErro("");
-    setForm((f) => ({
-      ...f,
-      operador: dadosIAVoo?.operador || f.operador || "",
-      ciaAerea: dadosIAVoo?.ciaAerea || f.ciaAerea || "",
-      reserva: dadosIAVoo?.reserva || f.reserva || "",
-      destino: dadosIAVoo?.destinoIda || dadosIAVoo?.destino || f.destino || "",
-      origem: dadosIAVoo?.origemIda || f.origem || "",
-      dataIda: dadosIAVoo?.dataIda || f.dataIda || "",
-      dataVolta: dadosIAVoo?.dataVolta || f.dataVolta || "",
-      passageiros: dadosIAVoo?.passageiros || f.passageiros || "",
-      origemIda: dadosIAVoo?.origemIda || f.origemIda || "",
-      destinoIda: dadosIAVoo?.destinoIda || f.destinoIda || "",
-      duracaoIda: dadosIAVoo?.duracaoIda || f.duracaoIda || "",
-      origemVolta: dadosIAVoo?.origemVolta || f.origemVolta || "",
-      destinoVolta: dadosIAVoo?.destinoVolta || f.destinoVolta || "",
-      duracaoVolta: dadosIAVoo?.duracaoVolta || f.duracaoVolta || "",
-      politicaAlteracoesCancelamentos: dadosIAVoo?.politicaAlteracoesCancelamentos || f.politicaAlteracoesCancelamentos || "",
-      hospedagemNome: dadosIAHospedagem ? dadosIAHospedagem.destinoIda || "" : f.hospedagemNome || "",
-      hospedagemCheckin: dadosIAHospedagem ? dadosIAHospedagem.dataIda || "" : f.hospedagemCheckin || "",
-      hospedagemCheckout: dadosIAHospedagem ? dadosIAHospedagem.dataVolta || "" : f.hospedagemCheckout || "",
-      hospedagemNoites: dadosIAHospedagem ? dadosIAHospedagem.duracaoIda || "" : f.hospedagemNoites || "",
-    }));
+    setForm((f) => {
+      let proximo = { ...f };
+      if (dadosIAVoo && temDadosExtraidos(dadosIAVoo)) {
+        proximo = mapearDetalhesVoo(proximo, dadosIAVoo);
+      }
+      if (dadosIAHospedagem && temDadosExtraidos(dadosIAHospedagem)) {
+        proximo = mapearDetalhesHospedagem(proximo, dadosIAHospedagem);
+      }
+      return proximo;
+    });
   }
 
   function atualizarDetalhesVoo() {
-    const documentoVoo = (form.documentos || []).find(
-      (doc) => doc.nome.toLowerCase().startsWith("voucher_flight_") && (doc.dadosIA || doc.analise),
-    );
-    const dadosIAVoo = documentoVoo
-      ? documentoVoo.dadosIA || extrairDadosIADeAnalise(documentoVoo.analise || "")
-      : null;
+    const documentoVoo = encontrarDocumentoVoo(form.documentos || []);
+    const dadosIAVoo = documentoVoo ? obterDadosIADocumento(documentoVoo) : null;
 
     if (!dadosIAVoo || !temDadosExtraidos(dadosIAVoo)) {
-      setErro('Nenhum documento "voucher_flight_" com resultado de IA foi encontrado.');
+      setErro('Nenhum documento "Voucheraereo" ou "voucher_flight_" com resultado de IA foi encontrado.');
       return;
     }
 
     setErro("");
-    setForm((f) => ({
-      ...f,
-      operador: dadosIAVoo.operador || f.operador || "",
-      ciaAerea: dadosIAVoo.ciaAerea || f.ciaAerea || "",
-      reserva: dadosIAVoo.reserva || f.reserva || "",
-      destino: dadosIAVoo.destinoIda || dadosIAVoo.destino || f.destino || "",
-      origem: dadosIAVoo.origemIda || f.origem || "",
-      dataIda: dadosIAVoo.dataIda || f.dataIda || "",
-      dataVolta: dadosIAVoo.dataVolta || f.dataVolta || "",
-      passageiros: dadosIAVoo.passageiros || f.passageiros || "",
-      origemIda: dadosIAVoo.origemIda || f.origemIda || "",
-      destinoIda: dadosIAVoo.destinoIda || f.destinoIda || "",
-      duracaoIda: dadosIAVoo.duracaoIda || f.duracaoIda || "",
-      origemVolta: dadosIAVoo.origemVolta || f.origemVolta || "",
-      destinoVolta: dadosIAVoo.destinoVolta || f.destinoVolta || "",
-      duracaoVolta: dadosIAVoo.duracaoVolta || f.duracaoVolta || "",
-      politicaAlteracoesCancelamentos: dadosIAVoo.politicaAlteracoesCancelamentos || f.politicaAlteracoesCancelamentos || "",
-    }));
+    setForm((f) => mapearDetalhesVoo(f, dadosIAVoo));
   }
 
   function atualizarDetalhesHospedagem() {
-    const documentoHospedagem = (form.documentos || []).find(
-      (doc) => doc.nome.toLowerCase().startsWith("voucher_hotel_") && (doc.dadosIA || doc.analise),
-    );
-    const dadosIAHospedagem = documentoHospedagem
-      ? documentoHospedagem.dadosIA || extrairDadosIADeAnalise(documentoHospedagem.analise || "")
-      : null;
+    const documentoHospedagem = encontrarDocumentoHotel(form.documentos || []);
+    const dadosIAHospedagem = documentoHospedagem ? obterDadosIADocumento(documentoHospedagem) : null;
 
     if (!dadosIAHospedagem || !temDadosExtraidos(dadosIAHospedagem)) {
-      setErro('Nenhum documento "voucher_hotel_" com resultado de IA foi encontrado.');
+      setErro('Nenhum documento "VoucherHotel" ou "voucher_hotel_" com resultado de IA foi encontrado.');
       return;
     }
 
     setErro("");
-    setForm((f) => ({
-      ...f,
-      hospedagemNome: dadosIAHospedagem.destinoIda || f.hospedagemNome || "",
-      hospedagemEndereco: dadosIAHospedagem.enderecoHotel || f.hospedagemEndereco || "",
-      hospedagemTelefone: dadosIAHospedagem.telefoneHotel || f.hospedagemTelefone || "",
-      hospedagemEmail: dadosIAHospedagem.emailHotel || f.hospedagemEmail || "",
-      hospedagemTipoQuarto: dadosIAHospedagem.quarto || f.hospedagemTipoQuarto || "",
-      hospedagemComodidades: dadosIAHospedagem.comodidades || f.hospedagemComodidades || "",
-      hospedagemCheckin: dadosIAHospedagem.dataIda || f.hospedagemCheckin || "",
-      hospedagemCheckout: dadosIAHospedagem.dataVolta || f.hospedagemCheckout || "",
-      hospedagemNoites: dadosIAHospedagem.duracaoIda || f.hospedagemNoites || "",
-    }));
+    setForm((f) => mapearDetalhesHospedagem(f, dadosIAHospedagem));
   }
 
   async function identificarOperadorNaImagem(imageUrl: string) {
@@ -1206,7 +1448,30 @@ ${politicaFinal || 'Não informado'}`;
         })
       );
 
-      setForm((f) => ({ ...f, documentos: novasAnalises }));
+      const documentoVoo = encontrarDocumentoVoo(novasAnalises);
+      const dadosIAVoo = documentoVoo ? obterDadosIADocumento(documentoVoo) : null;
+      const documentoHospedagem = encontrarDocumentoHotel(novasAnalises);
+      const dadosIAHospedagem = documentoHospedagem ? obterDadosIADocumento(documentoHospedagem) : null;
+
+      if (dadosIAVoo && temDadosExtraidos(dadosIAVoo)) {
+        adicionarLog(`Preenchendo Detalhes do Voo com base no relatório de "${documentoVoo?.nome}".`);
+        setFormMinimizado(false);
+      }
+      if (dadosIAHospedagem && temDadosExtraidos(dadosIAHospedagem)) {
+        adicionarLog(`Preenchendo Detalhes da Hospedagem com base no relatório de "${documentoHospedagem?.nome}".`);
+        setHospedagemMinimizado(false);
+      }
+
+      setForm((f) => {
+        let proximo = { ...f, documentos: novasAnalises };
+        if (dadosIAVoo && temDadosExtraidos(dadosIAVoo)) {
+          proximo = mapearDetalhesVoo(proximo, dadosIAVoo);
+        }
+        if (dadosIAHospedagem && temDadosExtraidos(dadosIAHospedagem)) {
+          proximo = mapearDetalhesHospedagem(proximo, dadosIAHospedagem);
+        }
+        return proximo;
+      });
     } catch (error) {
       const mensagemErro = "Falha em ambos os provedores de IA. Verifique os logs e tente novamente.";
       adicionarLog(mensagemErro);
