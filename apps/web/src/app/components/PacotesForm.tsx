@@ -157,21 +157,21 @@ function formatarMoeda(v: number) {
 
 function parseMoeda(valorTexto: string) {
   const limpo = valorTexto
-    .replace(/\s/g, "")
-    .replace(/R\$/gi, "")
-    .replace(/\./g, "")
-    .replace(/,/g, ".")
-    .replace(/[^\d.-]/g, "");
+      .replace(/\s/g, "")
+      .replace(/R\$/gi, "")
+      .replace(/\./g, "")
+      .replace(/,/g, ".")
+      .replace(/[^\d.-]/g, "");
   const valor = Number(limpo);
   return Number.isFinite(valor) && valor >= 0 ? valor : 0;
 }
 
 function normalizarChave(texto: string) {
   return texto
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
 }
 
 function padronizarOperador(valor: string) {
@@ -233,10 +233,10 @@ function imagemPdfParaDataUrl(img: unknown): string {
   if (obj.data instanceof Uint8Array && obj.data.length > 2) {
     const isJpeg = obj.data[0] === 0xff && obj.data[1] === 0xd8;
     const isPng =
-      obj.data[0] === 0x89 &&
-      obj.data[1] === 0x50 &&
-      obj.data[2] === 0x4e &&
-      obj.data[3] === 0x47;
+        obj.data[0] === 0x89 &&
+        obj.data[1] === 0x50 &&
+        obj.data[2] === 0x4e &&
+        obj.data[3] === 0x47;
 
     if (isJpeg) {
       return `data:image/jpeg;base64,${uint8ArrayToBase64(obj.data)}`;
@@ -271,8 +271,8 @@ function imagemPdfParaDataUrl(img: unknown): string {
 }
 
 async function resolvePdfObject(
-  objs: { get: (name: string, callback?: (data: unknown) => void) => unknown },
-  name: string,
+    objs: { get: (name: string, callback?: (data: unknown) => void) => unknown },
+    name: string,
 ): Promise<unknown> {
   const result = objs.get(name);
   if (result && typeof (result as Promise<unknown>).then === "function") {
@@ -586,9 +586,9 @@ function mesclarDadosIADocumentos(documentos: Documento[]): DadosIAExtraidos {
 }
 
 function montarDadosIAFromJson(
-  respostaJson: Record<string, string>,
-  operadorDetectado: string,
-  politicaExtraida: string,
+    respostaJson: Record<string, string>,
+    operadorDetectado: string,
+    politicaExtraida: string,
 ): DadosIAExtraidos {
   const ciaAerea = respostaJson.ciaAerea || "";
   const politicaFinal = politicaExtraida || respostaJson.politicaAlteracoesCancelamentos || "";
@@ -632,9 +632,9 @@ function montarDadosIAFromJson(
 }
 
 function montarRelatorioCompleto(
-  provedorUsado: string,
-  operadorDetectado: string,
-  dados: DadosIAExtraidos,
+    provedorUsado: string,
+    operadorDetectado: string,
+    dados: DadosIAExtraidos,
 ) {
   const fmtData = (d?: string) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString("pt-BR") : "Não informado");
   const fmtCampo = (v?: string) => v || "Não informado";
@@ -767,26 +767,29 @@ function encontrarDocumentoVoo(documentos: Documento[]) {
 }
 
 function encontrarDocumentoHotel(documentos: Documento[]) {
-  return documentos.find((doc) => ehDocumentoHotel(doc.nome) && (doc.dadosIA || doc.analise));
+  const documentoEspecifico = documentos.find((doc) => ehDocumentoHotel(doc.nome) && (doc.dadosIA || doc.analise));
+  if (documentoEspecifico) return documentoEspecifico;
+
+  return documentos.find((doc) => ehDocumentoVoo(doc.nome) && (doc.dadosIA || doc.analise));
 }
 
 function mapearDetalhesVoo<T extends Pick<
-  Pacote,
-  | "operador"
-  | "ciaAerea"
-  | "reserva"
-  | "destino"
-  | "origem"
-  | "dataIda"
-  | "dataVolta"
-  | "passageiros"
-  | "origemIda"
-  | "destinoIda"
-  | "duracaoIda"
-  | "origemVolta"
-  | "destinoVolta"
-  | "duracaoVolta"
-  | "politicaAlteracoesCancelamentos"
+    Pacote,
+    | "operador"
+    | "ciaAerea"
+    | "reserva"
+    | "destino"
+    | "origem"
+    | "dataIda"
+    | "dataVolta"
+    | "passageiros"
+    | "origemIda"
+    | "destinoIda"
+    | "duracaoIda"
+    | "origemVolta"
+    | "destinoVolta"
+    | "duracaoVolta"
+    | "politicaAlteracoesCancelamentos"
 >>(formAtual: T, dadosIAVoo: NonNullable<Documento["dadosIA"]>): T {
   return {
     ...formAtual,
@@ -809,28 +812,28 @@ function mapearDetalhesVoo<T extends Pick<
 }
 
 function mapearDetalhesHospedagem<T extends Pick<
-  Pacote,
-  | "hospedagemNome"
-  | "hospedagemEndereco"
-  | "hospedagemTelefone"
-  | "hospedagemEmail"
-  | "hospedagemTipoQuarto"
-  | "hospedagemComodidades"
-  | "hospedagemCheckin"
-  | "hospedagemCheckout"
-  | "hospedagemNoites"
+    Pacote,
+    | "hospedagemNome"
+    | "hospedagemEndereco"
+    | "hospedagemTelefone"
+    | "hospedagemEmail"
+    | "hospedagemTipoQuarto"
+    | "hospedagemComodidades"
+    | "hospedagemCheckin"
+    | "hospedagemCheckout"
+    | "hospedagemNoites"
 >>(formAtual: T, dadosIAHospedagem: NonNullable<Documento["dadosIA"]>): T {
   return {
     ...formAtual,
-    hospedagemNome: dadosIAHospedagem.destinoIda || formAtual.hospedagemNome || "",
+    hospedagemNome: dadosIAHospedagem.nomeHotel || formAtual.hospedagemNome || "",
     hospedagemEndereco: dadosIAHospedagem.enderecoHotel || formAtual.hospedagemEndereco || "",
     hospedagemTelefone: dadosIAHospedagem.telefoneHotel || formAtual.hospedagemTelefone || "",
     hospedagemEmail: dadosIAHospedagem.emailHotel || formAtual.hospedagemEmail || "",
     hospedagemTipoQuarto: dadosIAHospedagem.quarto || formAtual.hospedagemTipoQuarto || "",
     hospedagemComodidades: dadosIAHospedagem.comodidades || formAtual.hospedagemComodidades || "",
-    hospedagemCheckin: dadosIAHospedagem.dataIda || formAtual.hospedagemCheckin || "",
-    hospedagemCheckout: dadosIAHospedagem.dataVolta || formAtual.hospedagemCheckout || "",
-    hospedagemNoites: dadosIAHospedagem.duracaoIda || formAtual.hospedagemNoites || "",
+    hospedagemCheckin: dadosIAHospedagem.checkinHotel || formAtual.hospedagemCheckin || "",
+    hospedagemCheckout: dadosIAHospedagem.checkoutHotel || formAtual.hospedagemCheckout || "",
+    hospedagemNoites: dadosIAHospedagem.noitesHotel || formAtual.hospedagemNoites || "",
   };
 }
 
@@ -852,8 +855,8 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const operadores = useMemo(
-    () => Array.from(new Set([...operadoresPadrao, ...pacotes.map((item) => item.operador.trim()).filter(Boolean)])),
-    [pacotes],
+      () => Array.from(new Set([...operadoresPadrao, ...pacotes.map((item) => item.operador.trim()).filter(Boolean)])),
+      [pacotes],
   );
 
   function limparFormulario() {
@@ -873,47 +876,47 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
 
     if (editandoId !== null) {
       onPacotesChange(
-        pacotes.map((item) =>
-          item.id === editandoId
-            ? {
-                ...item,
-                operador: form.operador.trim(),
-                ciaAerea: form.ciaAerea?.trim(),
-                origem: (form.origemIda || form.origem).trim(),
-                destino: (form.destinoIda || form.destino).trim(),
-                reserva: form.reserva?.trim(),
-                link: form.link.trim(),
+          pacotes.map((item) =>
+              item.id === editandoId
+                  ? {
+                    ...item,
+                    operador: form.operador.trim(),
+                    ciaAerea: form.ciaAerea?.trim(),
+                    origem: (form.origemIda || form.origem).trim(),
+                    destino: (form.destinoIda || form.destino).trim(),
+                    reserva: form.reserva?.trim(),
+                    link: form.link.trim(),
 
-                foto: form.foto,
-                valor: form.valor,
-                dataIda: form.dataIda,
-                dataVolta: form.dataVolta,
-                passageiros: form.passageiros,
-                origemIda: form.origemIda?.trim(),
-                destinoIda: form.destinoIda?.trim(),
-                duracaoIda: form.duracaoIda?.trim(),
-                origemVolta: form.origemVolta?.trim(),
-                destinoVolta: form.destinoVolta?.trim(),
-                duracaoVolta: form.duracaoVolta?.trim(),
-                politicaAlteracoesCancelamentos: form.politicaAlteracoesCancelamentos?.trim(),
-                hospedagemNome: form.hospedagemNome?.trim(),
-                hospedagemEndereco: form.hospedagemEndereco?.trim(),
-                hospedagemTelefone: form.hospedagemTelefone?.trim(),
-                hospedagemEmail: form.hospedagemEmail?.trim(),
-                hospedagemCheckin: form.hospedagemCheckin,
-                hospedagemCheckout: form.hospedagemCheckout,
-                hospedagemTipoQuarto: form.hospedagemTipoQuarto?.trim(),
-                hospedagemRegime: form.hospedagemRegime?.trim(),
-                hospedagemComodidades: form.hospedagemComodidades?.trim(),
-                hospedagemPoliticasCondicoesInformacoesEspeciais: form.hospedagemPoliticasCondicoesInformacoesEspeciais?.trim(),
-                hospedagemNoites: form.hospedagemNoites?.trim(),
-                hospedagemLink: form.hospedagemLink?.trim(),
-                hospedagemFoto: form.hospedagemFoto,
-                documentos: form.documentos || [],
-                logAnalise: logAnaliseIA.join("\n"),
-              }
-            : item,
-        ),
+                    foto: form.foto,
+                    valor: form.valor,
+                    dataIda: form.dataIda,
+                    dataVolta: form.dataVolta,
+                    passageiros: form.passageiros,
+                    origemIda: form.origemIda?.trim(),
+                    destinoIda: form.destinoIda?.trim(),
+                    duracaoIda: form.duracaoIda?.trim(),
+                    origemVolta: form.origemVolta?.trim(),
+                    destinoVolta: form.destinoVolta?.trim(),
+                    duracaoVolta: form.duracaoVolta?.trim(),
+                    politicaAlteracoesCancelamentos: form.politicaAlteracoesCancelamentos?.trim(),
+                    hospedagemNome: form.hospedagemNome?.trim(),
+                    hospedagemEndereco: form.hospedagemEndereco?.trim(),
+                    hospedagemTelefone: form.hospedagemTelefone?.trim(),
+                    hospedagemEmail: form.hospedagemEmail?.trim(),
+                    hospedagemCheckin: form.hospedagemCheckin,
+                    hospedagemCheckout: form.hospedagemCheckout,
+                    hospedagemTipoQuarto: form.hospedagemTipoQuarto?.trim(),
+                    hospedagemRegime: form.hospedagemRegime?.trim(),
+                    hospedagemComodidades: form.hospedagemComodidades?.trim(),
+                    hospedagemPoliticasCondicoesInformacoesEspeciais: form.hospedagemPoliticasCondicoesInformacoesEspeciais?.trim(),
+                    hospedagemNoites: form.hospedagemNoites?.trim(),
+                    hospedagemLink: form.hospedagemLink?.trim(),
+                    hospedagemFoto: form.hospedagemFoto,
+                    documentos: form.documentos || [],
+                    logAnalise: logAnaliseIA.join("\n"),
+                  }
+                  : item,
+          ),
       );
       limparFormulario();
       setErro("");
@@ -972,9 +975,9 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     setComodidadesMinimizado(true); // Manter minimizado ao abrir edição
     setEditandoId(pacote.id);
     const logPacote = (pacote.logAnalise || "")
-      .split("\n")
-      .map((linha) => linha.trim())
-      .filter(Boolean);
+        .split("\n")
+        .map((linha) => linha.trim())
+        .filter(Boolean);
     setLogAnaliseIA(logPacote);
     setForm({
       operador: pacote.operador || "",
@@ -1028,23 +1031,23 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     if (arquivos.length === 0) return;
 
     const docs = await Promise.all(
-      arquivos.map(
-        (arquivo) =>
-          new Promise<Documento>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-              resolve({
-                id: Date.now() + Math.floor(Math.random() * 10000),
-                nome: arquivo.name,
-                tipo: arquivo.type,
-                arquivo: String(reader.result || ""),
-                analise: "",
-              });
-            };
-            reader.onerror = () => reject(new Error("Falha ao carregar documento."));
-            reader.readAsDataURL(arquivo);
-          })
-      )
+        arquivos.map(
+            (arquivo) =>
+                new Promise<Documento>((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    resolve({
+                      id: Date.now() + Math.floor(Math.random() * 10000),
+                      nome: arquivo.name,
+                      tipo: arquivo.type,
+                      arquivo: String(reader.result || ""),
+                      analise: "",
+                    });
+                  };
+                  reader.onerror = () => reject(new Error("Falha ao carregar documento."));
+                  reader.readAsDataURL(arquivo);
+                })
+        )
     );
 
     setForm((f) => ({ ...f, documentos: [...f.documentos, ...docs] }));
@@ -1136,16 +1139,16 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
 
     try {
       const resposta = await enviarMensagemIA(
-        [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: promptOperador },
-              { type: "image_url", image_url: { url: imageUrl } },
-            ],
-          },
-        ],
-        "openai",
+          [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: promptOperador },
+                { type: "image_url", image_url: { url: imageUrl } },
+              ],
+            },
+          ],
+          "openai",
       );
 
       return padronizarOperador(resposta.reply.replace(/[`"]/g, "").trim());
@@ -1155,9 +1158,9 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   }
 
   async function identificarOperadorNoLogo(
-    imageUrl: string,
-    workerOcr: Worker | null,
-    adicionarLog: (mensagem: string) => void,
+      imageUrl: string,
+      workerOcr: Worker | null,
+      adicionarLog: (mensagem: string) => void,
   ) {
     if (!imageUrl) return "";
 
@@ -1218,70 +1221,70 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       }
 
       const novasAnalises = await Promise.all(
-        form.documentos.map(async (doc) => {
-          let contextoArquivo = "Nome do arquivo: " + doc.nome + "\n\n";
-          let temConteudoPdf = false;
-          let operadorDetectado = "";
-          let politicaAlteracoesCancelamentos = "";
+          form.documentos.map(async (doc) => {
+            let contextoArquivo = "Nome do arquivo: " + doc.nome + "\n\n";
+            let temConteudoPdf = false;
+            let operadorDetectado = "";
+            let politicaAlteracoesCancelamentos = "";
 
-          if (doc.tipo === 'application/pdf' && doc.arquivo) {
-            try {
-              const loadingTask = pdfjsLib.getDocument({ data: atob(doc.arquivo.split(',')[1]) });
-              const pdf = await loadingTask.promise;
-              let textContent = '';
-              for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const text = await page.getTextContent();
-                textContent += text.items.map(item => ('str' in item ? item.str : '')).join(' ') + '\n';
-              }
-              contextoArquivo += "--- Conteúdo do arquivo: " + doc.nome + " ---\n" + textContent + "\n--- Fim do arquivo: " + doc.nome + " ---\n\n";
-              temConteudoPdf = true;
-
-              politicaAlteracoesCancelamentos = extrairPoliticaAlteracoesCancelamentos(textContent);
-              if (politicaAlteracoesCancelamentos) {
-                adicionarLog(`Política de alterações e cancelamentos identificada em "${doc.nome}".`);
-                contextoArquivo += "--- Política de alterações e cancelamentos ---\n" + politicaAlteracoesCancelamentos + "\n\n";
-              }
-
-              adicionarLog(`Extraindo logo do fornecedor em "${doc.nome}"...`);
-              const logoEmbutido = await extrairPrimeiraImagemEmbutidaDoPdf(pdf);
-              if (logoEmbutido) {
-                operadorDetectado = await identificarOperadorNoLogo(logoEmbutido, workerOcr, adicionarLog);
-              }
-
-              if (!operadorDetectado) {
-                adicionarLog(`Tentando identificar operador pelo topo do PDF...`);
-                const logoTopo = await extrairLogoDoTopoDoPdf(pdf);
-                if (logoTopo) {
-                  operadorDetectado = await identificarOperadorNoLogo(logoTopo, workerOcr, adicionarLog);
+            if (doc.tipo === 'application/pdf' && doc.arquivo) {
+              try {
+                const loadingTask = pdfjsLib.getDocument({ data: atob(doc.arquivo.split(',')[1]) });
+                const pdf = await loadingTask.promise;
+                let textContent = '';
+                for (let i = 1; i <= pdf.numPages; i++) {
+                  const page = await pdf.getPage(i);
+                  const text = await page.getTextContent();
+                  textContent += text.items.map(item => ('str' in item ? item.str : '')).join(' ') + '\n';
                 }
-              }
+                contextoArquivo += "--- Conteúdo do arquivo: " + doc.nome + " ---\n" + textContent + "\n--- Fim do arquivo: " + doc.nome + " ---\n\n";
+                temConteudoPdf = true;
 
-              if (!operadorDetectado) {
-                operadorDetectado = detectarOperadorNoTexto(textContent);
+                politicaAlteracoesCancelamentos = extrairPoliticaAlteracoesCancelamentos(textContent);
+                if (politicaAlteracoesCancelamentos) {
+                  adicionarLog(`Política de alterações e cancelamentos identificada em "${doc.nome}".`);
+                  contextoArquivo += "--- Política de alterações e cancelamentos ---\n" + politicaAlteracoesCancelamentos + "\n\n";
+                }
+
+                adicionarLog(`Extraindo logo do fornecedor em "${doc.nome}"...`);
+                const logoEmbutido = await extrairPrimeiraImagemEmbutidaDoPdf(pdf);
+                if (logoEmbutido) {
+                  operadorDetectado = await identificarOperadorNoLogo(logoEmbutido, workerOcr, adicionarLog);
+                }
+
+                if (!operadorDetectado) {
+                  adicionarLog(`Tentando identificar operador pelo topo do PDF...`);
+                  const logoTopo = await extrairLogoDoTopoDoPdf(pdf);
+                  if (logoTopo) {
+                    operadorDetectado = await identificarOperadorNoLogo(logoTopo, workerOcr, adicionarLog);
+                  }
+                }
+
+                if (!operadorDetectado) {
+                  operadorDetectado = detectarOperadorNoTexto(textContent);
+                  if (operadorDetectado) {
+                    adicionarLog(`Operador identificado no texto: ${operadorDetectado}`);
+                  }
+                }
+
                 if (operadorDetectado) {
-                  adicionarLog(`Operador identificado no texto: ${operadorDetectado}`);
+                  contextoArquivo += `--- Operador identificado no logo: ${operadorDetectado} ---\n\n`;
+                } else {
+                  adicionarLog(`Não foi possível identificar o operador pelo logo do fornecedor.`);
                 }
+              } catch (e) {
+                contextoArquivo += "--- Erro ao ler o conteúdo do PDF: " + doc.nome + " ---\n";
               }
+            }
 
+            if (doc.tipo.startsWith("image/") && doc.arquivo) {
+              operadorDetectado = await identificarOperadorNoIcone(doc, workerOcr, adicionarLog);
               if (operadorDetectado) {
-                contextoArquivo += `--- Operador identificado no logo: ${operadorDetectado} ---\n\n`;
-              } else {
-                adicionarLog(`Não foi possível identificar o operador pelo logo do fornecedor.`);
+                contextoArquivo += `--- Operador identificado no ícone: ${operadorDetectado} ---\n\n`;
               }
-            } catch (e) {
-              contextoArquivo += "--- Erro ao ler o conteúdo do PDF: " + doc.nome + " ---\n";
             }
-          }
 
-          if (doc.tipo.startsWith("image/") && doc.arquivo) {
-            operadorDetectado = await identificarOperadorNoIcone(doc, workerOcr, adicionarLog);
-            if (operadorDetectado) {
-              contextoArquivo += `--- Operador identificado no ícone: ${operadorDetectado} ---\n\n`;
-            }
-          }
-
-          const prompt = `Você é um assistente especialista em turismo. Analise o contexto de um arquivo de um pacote de viagem e extraia as informações solicitadas para o formato JSON.
+            const prompt = `Você é um assistente especialista em turismo. Analise o contexto de um arquivo de um pacote de viagem e extraia as informações solicitadas para o formato JSON.
 
 Contexto do arquivo para análise:
 ${contextoArquivo}
@@ -1294,8 +1297,9 @@ Instruções:
 5.  Identifique origem, destino e duração separadamente para o trecho de IDA e para o trecho de VOLTA (procure seções "Ida", "Volta", "Outbound", "Return" ou equivalentes no PDF).
 6.  A duração do voo deve estar no formato legível (ex: "2h 30min", "11h 45min", "1h 05min").
 7.  Localize a seção "Política de alterações e cancelamentos" no PDF e copie todo o texto dessa seção integralmente para o campo "politicaAlteracoesCancelamentos", sem resumir.
-8.  Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
-${!temConteudoPdf ? "\n9. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise **exclusivamente no nome do arquivo**." : ""}
+8.  O campo "nomeHotel" deve conter o nome do estabelecimento de hospedagem (hotel, resort, pousada), exatamente como aparece no documento.
+9.  Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
+${!temConteudoPdf ? "\n10. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise **exclusivamente no nome do arquivo**." : ""}
 Formato JSON esperado:
 {
   "ciaAerea": "string",
@@ -1314,77 +1318,82 @@ Formato JSON esperado:
   "origemVolta": "string",
   "destinoVolta": "string",
   "duracaoVolta": "string",
+  "nomeHotel": "string",
   "enderecoHotel": "string",
   "telefoneHotel": "string",
   "emailHotel": "string",
   "quarto": "string",
   "comodidades": "string",
+  "checkinHotel": "string",
+  "checkoutHotel": "string",
+  "noitesHotel": "string",
+  "linkHotel": "string",
   "politicasCondicoesInformacoesEspeciais": "string",
   "politicaAlteracoesCancelamentos": "string"
 }`;
 
-          const tentarComProvedor = async (provedor?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
-            return enviarMensagemIA([{ role: "user", content: prompt }], provedor);
-          };
+            const tentarComProvedor = async (provedor?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
+              return enviarMensagemIA([{ role: "user", content: prompt }], provedor);
+            };
 
-          try {
-            let data;
-            let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare";
-            const provedoresAutomatico: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
+            try {
+              let data;
+              let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare";
+              const provedoresAutomatico: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
 
-            if (provedorIA === "automático") {
-              const mapaProvedorCapitalizado: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
-                openai: "OpenAI",
-                groq: "Groq",
-                gemini: "Gemini",
-                openrouter: "OpenRouter",
-                cloudflare: "Cloudflare",
-              };
+              if (provedorIA === "automático") {
+                const mapaProvedorCapitalizado: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
+                  openai: "OpenAI",
+                  groq: "Groq",
+                  gemini: "Gemini",
+                  openrouter: "OpenRouter",
+                  cloudflare: "Cloudflare",
+                };
 
-              for (const provedor of provedoresAutomatico) {
-                try {
-                  const nomeProvedor = mapaProvedorCapitalizado[provedor];
-                  adicionarLog(`Analisando "${doc.nome}" com ${nomeProvedor}...`);
-                  data = await tentarComProvedor(provedor);
-                  provedorUsado = nomeProvedor;
-                  // Se a chamada for bem-sucedida, saia do loop
-                  if (data) break;
-                } catch (error) {
-                  const nomeProvedor = mapaProvedorCapitalizado[provedor];
-                  console.warn(`Falha no ${nomeProvedor}, tentando com o próximo...`, error);
-                  adicionarLog(`Falha no ${nomeProvedor} para "${doc.nome}". Tentando com o próximo...`);
+                for (const provedor of provedoresAutomatico) {
+                  try {
+                    const nomeProvedor = mapaProvedorCapitalizado[provedor];
+                    adicionarLog(`Analisando "${doc.nome}" com ${nomeProvedor}...`);
+                    data = await tentarComProvedor(provedor);
+                    provedorUsado = nomeProvedor;
+                    // Se a chamada for bem-sucedida, saia do loop
+                    if (data) break;
+                  } catch (error) {
+                    const nomeProvedor = mapaProvedorCapitalizado[provedor];
+                    console.warn(`Falha no ${nomeProvedor}, tentando com o próximo...`, error);
+                    adicionarLog(`Falha no ${nomeProvedor} para "${doc.nome}". Tentando com o próximo...`);
+                  }
                 }
+
+                if (!data) {
+                  // Se todos os provedores falharem
+                  throw new Error("Todos os provedores de IA falharam.");
+                }
+              } else {
+                const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
+                  openai: "OpenAI",
+                  groq: "Groq",
+                  gemini: "Gemini",
+                  openrouter: "OpenRouter",
+                  cloudflare: "Cloudflare",
+                };
+                const provedorCapitalizado = mapaProvedor[provedorIA] || "OpenAI";
+                adicionarLog(`Analisando "${doc.nome}" com ${provedorCapitalizado}...`);
+                data = await tentarComProvedor(provedorIA);
+                provedorUsado = provedorCapitalizado;
               }
 
-              if (!data) {
-                // Se todos os provedores falharem
-                throw new Error("Todos os provedores de IA falharam.");
-              }
-            } else {
-              const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
-                openai: "OpenAI",
-                groq: "Groq",
-                gemini: "Gemini",
-                openrouter: "OpenRouter",
-                cloudflare: "Cloudflare",
-              };
-              const provedorCapitalizado = mapaProvedor[provedorIA] || "OpenAI";
-              adicionarLog(`Analisando "${doc.nome}" com ${provedorCapitalizado}...`);
-              data = await tentarComProvedor(provedorIA);
-              provedorUsado = provedorCapitalizado;
-            }
+              const respostaLimpa = data.reply.replace(/^```json\s*/, "").replace(/```$/, "").trim();
+              const respostaJson = JSON.parse(respostaLimpa);
 
-            const respostaLimpa = data.reply.replace(/^```json\s*/, "").replace(/```$/, "").trim();
-            const respostaJson = JSON.parse(respostaLimpa);
-
-            const fmtData = (d: string) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não informado';
-            const fmtCampo = (v: string) => v || 'Não informado';
-            const ciaAerea = respostaJson.ciaAerea || respostaJson.operador || "";
-            const politicaFinal =
-              politicaAlteracoesCancelamentos ||
-              respostaJson.politicaAlteracoesCancelamentos ||
-              "";
-const relatorio = `**Relatório do Pacote (Analisado com ${provedorUsado})**
+              const fmtData = (d: string) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não informado';
+              const fmtCampo = (v: string) => v || 'Não informado';
+              const ciaAerea = respostaJson.ciaAerea || respostaJson.operador || "";
+              const politicaFinal =
+                  politicaAlteracoesCancelamentos ||
+                  respostaJson.politicaAlteracoesCancelamentos ||
+                  "";
+              const relatorio = `**Relatório do Pacote (Analisado com ${provedorUsado})**
 --------------------
 **Operador:** ${padronizarOperador(operadorDetectado) || 'Não informado'}
 **CIA Aérea:** ${ciaAerea || 'Não informado'}
@@ -1406,46 +1415,56 @@ const relatorio = `**Relatório do Pacote (Analisado com ${provedorUsado})**
 **Política de alterações e cancelamentos:**
 ${politicaFinal || 'Não informado'}`;
 
-            const relatorioCompleto = [
-              relatorio,
-              `**Endereço do Hotel:** ${respostaJson.enderecoHotel || "Não informado"}`,
-              `**Telefone do Hotel:** ${respostaJson.telefoneHotel || "Não informado"}`,
-              `**E-mail do Hotel:** ${respostaJson.emailHotel || "Não informado"}`,
-              `**Tipo de Quarto:** ${respostaJson.quarto || "Não informado"}`,
-              `**Comodidades do Estabelecimento:** ${respostaJson.comodidades || "Não informado"}`,
-            ].join("\n");
+              const relatorioCompleto = [
+                relatorio,
+                `**Nome do Hotel:** ${respostaJson.nomeHotel || "Não informado"}`,
+                `**Endereço do Hotel:** ${respostaJson.enderecoHotel || "Não informado"}`,
+                `**Telefone do Hotel:** ${respostaJson.telefoneHotel || "Não informado"}`,
+                `**E-mail do Hotel:** ${respostaJson.emailHotel || "Não informado"}`,
+                `**Tipo de Quarto:** ${respostaJson.quarto || "Não informado"}`,
+                `**Comodidades do Estabelecimento:** ${respostaJson.comodidades || "Não informado"}`,
+                `**Check-in:** ${fmtData(respostaJson.checkinHotel)}`,
+                `**Check-out:** ${fmtData(respostaJson.checkoutHotel)}`,
+                `**Noites:** ${respostaJson.noitesHotel || "Não informado"}`,
+                `**Link do Hotel:** ${respostaJson.linkHotel || "Não informado"}`,
+              ].join("\n");
 
-            return {
-              ...doc,
-              analise: relatorioCompleto,
-              dadosIA: {
-                operador: padronizarOperador(operadorDetectado),
-                ciaAerea,
-                reserva: respostaJson.reserva || "",
-                destino: respostaJson.destino || respostaJson.destinoIda || "",
-                passageiros: respostaJson.passageiros || "",
-                dataIda: respostaJson.dataIda || "",
-                dataVolta: respostaJson.dataVolta || "",
-                origemIda: respostaJson.origemIda || "",
-                destinoIda: respostaJson.destinoIda || "",
-                duracaoIda: respostaJson.duracaoIda || "",
-                origemVolta: respostaJson.origemVolta || "",
-                destinoVolta: respostaJson.destinoVolta || "",
-                duracaoVolta: respostaJson.duracaoVolta || "",
-                enderecoHotel: respostaJson.enderecoHotel || "",
-                telefoneHotel: respostaJson.telefoneHotel || "",
-                emailHotel: respostaJson.emailHotel || "",
-                quarto: respostaJson.quarto || "",
-                comodidades: respostaJson.comodidades || "",
-                politicaAlteracoesCancelamentos: politicaFinal,
-              },
-            };
-          } catch (error) {
-            const mensagemErro = "Não foi possível analisar o documento. Tente novamente mais tarde.";
-            adicionarLog(`Falha ao analisar "${doc.nome}": ${mensagemErro}`);
-            return { ...doc, analise: `Falha na análise com IA: ${mensagemErro}` };
-          }
-        })
+              return {
+                ...doc,
+                analise: relatorioCompleto,
+                dadosIA: {
+                  operador: padronizarOperador(operadorDetectado),
+                  ciaAerea,
+                  reserva: respostaJson.reserva || "",
+                  destino: respostaJson.destino || respostaJson.destinoIda || "",
+                  passageiros: respostaJson.passageiros || "",
+                  dataIda: respostaJson.dataIda || "",
+                  dataVolta: respostaJson.dataVolta || "",
+                  origemIda: respostaJson.origemIda || "",
+                  destinoIda: respostaJson.destinoIda || "",
+                  duracaoIda: respostaJson.duracaoIda || "",
+                  origemVolta: respostaJson.origemVolta || "",
+                  destinoVolta: respostaJson.destinoVolta || "",
+                  duracaoVolta: respostaJson.duracaoVolta || "",
+                  nomeHotel: respostaJson.nomeHotel || "",
+                  enderecoHotel: respostaJson.enderecoHotel || "",
+                  telefoneHotel: respostaJson.telefoneHotel || "",
+                  emailHotel: respostaJson.emailHotel || "",
+                  quarto: respostaJson.quarto || "",
+                  comodidades: respostaJson.comodidades || "",
+                  checkinHotel: respostaJson.checkinHotel || "",
+                  checkoutHotel: respostaJson.checkoutHotel || "",
+                  noitesHotel: respostaJson.noitesHotel || "",
+                  linkHotel: respostaJson.linkHotel || "",
+                  politicaAlteracoesCancelamentos: politicaFinal,
+                },
+              };
+            } catch (error) {
+              const mensagemErro = "Não foi possível analisar o documento. Tente novamente mais tarde.";
+              adicionarLog(`Falha ao analisar "${doc.nome}": ${mensagemErro}`);
+              return { ...doc, analise: `Falha na análise com IA: ${mensagemErro}` };
+            }
+          })
       );
 
       const documentoVoo = encontrarDocumentoVoo(novasAnalises);
@@ -1488,649 +1507,649 @@ ${politicaFinal || 'Não informado'}`;
 
 
   return (
-    <div className="space-y-4">
-      {/* Seção de Anexos e Análise com IA */}
-      <Card className="p-4">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h4 className="flex items-center gap-2 font-semibold text-gray-900">
-            <Package2 className="h-4 w-4 text-indigo-500" />
-            Vouchers
-          </h4>          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setVouchersMinimizado((prev) => !prev)}
-            className="gap-2 text-gray-600 hover:text-gray-900"
+      <div className="space-y-4">
+        {/* Seção de Anexos e Análise com IA */}
+        <Card className="p-4">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h4 className="flex items-center gap-2 font-semibold text-gray-900">
+              <Package2 className="h-4 w-4 text-indigo-500" />
+              Vouchers
+            </h4>          <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setVouchersMinimizado((prev) => !prev)}
+              className="gap-2 text-gray-600 hover:text-gray-900"
           >
             {vouchersMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
             {vouchersMinimizado ? "Maximizar" : "Minimizar"}
           </Button>
-        </div>
+          </div>
           {!vouchersMinimizado && (
-            <>
-            <div className="space-y-4 mb-4">
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors bg-white"
-              >
-                <Upload className="w-6 h-6 mx-auto mb-1 text-gray-400" />
-                <p className="text-xs text-gray-500">Clique para anexar arquivos</p>
-                <p className="text-xs text-gray-400 mt-0.5">PDF, ZIP, JPG, etc.</p>
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-              {(form.documentos || []).length > 0 ? (
-                <div className="space-y-1.5 pr-2">
-                  {(form.documentos || []).map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <a href={doc.arquivo} download={doc.nome} className="truncate text-indigo-600 hover:text-indigo-700 flex items-center gap-2">
-                            <FileText className="h-4 w-4 flex-shrink-0" />
-                            <span className="truncate">{doc.nome}</span>
-                          </a>
-                          <button type="button" onClick={() => removerDocumento(doc.id)} className="ml-2 rounded p-1 text-red-500 hover:bg-red-50" title="Remover documento">
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                        {doc.analise && (
-                          <div className="mt-2 rounded-md border border-indigo-200 bg-indigo-50 text-xs text-indigo-800">
-                            <div className="flex items-center justify-between gap-2 p-2">
-                              <span className="font-medium">Relatório do arquivo</span>
-                              <Button
+              <>
+                <div className="space-y-4 mb-4">
+                  <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors bg-white"
+                  >
+                    <Upload className="w-6 h-6 mx-auto mb-1 text-gray-400" />
+                    <p className="text-xs text-gray-500">Clique para anexar arquivos</p>
+                    <p className="text-xs text-gray-400 mt-0.5">PDF, ZIP, JPG, etc.</p>
+                  </div>
+                  <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      onChange={handleFileUpload}
+                      className="hidden"
+                  />
+                  {(form.documentos || []).length > 0 ? (
+                      <div className="space-y-1.5 pr-2">
+                        {(form.documentos || []).map((doc) => (
+                            <div key={doc.id} className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <a href={doc.arquivo} download={doc.nome} className="truncate text-indigo-600 hover:text-indigo-700 flex items-center gap-2">
+                                    <FileText className="h-4 w-4 flex-shrink-0" />
+                                    <span className="truncate">{doc.nome}</span>
+                                  </a>
+                                  <button type="button" onClick={() => removerDocumento(doc.id)} className="ml-2 rounded p-1 text-red-500 hover:bg-red-50" title="Remover documento">
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                                {doc.analise && (
+                                    <div className="mt-2 rounded-md border border-indigo-200 bg-indigo-50 text-xs text-indigo-800">
+                                      <div className="flex items-center justify-between gap-2 p-2">
+                                        <span className="font-medium">Relatório do arquivo</span>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setRelatoriosExpandidos((prev) => {
+                                              const proximos = new Set(prev);
+                                              proximos.has(doc.id) ? proximos.delete(doc.id) : proximos.add(doc.id);
+                                              return proximos;
+                                            })}
+                                            className="h-6 gap-1 px-2 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900"
+                                        >
+                                          {relatoriosExpandidos.has(doc.id) ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                                          {relatoriosExpandidos.has(doc.id) ? "Minimizar" : "Maximizar"}
+                                        </Button>
+                                      </div>
+                                      {relatoriosExpandidos.has(doc.id) && (
+                                          <div className="whitespace-pre-wrap border-t border-indigo-200 px-2 pb-2 pt-2">
+                                            {doc.analise}
+                                          </div>
+                                      )}
+                                    </div>
+                                )}
+                              </div>
+                            </div>
+                        ))}
+                      </div>
+                  ) : (
+                      <div className="text-center text-xs text-gray-400 border border-dashed rounded-lg p-4 flex items-center justify-center bg-white">Nenhum anexo adicionado.</div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={analisarDocumentosComIA}
+                      disabled={analisandoIA || (form.documentos || []).length === 0}
+                      className="gap-2 text-indigo-600 border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                  >
+                    <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
+                    {analisandoIA ? "Analisando..." : "Analisar com IA"}
+                  </Button>
+                  <select
+                      value={provedorIA}
+                      onChange={(e) => {
+                        const valor = e.target.value;
+                        if (
+                            valor === "automático" ||
+                            valor === "openai" ||
+                            valor === "groq" ||
+                            valor === "gemini" ||
+                            valor === "openrouter" ||
+                            valor === "cloudflare"
+                        ) {
+                          setProvedorIA(valor);
+                        }
+                      }}
+                      className="h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring"
+                      disabled={analisandoIA}
+                  >
+                    <option value="automático">Automático</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="groq">Groq</option>
+                    <option value="gemini">Gemini</option>
+                    <option value="openrouter">OpenRouter</option>
+                    <option value="cloudflare">Cloudflare</option>
+                  </select>
+                </div>
+                {logAnaliseIA.length > 0 && (
+                    <div className={`mt-2 text-xs ${analisandoIA ? "text-gray-500" : "text-gray-600 p-2 border rounded-md bg-gray-50"}`}>
+                      {!analisandoIA && (
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-semibold">Log da última análise:</p>
+                            <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setRelatoriosExpandidos((prev) => {
-                                  const proximos = new Set(prev);
-                                  proximos.has(doc.id) ? proximos.delete(doc.id) : proximos.add(doc.id);
-                                  return proximos;
-                                })}
-                                className="h-6 gap-1 px-2 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900"
-                              >
-                                {relatoriosExpandidos.has(doc.id) ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                                {relatoriosExpandidos.has(doc.id) ? "Minimizar" : "Maximizar"}
-                              </Button>
-                            </div>
-                            {relatoriosExpandidos.has(doc.id) && (
-                              <div className="whitespace-pre-wrap border-t border-indigo-200 px-2 pb-2 pt-2">
-                                {doc.analise}
-                              </div>
-                            )}
+                                onClick={() => setLogAnaliseMinimizado((prev) => !prev)}
+                                className="h-6 gap-1 px-2 text-gray-600 hover:text-gray-900"
+                            >
+                              {logAnaliseMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                              {logAnaliseMinimizado ? "Maximizar" : "Minimizar"}
+                            </Button>
                           </div>
-                        )}
-                      </div>
+                      )}
+                      {(analisandoIA || !logAnaliseMinimizado) && (
+                          <pre className="whitespace-pre-wrap font-sans space-y-1 mt-1">{logAnaliseIA.join("\n")}</pre>
+                      )}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center text-xs text-gray-400 border border-dashed rounded-lg p-4 flex items-center justify-center bg-white">Nenhum anexo adicionado.</div>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={analisarDocumentosComIA}
-                disabled={analisandoIA || (form.documentos || []).length === 0}
-                className="gap-2 text-indigo-600 border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
-              >
-                <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
-                {analisandoIA ? "Analisando..." : "Analisar com IA"}
-              </Button>
-              <select
-                value={provedorIA}
-                onChange={(e) => {
-                  const valor = e.target.value;
-                  if (
-                    valor === "automático" ||
-                    valor === "openai" ||
-                    valor === "groq" ||
-                    valor === "gemini" ||
-                    valor === "openrouter" ||
-                    valor === "cloudflare"
-                  ) {
-                    setProvedorIA(valor);
-                  }
-                }}
-                className="h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring"
-                disabled={analisandoIA}
-              >
-                <option value="automático">Automático</option>
-                <option value="openai">OpenAI</option>
-                <option value="groq">Groq</option>
-                <option value="gemini">Gemini</option>
-                <option value="openrouter">OpenRouter</option>
-                <option value="cloudflare">Cloudflare</option>
-              </select>
-            </div>
-            {logAnaliseIA.length > 0 && (
-              <div className={`mt-2 text-xs ${analisandoIA ? "text-gray-500" : "text-gray-600 p-2 border rounded-md bg-gray-50"}`}>
-                {!analisandoIA && (
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-semibold">Log da última análise:</p>
+                )}
+                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
+                  <h4 className="flex items-center gap-2 font-semibold text-gray-900">
+                    <Plus className="h-4 w-4 text-indigo-500" />
+                    Detalhes do Voo
+                  </h4>
+                  <div className="flex items-center gap-2">
                     <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setLogAnaliseMinimizado((prev) => !prev)}
-                      className="h-6 gap-1 px-2 text-gray-600 hover:text-gray-900"
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={atualizarDetalhesVoo}
+                        disabled={analisandoIA || (form.documentos || []).length === 0}
+                        className="gap-2"
                     >
-                      {logAnaliseMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-                      {logAnaliseMinimizado ? "Maximizar" : "Minimizar"}
+                      <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
+                      Atualizar
                     </Button>
-                  </div>
-                )}
-                {(analisandoIA || !logAnaliseMinimizado) && (
-                  <pre className="whitespace-pre-wrap font-sans space-y-1 mt-1">{logAnaliseIA.join("\n")}</pre>
-                )}
-              </div>
-            )}
-            <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
-              <h4 className="flex items-center gap-2 font-semibold text-gray-900">
-                <Plus className="h-4 w-4 text-indigo-500" />
-                Detalhes do Voo
-              </h4>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={atualizarDetalhesVoo}
-                  disabled={analisandoIA || (form.documentos || []).length === 0}
-                  className="gap-2"
-                >
-                  <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
-                  Atualizar
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setFormMinimizado((prev) => !prev)}
-                  className="gap-2 text-gray-600 hover:text-gray-900"
-                >
-                  {formMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                  {formMinimizado ? "Maximizar" : "Minimizar"}
-                </Button>
-              </div>
-            </div>
-
-            {!formMinimizado && (
-              <>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mt-4">
-                  <div className="sm:col-span-2">
-                    <Label className="text-xs">Operador *</Label>
-                    <Input
-                      className="mt-1"
-                      placeholder="Selecione da lista ou digite"
-                      value={form.operador}
-                      onChange={(e) => setForm((prev) => ({ ...prev, operador: e.target.value }))}
-                      list="lista-operadores-pacotes"
-                    />
-                    <datalist id="lista-operadores-pacotes">
-                      {operadores.map((operador) => (
-                        <option key={operador} value={operador} />
-                      ))}
-                    </datalist>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <Label className="text-xs">CIA Aérea</Label>
-                    <Input
-                      className="mt-1"
-                      placeholder="Ex: LATAM Airlines Group"
-                      value={form.ciaAerea || ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, ciaAerea: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <Label className="text-xs">Nº de Reserva</Label>
-                    <Input
-                      className="mt-1"
-                      placeholder="Ex: ABC123"
-                      value={form.reserva || ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, reserva: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <Label className="text-xs">Link</Label>
-                    <div className="relative mt-1">
-                      <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                      <Input
-                        placeholder="https://..."
-                        className="pl-8"
-                        value={form.link}
-                        onChange={(e) => setForm((prev) => ({ ...prev, link: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <p className="text-xs font-semibold text-gray-700 mb-2">Trecho de Ida</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div>
-                        <Label className="text-xs">Origem (Ida)</Label>
-                        <Input
-                          className="mt-1"
-                          placeholder="Ex: São Paulo (GRU)"
-                          value={form.origemIda || ""}
-                          onChange={(e) => setForm((prev) => ({ ...prev, origemIda: e.target.value, origem: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Destino (Ida)</Label>
-                        <Input
-                          className="mt-1"
-                          placeholder="Ex: Lisboa (LIS)"
-                          value={form.destinoIda || ""}
-                          onChange={(e) => setForm((prev) => ({ ...prev, destinoIda: e.target.value, destino: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Duração (Ida)</Label>
-                        <Input
-                          className="mt-1"
-                          placeholder="Ex: 11h 30min"
-                          value={form.duracaoIda || ""}
-                          onChange={(e) => setForm((prev) => ({ ...prev, duracaoIda: e.target.value }))}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <p className="text-xs font-semibold text-gray-700 mb-2">Trecho de Volta</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div>
-                        <Label className="text-xs">Origem (Volta)</Label>
-                        <Input
-                          className="mt-1"
-                          placeholder="Ex: Lisboa (LIS)"
-                          value={form.origemVolta || ""}
-                          onChange={(e) => setForm((prev) => ({ ...prev, origemVolta: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Destino (Volta)</Label>
-                        <Input
-                          className="mt-1"
-                          placeholder="Ex: São Paulo (GRU)"
-                          value={form.destinoVolta || ""}
-                          onChange={(e) => setForm((prev) => ({ ...prev, destinoVolta: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Duração (Volta)</Label>
-                        <Input
-                          className="mt-1"
-                          placeholder="Ex: 11h 30min"
-                          value={form.duracaoVolta || ""}
-                          onChange={(e) => setForm((prev) => ({ ...prev, duracaoVolta: e.target.value }))}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <Label className="text-xs">Data de Ida</Label>
-                      <Input
-                        type="date"
-                        className="mt-1"
-                        value={form.dataIda || ""}
-                        onChange={(e) => setForm((prev) => ({ ...prev, dataIda: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Data de Volta</Label>
-                      <Input
-                        type="date"
-                        className="mt-1"
-                        value={form.dataVolta || ""}
-                        onChange={(e) => setForm((prev) => ({ ...prev, dataVolta: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Passageiros</Label>
-                      <Input
-                        className="mt-1"
-                        placeholder="Ex: 2 adultos, 1 criança"
-                        value={form.passageiros || ""}
-                        onChange={(e) => setForm((prev) => ({ ...prev, passageiros: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-
-
-
-                  <div className="sm:col-span-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs">Política de alterações e cancelamentos</Label>
-                      <Button
+                    <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => setPoliticaCancelamentoMinimizado((prev) => !prev)}
-                        className="gap-1 text-gray-600 hover:text-gray-900 h-7 px-1.5"
-                      >
-                        {politicaCancelamentoMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-                        <span className="text-xs">{politicaCancelamentoMinimizado ? "Maximizar" : "Minimizar"}</span>
-                      </Button>
-                    </div>
-                    {!politicaCancelamentoMinimizado && (
-                      <Textarea
-                        className="mt-1 min-h-28"
-                        placeholder="Texto extraído do voucher sobre alterações e cancelamentos"
-                        value={form.politicaAlteracoesCancelamentos || ""}
-                        onChange={(e) => setForm((prev) => ({ ...prev, politicaAlteracoesCancelamentos: e.target.value }))}
-                      />
-                    )}
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <Label className="text-xs">Foto (Link)</Label>
-                    <div className="relative mt-1">
-                      <Image className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                      <Input
-                        placeholder="https://media.staticontent.com/media/pictures/..."
-                        className="pl-8"
-                        value={form.foto || ""}
-                        onChange={(e) => setForm((prev) => ({ ...prev, foto: e.target.value.trim() || null }))}
-                      />
-                    </div>
-                    {form.foto && (
-                      <div className="mt-2 overflow-hidden rounded-md border border-gray-200">
-                        <img src={form.foto} alt="Prévia da foto do pacote" className="h-28 w-full object-cover" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <Label className="text-xs">Valor (R$)</Label>
-                    <Input
-                      placeholder="R$ 0,00"
-                      value={valorInput}
-                      onChange={(e) => {
-                        const texto = e.target.value;
-                        setValorInput(texto);
-                        setForm((prev) => ({ ...prev, valor: parseMoeda(texto) }));
-                      }}
-                      onBlur={() => {
-                        setValorInput(form.valor > 0 ? formatarMoeda(form.valor) : "");
-                      }}
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
-              <h4 className="flex items-center gap-2 font-semibold text-gray-900">
-                <Plus className="h-4 w-4 text-indigo-500" />
-                Detalhes da Hospedagem
-              </h4>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={atualizarDetalhesHospedagem}
-                  disabled={analisandoIA || (form.documentos || []).length === 0}
-                  className="gap-2"
-                >
-                  <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
-                  Atualizar
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setHospedagemMinimizado((prev) => !prev)}
-                  className="gap-2 text-gray-600 hover:text-gray-900"
-                >
-                  {hospedagemMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                  {hospedagemMinimizado ? "Maximizar" : "Minimizar"}
-                </Button>
-              </div>
-            </div>
-
-            {!hospedagemMinimizado && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mt-4">
-                <div className="sm:col-span-2">
-                  <Label className="text-xs">Nome do Hotel</Label>
-                  <Input
-                    className="mt-1"
-                    placeholder="Ex: Hotel Ibis Lisboa"
-                    value={form.hospedagemNome || ""}
-                    onChange={(e) => setForm((prev) => ({ ...prev, hospedagemNome: e.target.value }))}
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <Label className="text-xs">Endereço</Label>
-                  <Input
-                    className="mt-1"
-                    placeholder="Ex: Rua Augusta, 123 - Lisboa"
-                    value={form.hospedagemEndereco || ""}
-                    onChange={(e) => setForm((prev) => ({ ...prev, hospedagemEndereco: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-xs">Telefone</Label>
-                  <Input
-                    type="tel"
-                    className="mt-1"
-                    placeholder="Ex: +55 11 1234-5678"
-                    value={form.hospedagemTelefone || ""}
-                    onChange={(e) => setForm((prev) => ({ ...prev, hospedagemTelefone: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-xs">E-mail</Label>
-                  <Input
-                    type="email"
-                    className="mt-1"
-                    placeholder="Ex: reservas@hotel.com"
-                    value={form.hospedagemEmail || ""}
-                    onChange={(e) => setForm((prev) => ({ ...prev, hospedagemEmail: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-xs">Check-in</Label>
-                  <Input
-                    type="date"
-                    className="mt-1"
-                    value={form.hospedagemCheckin || ""}
-                    onChange={(e) => setForm((prev) => ({ ...prev, hospedagemCheckin: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-xs">Check-out</Label>
-                  <Input
-                    type="date"
-                    className="mt-1"
-                    value={form.hospedagemCheckout || ""}
-                    onChange={(e) => setForm((prev) => ({ ...prev, hospedagemCheckout: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-xs">Tipo de Quarto</Label>
-                  <Input
-                    className="mt-1"
-                    placeholder="Ex: Duplo Standard"
-                    value={form.hospedagemTipoQuarto || ""}
-                    onChange={(e) => setForm((prev) => ({ ...prev, hospedagemTipoQuarto: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-xs">Regime / Pensão</Label>
-                  <Input
-                    className="mt-1"
-                    placeholder="Ex: Café da manhã"
-                    value={form.hospedagemRegime || ""}
-                    onChange={(e) => setForm((prev) => ({ ...prev, hospedagemRegime: e.target.value }))}
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs">Comodidades do estabelecimento</Label>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setComodidadesMinimizado((prev) => !prev)}
-                      className="gap-1 text-gray-600 hover:text-gray-900 h-7 px-1.5"
+                        onClick={() => setFormMinimizado((prev) => !prev)}
+                        className="gap-2 text-gray-600 hover:text-gray-900"
                     >
-                      {comodidadesMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-                      <span className="text-xs">{comodidadesMinimizado ? "Maximizar" : "Minimizar"}</span>
+                      {formMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                      {formMinimizado ? "Maximizar" : "Minimizar"}
                     </Button>
                   </div>
-                  {!comodidadesMinimizado && (
-                    <Textarea
-                      className="mt-1 min-h-20"
-                      placeholder="Ex: piscina, Wi-Fi, academia, estacionamento"
-                      value={form.hospedagemComodidades || ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, hospedagemComodidades: e.target.value }))}
-                    />
-                  )}
                 </div>
 
-                <div>
-                  <Label className="text-xs">Noites</Label>
-                  <Input
-                    className="mt-1"
-                    placeholder="Ex: 7"
-                    value={form.hospedagemNoites || ""}
-                    onChange={(e) => setForm((prev) => ({ ...prev, hospedagemNoites: e.target.value }))}
-                  />
-                </div>
+                {!formMinimizado && (
+                    <>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mt-4">
+                        <div className="sm:col-span-2">
+                          <Label className="text-xs">Operador *</Label>
+                          <Input
+                              className="mt-1"
+                              placeholder="Selecione da lista ou digite"
+                              value={form.operador}
+                              onChange={(e) => setForm((prev) => ({ ...prev, operador: e.target.value }))}
+                              list="lista-operadores-pacotes"
+                          />
+                          <datalist id="lista-operadores-pacotes">
+                            {operadores.map((operador) => (
+                                <option key={operador} value={operador} />
+                            ))}
+                          </datalist>
+                        </div>
 
-                <div>
-                  <Label className="text-xs">Link do Hotel</Label>
-                  <div className="relative mt-1">
-                    <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <Input
-                      placeholder="https://..."
-                      className="pl-8"
-                      value={form.hospedagemLink || ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, hospedagemLink: e.target.value }))}
-                    />
+                        <div className="sm:col-span-2">
+                          <Label className="text-xs">CIA Aérea</Label>
+                          <Input
+                              className="mt-1"
+                              placeholder="Ex: LATAM Airlines Group"
+                              value={form.ciaAerea || ""}
+                              onChange={(e) => setForm((prev) => ({ ...prev, ciaAerea: e.target.value }))}
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <Label className="text-xs">Nº de Reserva</Label>
+                          <Input
+                              className="mt-1"
+                              placeholder="Ex: ABC123"
+                              value={form.reserva || ""}
+                              onChange={(e) => setForm((prev) => ({ ...prev, reserva: e.target.value }))}
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <Label className="text-xs">Link</Label>
+                          <div className="relative mt-1">
+                            <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                            <Input
+                                placeholder="https://..."
+                                className="pl-8"
+                                value={form.link}
+                                onChange={(e) => setForm((prev) => ({ ...prev, link: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <p className="text-xs font-semibold text-gray-700 mb-2">Trecho de Ida</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                              <Label className="text-xs">Origem (Ida)</Label>
+                              <Input
+                                  className="mt-1"
+                                  placeholder="Ex: São Paulo (GRU)"
+                                  value={form.origemIda || ""}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, origemIda: e.target.value, origem: e.target.value }))}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Destino (Ida)</Label>
+                              <Input
+                                  className="mt-1"
+                                  placeholder="Ex: Lisboa (LIS)"
+                                  value={form.destinoIda || ""}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, destinoIda: e.target.value, destino: e.target.value }))}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Duração (Ida)</Label>
+                              <Input
+                                  className="mt-1"
+                                  placeholder="Ex: 11h 30min"
+                                  value={form.duracaoIda || ""}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, duracaoIda: e.target.value }))}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <p className="text-xs font-semibold text-gray-700 mb-2">Trecho de Volta</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                              <Label className="text-xs">Origem (Volta)</Label>
+                              <Input
+                                  className="mt-1"
+                                  placeholder="Ex: Lisboa (LIS)"
+                                  value={form.origemVolta || ""}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, origemVolta: e.target.value }))}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Destino (Volta)</Label>
+                              <Input
+                                  className="mt-1"
+                                  placeholder="Ex: São Paulo (GRU)"
+                                  value={form.destinoVolta || ""}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, destinoVolta: e.target.value }))}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Duração (Volta)</Label>
+                              <Input
+                                  className="mt-1"
+                                  placeholder="Ex: 11h 30min"
+                                  value={form.duracaoVolta || ""}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, duracaoVolta: e.target.value }))}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div>
+                            <Label className="text-xs">Data de Ida</Label>
+                            <Input
+                                type="date"
+                                className="mt-1"
+                                value={form.dataIda || ""}
+                                onChange={(e) => setForm((prev) => ({ ...prev, dataIda: e.target.value }))}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Data de Volta</Label>
+                            <Input
+                                type="date"
+                                className="mt-1"
+                                value={form.dataVolta || ""}
+                                onChange={(e) => setForm((prev) => ({ ...prev, dataVolta: e.target.value }))}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Passageiros</Label>
+                            <Input
+                                className="mt-1"
+                                placeholder="Ex: 2 adultos, 1 criança"
+                                value={form.passageiros || ""}
+                                onChange={(e) => setForm((prev) => ({ ...prev, passageiros: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+
+
+
+                        <div className="sm:col-span-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs">Política de alterações e cancelamentos</Label>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setPoliticaCancelamentoMinimizado((prev) => !prev)}
+                                className="gap-1 text-gray-600 hover:text-gray-900 h-7 px-1.5"
+                            >
+                              {politicaCancelamentoMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                              <span className="text-xs">{politicaCancelamentoMinimizado ? "Maximizar" : "Minimizar"}</span>
+                            </Button>
+                          </div>
+                          {!politicaCancelamentoMinimizado && (
+                              <Textarea
+                                  className="mt-1 min-h-28"
+                                  placeholder="Texto extraído do voucher sobre alterações e cancelamentos"
+                                  value={form.politicaAlteracoesCancelamentos || ""}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, politicaAlteracoesCancelamentos: e.target.value }))}
+                              />
+                          )}
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <Label className="text-xs">Foto (Link)</Label>
+                          <div className="relative mt-1">
+                            <Image className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                            <Input
+                                placeholder="https://media.staticontent.com/media/pictures/..."
+                                className="pl-8"
+                                value={form.foto || ""}
+                                onChange={(e) => setForm((prev) => ({ ...prev, foto: e.target.value.trim() || null }))}
+                            />
+                          </div>
+                          {form.foto && (
+                              <div className="mt-2 overflow-hidden rounded-md border border-gray-200">
+                                <img src={form.foto} alt="Prévia da foto do pacote" className="h-28 w-full object-cover" />
+                              </div>
+                          )}
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <Label className="text-xs">Valor (R$)</Label>
+                          <Input
+                              placeholder="R$ 0,00"
+                              value={valorInput}
+                              onChange={(e) => {
+                                const texto = e.target.value;
+                                setValorInput(texto);
+                                setForm((prev) => ({ ...prev, valor: parseMoeda(texto) }));
+                              }}
+                              onBlur={() => {
+                                setValorInput(form.valor > 0 ? formatarMoeda(form.valor) : "");
+                              }}
+                              className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    </>
+                )}
+
+                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
+                  <h4 className="flex items-center gap-2 font-semibold text-gray-900">
+                    <Plus className="h-4 w-4 text-indigo-500" />
+                    Detalhes da Hospedagem
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={atualizarDetalhesHospedagem}
+                        disabled={analisandoIA || (form.documentos || []).length === 0}
+                        className="gap-2"
+                    >
+                      <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
+                      Atualizar
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setHospedagemMinimizado((prev) => !prev)}
+                        className="gap-2 text-gray-600 hover:text-gray-900"
+                    >
+                      {hospedagemMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                      {hospedagemMinimizado ? "Maximizar" : "Minimizar"}
+                    </Button>
                   </div>
                 </div>
 
-                <div className="sm:col-span-2">
-                  <Label className="text-xs">Foto da Hospedagem (Link)</Label>
-                  <div className="relative mt-1">
-                    <Image className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <Input
-                      placeholder="https://..."
-                      className="pl-8"
-                      value={form.hospedagemFoto || ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, hospedagemFoto: e.target.value.trim() || null }))}
-                    />
-                  </div>
-                  {form.hospedagemFoto && (
-                    <div className="mt-2 overflow-hidden rounded-md border border-gray-200">
-                      <img src={form.hospedagemFoto} alt="Prévia da foto da hospedagem" className="h-28 w-full object-cover" />
+                {!hospedagemMinimizado && (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mt-4">
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs">Nome do Hotel</Label>
+                        <Input
+                            className="mt-1"
+                            placeholder="Ex: Hotel Ibis Lisboa"
+                            value={form.hospedagemNome || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, hospedagemNome: e.target.value }))}
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs">Endereço</Label>
+                        <Input
+                            className="mt-1"
+                            placeholder="Ex: Rua Augusta, 123 - Lisboa"
+                            value={form.hospedagemEndereco || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, hospedagemEndereco: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Telefone</Label>
+                        <Input
+                            type="tel"
+                            className="mt-1"
+                            placeholder="Ex: +55 11 1234-5678"
+                            value={form.hospedagemTelefone || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, hospedagemTelefone: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">E-mail</Label>
+                        <Input
+                            type="email"
+                            className="mt-1"
+                            placeholder="Ex: reservas@hotel.com"
+                            value={form.hospedagemEmail || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, hospedagemEmail: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Check-in</Label>
+                        <Input
+                            type="date"
+                            className="mt-1"
+                            value={form.hospedagemCheckin || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, hospedagemCheckin: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Check-out</Label>
+                        <Input
+                            type="date"
+                            className="mt-1"
+                            value={form.hospedagemCheckout || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, hospedagemCheckout: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Tipo de Quarto</Label>
+                        <Input
+                            className="mt-1"
+                            placeholder="Ex: Duplo Standard"
+                            value={form.hospedagemTipoQuarto || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, hospedagemTipoQuarto: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Regime / Pensão</Label>
+                        <Input
+                            className="mt-1"
+                            placeholder="Ex: Café da manhã"
+                            value={form.hospedagemRegime || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, hospedagemRegime: e.target.value }))}
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs">Comodidades do estabelecimento</Label>
+                          <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setComodidadesMinimizado((prev) => !prev)}
+                              className="gap-1 text-gray-600 hover:text-gray-900 h-7 px-1.5"
+                          >
+                            {comodidadesMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                            <span className="text-xs">{comodidadesMinimizado ? "Maximizar" : "Minimizar"}</span>
+                          </Button>
+                        </div>
+                        {!comodidadesMinimizado && (
+                            <Textarea
+                                className="mt-1 min-h-20"
+                                placeholder="Ex: piscina, Wi-Fi, academia, estacionamento"
+                                value={form.hospedagemComodidades || ""}
+                                onChange={(e) => setForm((prev) => ({ ...prev, hospedagemComodidades: e.target.value }))}
+                            />
+                        )}
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Noites</Label>
+                        <Input
+                            className="mt-1"
+                            placeholder="Ex: 7"
+                            value={form.hospedagemNoites || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, hospedagemNoites: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Link do Hotel</Label>
+                        <div className="relative mt-1">
+                          <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                          <Input
+                              placeholder="https://..."
+                              className="pl-8"
+                              value={form.hospedagemLink || ""}
+                              onChange={(e) => setForm((prev) => ({ ...prev, hospedagemLink: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs">Foto da Hospedagem (Link)</Label>
+                        <div className="relative mt-1">
+                          <Image className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                          <Input
+                              placeholder="https://..."
+                              className="pl-8"
+                              value={form.hospedagemFoto || ""}
+                              onChange={(e) => setForm((prev) => ({ ...prev, hospedagemFoto: e.target.value.trim() || null }))}
+                          />
+                        </div>
+                        {form.hospedagemFoto && (
+                            <div className="mt-2 overflow-hidden rounded-md border border-gray-200">
+                              <img src={form.hospedagemFoto} alt="Prévia da foto da hospedagem" className="h-28 w-full object-cover" />
+                            </div>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              </div>
-            )}
+                )}
 
-            {(!formMinimizado || !hospedagemMinimizado) && (
-              <>
-                {erro && <p className="mt-3 text-xs text-red-500">{erro}</p>}
+                {(!formMinimizado || !hospedagemMinimizado) && (
+                    <>
+                      {erro && <p className="mt-3 text-xs text-red-500">{erro}</p>}
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button type="button" onClick={salvarPacote} className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    {editandoId !== null ? "Salvar voucher" : "Adicionar voucher"}
-                  </Button>
-                  {editandoId !== null && (
-                    <Button type="button" variant="outline" onClick={limparFormulario}>
-                      Cancelar edição
-                    </Button>
-                  )}
-                </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Button type="button" onClick={salvarPacote} className="gap-2">
+                          <Plus className="h-4 w-4" />
+                          {editandoId !== null ? "Salvar voucher" : "Adicionar voucher"}
+                        </Button>
+                        {editandoId !== null && (
+                            <Button type="button" variant="outline" onClick={limparFormulario}>
+                              Cancelar edição
+                            </Button>
+                        )}
+                      </div>
+                    </>
+                )}
               </>
-            )}
-          </>
           )}
 
-      </Card>
+        </Card>
 
-      {/* Lista de Pacotes Adicionados */}
-      <div className="space-y-3">
-        {pacotes.map((pacote, index) => (
-          <Card key={pacote.id} className="p-4">
-            <div className="mb-2 flex items-start justify-between gap-2">
-              <div>
-                <p className="text-xs font-semibold text-gray-400">Voucher {index + 1}</p>
-                <p className="font-semibold text-gray-900">{pacote.operador || "Sem operador"}</p>
-                {pacote.reserva && (
-                  <p className="text-xs text-gray-500 mt-0.5">Reserva: {pacote.reserva}</p>
-                )}
-                {(pacote.origemIda || pacote.destinoIda || pacote.origem || pacote.destino) && (
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Ida: {pacote.origemIda || pacote.origem || "Origem"} → {pacote.destinoIda || pacote.destino || "Destino"}
-                    {pacote.duracaoIda ? ` (${pacote.duracaoIda})` : ""}
-                  </p>
-                )}
-                {(pacote.origemVolta || pacote.destinoVolta) && (
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Volta: {pacote.origemVolta || "Origem"} → {pacote.destinoVolta || "Destino"}
-                    {pacote.duracaoVolta ? ` (${pacote.duracaoVolta})` : ""}
-                  </p>
-                )}
-                {pacote.hospedagemNome && (
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Hotel: {pacote.hospedagemNome}
-                    {pacote.hospedagemCheckin && pacote.hospedagemCheckout
-                      ? ` (${pacote.hospedagemCheckin} → ${pacote.hospedagemCheckout})`
-                      : ""}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => editarPacote(pacote)}
-                  className="rounded p-1.5 text-blue-600 hover:bg-blue-50"
-                  title="Editar pacote"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removerPacote(pacote.id)}
-                  className="rounded p-1.5 text-red-500 hover:bg-red-50"
-                  title="Remover pacote"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </Card>
-        ))}
+        {/* Lista de Pacotes Adicionados */}
+        <div className="space-y-3">
+          {pacotes.map((pacote, index) => (
+              <Card key={pacote.id} className="p-4">
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400">Voucher {index + 1}</p>
+                    <p className="font-semibold text-gray-900">{pacote.operador || "Sem operador"}</p>
+                    {pacote.reserva && (
+                        <p className="text-xs text-gray-500 mt-0.5">Reserva: {pacote.reserva}</p>
+                    )}
+                    {(pacote.origemIda || pacote.destinoIda || pacote.origem || pacote.destino) && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Ida: {pacote.origemIda || pacote.origem || "Origem"} → {pacote.destinoIda || pacote.destino || "Destino"}
+                          {pacote.duracaoIda ? ` (${pacote.duracaoIda})` : ""}
+                        </p>
+                    )}
+                    {(pacote.origemVolta || pacote.destinoVolta) && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Volta: {pacote.origemVolta || "Origem"} → {pacote.destinoVolta || "Destino"}
+                          {pacote.duracaoVolta ? ` (${pacote.duracaoVolta})` : ""}
+                        </p>
+                    )}
+                    {pacote.hospedagemNome && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Hotel: {pacote.hospedagemNome}
+                          {pacote.hospedagemCheckin && pacote.hospedagemCheckout
+                              ? ` (${pacote.hospedagemCheckin} → ${pacote.hospedagemCheckout})`
+                              : ""}
+                        </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                        type="button"
+                        onClick={() => editarPacote(pacote)}
+                        className="rounded p-1.5 text-blue-600 hover:bg-blue-50"
+                        title="Editar pacote"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => removerPacote(pacote.id)}
+                        className="rounded p-1.5 text-red-500 hover:bg-red-50"
+                        title="Remover pacote"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </Card>
+          ))}
+        </div>
       </div>
-    </div>
   );
 }
