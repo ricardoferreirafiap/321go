@@ -576,6 +576,13 @@ function obterDestinoPrincipal(orc: Orcamento): string {
     return destinoVoo;
   }
 
+  const destinoPacoteVoo = (orc.pacotes || []).find((p: any) => p?.destinoIda?.trim() || p?.destino?.trim())?.destinoIda || 
+                           (orc.pacotes || []).find((p: any) => p?.destino?.trim())?.destino || "";
+
+  if (destinoPacoteVoo) {
+    return destinoPacoteVoo;
+  }
+
   const destinoHospedagem =
     orc.hospedagem?.find((item) => typeof item?.destino === "string" && item.destino.trim())?.destino ||
     orc.hospedagem?.find((item) => typeof item?.local === "string" && item.local.trim())?.local ||
@@ -584,6 +591,12 @@ function obterDestinoPrincipal(orc: Orcamento): string {
 
   if (destinoHospedagem) {
     return destinoHospedagem;
+  }
+
+  const destinoPacoteHospedagem = (orc.pacotes || []).find((p: any) => p?.hospedagemNome?.trim())?.hospedagemNome || "";
+
+  if (destinoPacoteHospedagem) {
+    return destinoPacoteHospedagem;
   }
 
   const destinoTransporte =
@@ -596,6 +609,13 @@ function obterDestinoPrincipal(orc: Orcamento): string {
   const destinoTopLevel = typeof orc.destino === "string" ? orc.destino.trim() : "";
   if (destinoTopLevel) {
     return destinoTopLevel;
+  }
+
+  // Tenta extrair do texto da descrição do pacote
+  const textoPacote = (orc.pacotes || []).map((p: any) => p.descricao || '').join(' ');
+  const matchDestino = textoPacote.match(/(?:para|em)\s+([A-Za-zÀ-ÿ\s]+?)(?:\s+[emem]\s+\d{2}\/|\s*\(|\s*\.)/i);
+  if (matchDestino) {
+    return matchDestino[1].trim();
   }
 
   return "Destino da viagem";
@@ -650,42 +670,47 @@ function formatarDataVooCurta(data?: string | null) {
 }
 
 function Countdown({ targetDate }: { targetDate: string }) {
-  const calculateTimeLeft = () => {
-    const difference = +new Date(targetDate + 'T00:00:00') - +new Date();
-    return difference > 0 ? {
-      Meses: Math.floor(difference / (1000 * 60 * 60 * 24 * 30.44)),
-      Dias: Math.floor((difference / (1000 * 60 * 60 * 24)) % 30.44),
-      Horas: Math.floor((difference / (1000 * 60 * 60)) % 24),
-      Minutos: Math.floor((difference / 1000 / 60) % 60),
-      Segundos: Math.floor((difference / 1000) % 60),
-    } : {};
+  const calcularDiferenca = (referencia: number) => {
+    const alvo = +new Date(targetDate + 'T00:00:00');
+    const diff = Math.abs(referencia - alvo);
+    return {
+      Meses: Math.floor(diff / (1000 * 60 * 60 * 24 * 30.44)),
+      Dias: Math.floor((diff / (1000 * 60 * 60 * 24)) % 30.44),
+      Horas: Math.floor((diff / (1000 * 60 * 60)) % 24),
+      Minutos: Math.floor((diff / 1000 / 60) % 60),
+      Segundos: Math.floor((diff / 1000) % 60),
+    };
   };
 
-  const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
+  const [agora, setAgora] = useState(() => +new Date());
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setTimeLeft(calculateTimeLeft());
-    }, 1000);
-    return () => clearTimeout(timer);
-  });
+    const timer = setInterval(() => setAgora(+new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
+  const alvo = +new Date(targetDate + 'T00:00:00');
+  const jaPassou = alvo < agora;
+  const timeLeft = calcularDiferenca(agora);
   const timerComponents = Object.entries(timeLeft);
 
-  if (!timerComponents.length) {
-    return <span className="font-semibold" style={{ color: COR_DESTAQUE }}>Sua viagem começou!</span>;
-  }
-
   return (
-    <div className="grid grid-cols-5 gap-2 sm:gap-3">
-      {timerComponents.map(([interval, value]) => (
-        <div key={interval} className="min-w-0 text-center">
-          <div className="rounded-xl bg-white/12 px-1 py-2 text-lg font-bold text-white shadow-md sm:py-3 sm:text-2xl">
-            {String(value).padStart(2, '0')}
+    <div>
+      <p className="mb-3 text-center text-sm font-semibold text-white/80">
+        {jaPassou
+          ? `Viagem realizada em ${new Date(targetDate + 'T00:00:00').toLocaleDateString('pt-BR')}`
+          : `Falta para sua viagem:`}
+      </p>
+      <div className="grid grid-cols-5 gap-2 sm:gap-3">
+        {timerComponents.map(([interval, value]) => (
+          <div key={interval} className="min-w-0 text-center">
+            <div className="rounded-xl bg-white/12 px-1 py-2 text-lg font-bold text-white shadow-md sm:py-3 sm:text-2xl">
+              {String(value).padStart(2, '0')}
+            </div>
+            <div className="mt-1 truncate text-[10px] font-medium text-white/70 sm:text-xs">{interval}</div>
           </div>
-          <div className="mt-1 truncate text-[10px] font-medium text-white/70 sm:text-xs">{interval}</div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -889,7 +914,46 @@ export default function RoteiroOrcamento() {
   const dataCheckoutPacote = pacoteComHospedagem?.hospedagemCheckout || null;
   const dataCheckinPrincipal = dataCheckinHospedagem || dataCheckinPacote || null;
   const dataCheckoutPrincipal = dataCheckoutHospedagem || dataCheckoutPacote || null;
-  const dataViagemPrincipal = dataCheckinPrincipal || orc.voos?.[0]?.data || pacoteComVoo?.dataIda || null;
+  console.log('[RoteiroOrcamento] hospedagem raw:', JSON.stringify(orc.hospedagem?.[0] || null));
+  console.log('[RoteiroOrcamento] checkin/checkout:', { dataCheckinHospedagem, dataCheckoutHospedagem, dataCheckinPacote, dataCheckoutPacote, dataCheckinPrincipal, dataCheckoutPrincipal });
+  // Fallback: busca data em qualquer pacote (dataIda, dataVolta, hospedagemCheckin)
+  const pacoteComData = (orc.pacotes || []).find((p: any) => p?.dataIda?.trim() || p?.dataVolta?.trim() || p?.hospedagemCheckin?.trim());
+  const dataPacoteFallback = pacoteComData?.dataIda || pacoteComData?.hospedagemCheckin || pacoteComData?.dataVolta || null;
+  // Último fallback: tenta extrair uma data do texto da descrição do pacote
+  const dataDescricaoFallback = (() => {
+    for (const p of (orc.pacotes || [])) {
+      const texto = p.descricao || gerarResumoPacote(p as any) || '';
+      // Procura por data no formato brasileiro "23/01/2024"
+      const matchBr = texto.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+      if (matchBr) {
+        const [, dia, mes, ano] = matchBr;
+        return `${ano}-${mes}-${dia}`;
+      }
+      // Procura por data no formato ISO "2024-01-23"
+      const matchIso = texto.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (matchIso) {
+        return matchIso[0];
+      }
+    }
+    return null;
+  })();
+  // Debug: log para verificar qual data está sendo usada
+  console.log('[RoteiroOrcamento] debug datas:', {
+    dataCheckinPrincipal,
+    vooData: orc.voos?.[0]?.data,
+    pacoteComVooDataIda: pacoteComVoo?.dataIda,
+    dataPacoteFallback,
+    dataDescricaoFallback,
+    pacotesLength: orc.pacotes?.length,
+    primeiroPacote: orc.pacotes?.[0] ? {
+      dataIda: orc.pacotes[0].dataIda,
+      dataVolta: orc.pacotes[0].dataVolta,
+      hospedagemCheckin: orc.pacotes[0].hospedagemCheckin,
+      descricao: (orc.pacotes[0].descricao || '').substring(0, 200),
+    } : null
+  });
+  const dataViagemPrincipal = dataCheckinPrincipal || dataCheckoutPrincipal || orc.voos?.[0]?.data || pacoteComVoo?.dataIda || dataPacoteFallback || dataDescricaoFallback || null;
+  console.log('[RoteiroOrcamento] dataViagemPrincipal final:', dataViagemPrincipal);
   const listaPassageiros = Array.isArray(orc.passageiros)
     ? orc.passageiros.map((nome) => String(nome || "").trim()).filter(Boolean)
     : [];
@@ -994,7 +1058,7 @@ export default function RoteiroOrcamento() {
       )}
 
       <Card className="p-4 mb-6 text-center" style={{ backgroundColor: COR_PRINCIPAL, color: "white" }}>
-        <h2 className="font-bold mb-3" style={{ color: COR_DESTAQUE }}>Sr(a) {orc.cliente || "Cliente"}, falta para sua viagem:</h2>
+        <h2 className="font-bold mb-3" style={{ color: COR_DESTAQUE }}>Sr(a) {orc.cliente || "Cliente"}</h2>
         {dataViagemPrincipal ? (
           <Countdown targetDate={dataViagemPrincipal} />
         ) : (
