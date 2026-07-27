@@ -1327,7 +1327,7 @@ export default function Orcamentos() {
                         >
                           <option value="">Selecione e adicione passageiros</option>
                           {clientesAtivos
-                              .filter((cliente) => cliente.nome !== form.cliente && !(form.passageiros || []).includes(cliente.nome))
+                              .filter((cliente) => !(form.passageiros || []).includes(cliente.nome))
                               .map((cliente) => (
                                   <option key={cliente.id} value={cliente.nome}>{cliente.nome}</option>
                               ))}
