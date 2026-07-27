@@ -456,6 +456,7 @@ export default function Orcamentos() {
   const [resumoMinimizado, setResumoMinimizado] = useState(false);
   const [observacoesMinimizadas, setObservacoesMinimizadas] = useState(true);
   const [voosMinimizados, setVoosMinimizados] = useState(true);
+  const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
   const [hospedagemMinimizada, setHospedagemMinimizada] = useState(true);
   function obterDestinoPrincipalOrcamento(orcBase?: Partial<Orcamento>, preferirEstadoFormulario = false) {
     const hospedagemFonte = hospedagem.length > 0 ? hospedagem : Array.isArray(orcBase?.hospedagem) ? orcBase.hospedagem : [];
@@ -980,7 +981,7 @@ export default function Orcamentos() {
   // --- Geração de Roteiro com IA (Simulação) ---
   async function gerarRoteiroComIA() {
     setGerandoRoteiro(true);
-
+  
     const removerSecaoEvidenciasDosLugares = (texto: string): string => {
       const linhas = String(texto || "").split(/\r?\n/);
       const indiceSecao = linhas.findIndex((linha) => {
@@ -990,16 +991,16 @@ export default function Orcamentos() {
           .toLowerCase();
         return /(?:^|\s)(?:\d+[).]\s*)?evidencias\s+dos\s+lugares\b/.test(normalizada);
       });
-
+  
       if (indiceSecao === -1) {
         return texto;
       }
-
+  
       return linhas.slice(0, indiceSecao).join("\n").replace(/\n{3,}/g, "\n\n").trimEnd();
     };
-
+  
     const destinoPrincipal = obterDestinoPrincipalOrcamento(undefined, true);
-
+  
     // Coleta dados de voo, hospedagem e perfil da viagem para enriquecer o contexto da IA.
     const voosResumo = voos
       .map((voo, index) => {
@@ -1007,32 +1008,32 @@ export default function Orcamentos() {
         const destino = String(voo?.destino || "").trim();
         const data = String(voo?.data || voo?.dataIda || "").trim();
         if (!origem && !destino && !data) return "";
-
+  
         return `${index + 1}) ${origem || "Origem não informada"} -> ${destino || "Destino não informado"}${data ? ` em ${fmtData(data)}` : ""}`;
       })
       .filter(Boolean);
-
+  
     const destinosDosVoos = voos
       .map((voo) => String(voo?.destino || "").trim())
       .filter(Boolean);
-
+  
     const hospedagemResumo = hospedagem
       .map((item, index) => {
         const nome = String(item?.nome || item?.nomeHotel || "").trim();
         const local = String(item?.local || item?.cidade || item?.destino || "").trim();
         const checkin = String(item?.checkin || "").trim();
         const checkout = String(item?.checkout || "").trim();
-
+  
         if (!nome && !local && !checkin && !checkout) return "";
-
+  
         const periodo = checkin || checkout
           ? ` (${checkin ? fmtData(checkin) : "data não informada"} a ${checkout ? fmtData(checkout) : "data não informada"})`
           : "";
-
+  
         return `${index + 1}) ${nome || "Hospedagem sem nome"}${local ? ` - ${local}` : ""}${periodo}`;
       })
       .filter(Boolean);
-
+  
     const perfilViagemResumo = perfilViagemSelecionado
       .map((item) => {
         const partes = String(item || "").split("::");
@@ -1042,23 +1043,23 @@ export default function Orcamentos() {
         return String(item || "").trim();
       })
       .filter(Boolean);
-
+  
     const passageirosResumo = (form.passageiros || [])
       .map((nome) => String(nome || "").trim())
       .filter(Boolean);
-
+  
     const promptPerfilViagemLimpo = promptPerfilViagemIA.trim();
     const promptRoteiroLimpo = promptRoteiroIA.trim();
-
+  
     const destinosTexto = destinosDosVoos.length > 0
       ? destinosDosVoos.join(", ")
       : (destinoPrincipal || "Destino não informado");
-
+  
     // Combina ambos os prompts: primeiro a personalização do roteiro, depois o perfil da viagem
     const diretrizesAdicionais = [promptRoteiroLimpo, promptPerfilViagemLimpo]
       .filter(Boolean)
       .join("\n- ");
-
+  
     const prompt = `Crie uma sugestão de roteiro de viagem para ${form.cliente || "cliente"}.
 
   Contexto obrigatório para usar na sugestão:
@@ -1086,21 +1087,44 @@ export default function Orcamentos() {
   Deixe os subtítulos de cada dia bem claros e organizados para fácil leitura.
   Nao utilize Markdown e nao use simbolos de formatacao como **, __, # ou listas com asterisco.
   A sugestão deve respeitar explicitamente os dados de voo, hospedagem, passageiros e perfil da viagem fornecidos acima.`;
-
+  
     try {
-      const data = await enviarMensagemIA([
-        {
-          role: "user",
-          content: prompt,
-        },
-      ]);
-      const roteiroGerado = removerSecaoEvidenciasDosLugares(data.reply);
-
+      let respostaFinal = "";
+  
+      const tentarComProvedor = async (provedor: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
+        const data = await enviarMensagemIA(
+          [{ role: "user", content: prompt }],
+          provedor
+        );
+        return data.reply;
+      };
+  
+      if (provedorRoteiroIA === "automático") {
+        const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
+        for (const provedor of provedores) {
+          try {
+            respostaFinal = await tentarComProvedor(provedor);
+            if (respostaFinal) break;
+          } catch (error) {
+            console.warn(`Falha no provedor ${provedor}, tentando próximo...`, error);
+          }
+        }
+        if (!respostaFinal) {
+          throw new Error("Todos os provedores de IA falharam.");
+        }
+      } else {
+        respostaFinal = await tentarComProvedor(provedorRoteiroIA);
+      }
+  
+      const roteiroGerado = removerSecaoEvidenciasDosLugares(respostaFinal);
       setRoteiro(roteiroGerado);
-
     } catch (error) {
       console.error("Falha ao gerar roteiro com IA:", error);
-      setRoteiro(`Ocorreu um erro ao tentar gerar o roteiro com a IA. Detalhes: ${error instanceof Error ? error.message : String(error)}`);
+      // Mantém a mensagem de erro original que vem da API, que é mais informativa.
+      const detalhesErro = error instanceof Error ? error.message : JSON.stringify(error);
+      setRoteiro(
+        `Ocorreu um erro ao tentar gerar o roteiro com a IA. Detalhes: ${detalhesErro}`
+      );
     } finally {
       setGerandoRoteiro(false);
     }
@@ -1434,16 +1458,43 @@ export default function Orcamentos() {
                     </div>
                     <div className="flex justify-between items-center mb-2">
                       <Label htmlFor="roteiro-texto">Descrição do Roteiro</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={gerarRoteiroComIA}
-                        disabled={gerandoRoteiro}
-                        className="flex items-center gap-2 text-indigo-600 border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
-                      >
-                        <Sparkles className={`w-4 h-4 ${gerandoRoteiro ? 'animate-spin' : ''}`} /> {gerandoRoteiro ? 'Gerando...' : 'Sugestão de Roteiro com IA'}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={gerarRoteiroComIA}
+                          disabled={gerandoRoteiro}
+                          className="flex items-center gap-2 text-indigo-600 border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                        >
+                          <Sparkles className={`w-4 h-4 ${gerandoRoteiro ? 'animate-spin' : ''}`} /> {gerandoRoteiro ? 'Gerando...' : 'Sugestão de Roteiro com IA'}
+                        </Button>
+                        <select
+                          value={provedorRoteiroIA}
+                          onChange={(e) => {
+                            const valor = e.target.value;
+                            if (
+                              valor === "automático" ||
+                              valor === "openai" ||
+                              valor === "groq" ||
+                              valor === "gemini" ||
+                              valor === "openrouter" ||
+                              valor === "cloudflare"
+                            ) {
+                              setProvedorRoteiroIA(valor as any);
+                            }
+                          }}
+                          className="h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring"
+                          disabled={gerandoRoteiro}
+                        >
+                          <option value="automático">Automático</option>
+                          <option value="openai">OpenAI</option>
+                          <option value="groq">Groq</option>
+                          <option value="gemini">Gemini</option>
+                          <option value="openrouter">OpenRouter</option>
+                          <option value="cloudflare">Cloudflare</option>
+                        </select>
+                      </div>
                     </div>
                     <RoteiroForm roteiro={roteiro} onRoteiroChange={setRoteiro} />
                   </div>

@@ -544,7 +544,9 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   const [formMinimizado, setFormMinimizado] = useState(true);
   const [hospedagemMinimizado, setHospedagemMinimizado] = useState(true);
   const [logAnaliseMinimizado, setLogAnaliseMinimizado] = useState(true);
-  const [vouchersMinimizado, setVouchersMinimizado] = useState(false);
+  const [vouchersMinimizado, setVouchersMinimizado] = useState(true);
+  const [comodidadesMinimizado, setComodidadesMinimizado] = useState(true);
+  const [politicaCancelamentoMinimizado, setPoliticaCancelamentoMinimizado] = useState(true);
   const [relatoriosExpandidos, setRelatoriosExpandidos] = useState<Set<number>>(new Set());
   const [analisandoIA, setAnalisandoIA] = useState(false);
   const [logAnaliseIA, setLogAnaliseIA] = useState<string[]>([]);
@@ -561,6 +563,8 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     setValorInput("");
     setEditandoId(null);
     setFormMinimizado(true);
+    setPoliticaCancelamentoMinimizado(true);
+    setComodidadesMinimizado(true);
   }
 
   function salvarPacote() {
@@ -666,6 +670,8 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     setVouchersMinimizado(false);
     setFormMinimizado(false);
     setHospedagemMinimizado(false);
+    setPoliticaCancelamentoMinimizado(true); // Manter minimizado ao abrir edição
+    setComodidadesMinimizado(true); // Manter minimizado ao abrir edição
     setEditandoId(pacote.id);
     const logPacote = (pacote.logAnalise || "")
       .split("\n")
@@ -1082,7 +1088,7 @@ Formato JSON esperado:
           try {
             let data;
             let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare";
-            const provedoresAutomatico: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["openai", "groq", "gemini", "openrouter", "cloudflare"];
+            const provedoresAutomatico: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
 
             if (provedorIA === "automático") {
               const mapaProvedorCapitalizado: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
@@ -1542,13 +1548,27 @@ ${politicaFinal || 'Não informado'}`;
 
 
                   <div className="sm:col-span-2">
-                    <Label className="text-xs">Política de alterações e cancelamentos</Label>
-                    <Textarea
-                      className="mt-1 min-h-28"
-                      placeholder="Texto extraído do voucher sobre alterações e cancelamentos"
-                      value={form.politicaAlteracoesCancelamentos || ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, politicaAlteracoesCancelamentos: e.target.value }))}
-                    />
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Política de alterações e cancelamentos</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPoliticaCancelamentoMinimizado((prev) => !prev)}
+                        className="gap-1 text-gray-600 hover:text-gray-900 h-7 px-1.5"
+                      >
+                        {politicaCancelamentoMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                        <span className="text-xs">{politicaCancelamentoMinimizado ? "Maximizar" : "Minimizar"}</span>
+                      </Button>
+                    </div>
+                    {!politicaCancelamentoMinimizado && (
+                      <Textarea
+                        className="mt-1 min-h-28"
+                        placeholder="Texto extraído do voucher sobre alterações e cancelamentos"
+                        value={form.politicaAlteracoesCancelamentos || ""}
+                        onChange={(e) => setForm((prev) => ({ ...prev, politicaAlteracoesCancelamentos: e.target.value }))}
+                      />
+                    )}
                   </div>
 
                   <div className="sm:col-span-2">
@@ -1704,13 +1724,27 @@ ${politicaFinal || 'Não informado'}`;
                 </div>
 
                 <div className="sm:col-span-2">
-                  <Label className="text-xs">Comodidades do estabelecimento</Label>
-                  <Textarea
-                    className="mt-1 min-h-20"
-                    placeholder="Ex: piscina, Wi-Fi, academia, estacionamento"
-                    value={form.hospedagemComodidades || ""}
-                    onChange={(e) => setForm((prev) => ({ ...prev, hospedagemComodidades: e.target.value }))}
-                  />
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Comodidades do estabelecimento</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setComodidadesMinimizado((prev) => !prev)}
+                      className="gap-1 text-gray-600 hover:text-gray-900 h-7 px-1.5"
+                    >
+                      {comodidadesMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                      <span className="text-xs">{comodidadesMinimizado ? "Maximizar" : "Minimizar"}</span>
+                    </Button>
+                  </div>
+                  {!comodidadesMinimizado && (
+                    <Textarea
+                      className="mt-1 min-h-20"
+                      placeholder="Ex: piscina, Wi-Fi, academia, estacionamento"
+                      value={form.hospedagemComodidades || ""}
+                      onChange={(e) => setForm((prev) => ({ ...prev, hospedagemComodidades: e.target.value }))}
+                    />
+                  )}
                 </div>
 
                 <div>
