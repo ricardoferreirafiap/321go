@@ -136,6 +136,46 @@ interface Pacote {
   foto?: string | null;
   fotoNome?: string;
   valor?: number;
+  // Extended fields from PacotesForm
+  ciaAerea?: string;
+  origem?: string;
+  destino?: string;
+  reserva?: string;
+  dataIda?: string;
+  dataVolta?: string;
+  passageiros?: string;
+  origemIda?: string;
+  destinoIda?: string;
+  duracaoIda?: string;
+  origemVolta?: string;
+  destinoVolta?: string;
+  duracaoVolta?: string;
+  politicaAlteracoesCancelamentos?: string;
+  hospedagemNome?: string;
+  hospedagemEndereco?: string;
+  hospedagemTelefone?: string;
+  hospedagemEmail?: string;
+  hospedagemCheckin?: string;
+  hospedagemCheckout?: string;
+  hospedagemTipoQuarto?: string;
+  hospedagemRegime?: string;
+  hospedagemComodidades?: string;
+  hospedagemPoliticasCondicoesInformacoesEspeciais?: string;
+  hospedagemNoites?: string;
+  hospedagemLink?: string;
+  hospedagemFoto?: string | null;
+  trasladoTipo?: string;
+  trasladoData?: string;
+  trasladoHorario?: string;
+  trasladoLocalPartida?: string;
+  trasladoLocalChegada?: string;
+  trasladoVeiculoEmpresa?: string;
+  trasladoObservacoes?: string;
+  ingressoNomeAtracao?: string;
+  ingressoData?: string;
+  ingressoHorario?: string;
+  ingressoQuantidade?: string;
+  ingressoObservacoes?: string;
 }
 
 interface Orcamento {
@@ -825,14 +865,30 @@ export default function RoteiroOrcamento() {
   };
 
   const destinoPrincipal = obterDestinoPrincipal(orc);
-  const possuiVoo = Boolean(orc.voos?.length);
-  const possuiHospedagem = Boolean(orc.hospedagem?.length);
+
+  // Also check pacotes for flight/city info
+  const pacoteComVoo = (orc.pacotes || []).find(
+    (p: any) => p?.origemIda?.trim() || p?.destinoIda?.trim() || p?.dataIda?.trim()
+  );
+  const pacoteComHospedagem = (orc.pacotes || []).find(
+    (p: any) => p?.hospedagemNome?.trim() || p?.hospedagemCheckin?.trim() || p?.hospedagemCheckout?.trim()
+  );
+
+  const possuiVoo = Boolean(orc.voos?.length) || Boolean(pacoteComVoo);
+  const possuiHospedagem = Boolean(orc.hospedagem?.length) || Boolean(pacoteComHospedagem);
   const possuiPlanejamentoBase = possuiVoo || possuiHospedagem;
+
   const fotoPacoteDestaque =
     (orc.pacotes || []).find((item) => typeof item?.foto === "string" && item.foto.trim())?.foto || "";
-  const dataCheckinPrincipal = orc.hospedagem && orc.hospedagem.length > 0 ? orc.hospedagem[0].checkin : null;
-  const dataCheckoutPrincipal = orc.hospedagem && orc.hospedagem.length > 0 ? orc.hospedagem[0].checkout : null;
-  const dataViagemPrincipal = dataCheckinPrincipal || orc.voos?.[0]?.data || null;
+
+  // Data de check-in/checkout: primeiro tenta da hospedagem direta, depois dos pacotes
+  const dataCheckinHospedagem = orc.hospedagem && orc.hospedagem.length > 0 ? orc.hospedagem[0].checkin : null;
+  const dataCheckoutHospedagem = orc.hospedagem && orc.hospedagem.length > 0 ? orc.hospedagem[0].checkout : null;
+  const dataCheckinPacote = pacoteComHospedagem?.hospedagemCheckin || null;
+  const dataCheckoutPacote = pacoteComHospedagem?.hospedagemCheckout || null;
+  const dataCheckinPrincipal = dataCheckinHospedagem || dataCheckinPacote || null;
+  const dataCheckoutPrincipal = dataCheckoutHospedagem || dataCheckoutPacote || null;
+  const dataViagemPrincipal = dataCheckinPrincipal || orc.voos?.[0]?.data || pacoteComVoo?.dataIda || null;
   const listaPassageiros = Array.isArray(orc.passageiros)
     ? orc.passageiros.map((nome) => String(nome || "").trim()).filter(Boolean)
     : [];
