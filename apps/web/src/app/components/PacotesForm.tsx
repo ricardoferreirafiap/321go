@@ -118,6 +118,7 @@ interface Pacote {
   ingressoHorario?: string;
   ingressoQuantidade?: string;
   ingressoObservacoes?: string;
+  descricao?: string;
   logAnalise?: string;
   documentos: Documento[];
 }
@@ -183,6 +184,7 @@ const pacoteVazio: Omit<Pacote, "id"> = {
   ingressoHorario: "",
   ingressoQuantidade: "",
   ingressoObservacoes: "",
+  descricao: "",
   logAnalise: "",
   documentos: []
 };
@@ -200,6 +202,68 @@ function parseMoeda(valorTexto: string) {
       .replace(/[^\d.-]/g, "");
   const valor = Number(limpo);
   return Number.isFinite(valor) && valor >= 0 ? valor : 0;
+}
+
+function formatarDataIsoBr(dataIso?: string): string {
+  if (!dataIso) return "";
+  const partes = dataIso.split("-");
+  if (partes.length !== 3) return dataIso;
+  const [ano, mes, dia] = partes;
+  if (!ano || !mes || !dia) return dataIso;
+  return `${dia}/${mes}/${ano}`;
+}
+
+// Monta um resumo curto da viagem com base nos Detalhes do Voo, Hospedagem,
+// Traslado e Ingresso já preenchidos no pacote. É esse texto que aparece
+// como descrição do pacote na tela pública do Roteiro.
+function gerarResumoPacote(dados: Omit<Pacote, "id" | "documentos">): string {
+  const partes: string[] = [];
+
+  const origemIda = dados.origemIda?.trim() || dados.origem?.trim();
+  const destinoIda = dados.destinoIda?.trim() || dados.destino?.trim();
+
+  if (origemIda || destinoIda || dados.dataIda || dados.ciaAerea) {
+    let trecho = "Voo";
+    if (dados.ciaAerea?.trim()) trecho += ` pela ${dados.ciaAerea.trim()}`;
+    if (origemIda || destinoIda) trecho += ` de ${origemIda || "?"} para ${destinoIda || "?"}`;
+    if (dados.dataIda) trecho += ` em ${formatarDataIsoBr(dados.dataIda)}`;
+    partes.push(`${trecho}.`);
+  }
+
+  if (dados.dataVolta || dados.origemVolta?.trim() || dados.destinoVolta?.trim()) {
+    let volta = "Volta";
+    if (dados.origemVolta?.trim() || dados.destinoVolta?.trim()) {
+      volta += ` de ${dados.origemVolta?.trim() || "?"} para ${dados.destinoVolta?.trim() || "?"}`;
+    }
+    if (dados.dataVolta) volta += ` em ${formatarDataIsoBr(dados.dataVolta)}`;
+    partes.push(`${volta}.`);
+  }
+
+  if (dados.hospedagemNome?.trim()) {
+    let hospedagem = `Hospedagem no ${dados.hospedagemNome.trim()}`;
+    if (dados.hospedagemCheckin && dados.hospedagemCheckout) {
+      hospedagem += `, de ${formatarDataIsoBr(dados.hospedagemCheckin)} a ${formatarDataIsoBr(dados.hospedagemCheckout)}`;
+    }
+    if (dados.hospedagemNoites?.trim()) hospedagem += ` (${dados.hospedagemNoites.trim()} noites)`;
+    partes.push(`${hospedagem}.`);
+  }
+
+  if (dados.trasladoTipo?.trim() || dados.trasladoLocalPartida?.trim() || dados.trasladoLocalChegada?.trim()) {
+    let traslado = "Traslado";
+    if (dados.trasladoTipo?.trim()) traslado += ` ${dados.trasladoTipo.trim()}`;
+    if (dados.trasladoLocalPartida?.trim() && dados.trasladoLocalChegada?.trim()) {
+      traslado += ` de ${dados.trasladoLocalPartida.trim()} até ${dados.trasladoLocalChegada.trim()}`;
+    }
+    partes.push(`${traslado}.`);
+  }
+
+  if (dados.ingressoNomeAtracao?.trim()) {
+    let ingresso = `Ingresso para ${dados.ingressoNomeAtracao.trim()}`;
+    if (dados.ingressoQuantidade?.trim()) ingresso += ` (${dados.ingressoQuantidade.trim()})`;
+    partes.push(`${ingresso}.`);
+  }
+
+  return partes.join(" ");
 }
 
 function normalizarChave(texto: string) {
@@ -1095,6 +1159,19 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                     hospedagemNoites: form.hospedagemNoites?.trim(),
                     hospedagemLink: form.hospedagemLink?.trim(),
                     hospedagemFoto: form.hospedagemFoto,
+                    trasladoTipo: form.trasladoTipo?.trim(),
+                    trasladoData: form.trasladoData,
+                    trasladoHorario: form.trasladoHorario,
+                    trasladoLocalPartida: form.trasladoLocalPartida?.trim(),
+                    trasladoLocalChegada: form.trasladoLocalChegada?.trim(),
+                    trasladoVeiculoEmpresa: form.trasladoVeiculoEmpresa?.trim(),
+                    trasladoObservacoes: form.trasladoObservacoes?.trim(),
+                    ingressoNomeAtracao: form.ingressoNomeAtracao?.trim(),
+                    ingressoData: form.ingressoData,
+                    ingressoHorario: form.ingressoHorario,
+                    ingressoQuantidade: form.ingressoQuantidade?.trim(),
+                    ingressoObservacoes: form.ingressoObservacoes?.trim(),
+                    descricao: (form.descricao?.trim() || gerarResumoPacote(form)),
                     documentos: form.documentos || [],
                     logAnalise: logAnaliseIA.join("\n"),
                   }
@@ -1142,6 +1219,19 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
         hospedagemNoites: form.hospedagemNoites?.trim(),
         hospedagemLink: form.hospedagemLink?.trim(),
         hospedagemFoto: form.hospedagemFoto,
+        trasladoTipo: form.trasladoTipo?.trim(),
+        trasladoData: form.trasladoData,
+        trasladoHorario: form.trasladoHorario,
+        trasladoLocalPartida: form.trasladoLocalPartida?.trim(),
+        trasladoLocalChegada: form.trasladoLocalChegada?.trim(),
+        trasladoVeiculoEmpresa: form.trasladoVeiculoEmpresa?.trim(),
+        trasladoObservacoes: form.trasladoObservacoes?.trim(),
+        ingressoNomeAtracao: form.ingressoNomeAtracao?.trim(),
+        ingressoData: form.ingressoData,
+        ingressoHorario: form.ingressoHorario,
+        ingressoQuantidade: form.ingressoQuantidade?.trim(),
+        ingressoObservacoes: form.ingressoObservacoes?.trim(),
+        descricao: (form.descricao?.trim() || gerarResumoPacote(form)),
         logAnalise: logAnaliseIA.join("\n"),
         documentos: form.documentos,
       },
@@ -1196,6 +1286,19 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       hospedagemNoites: pacote.hospedagemNoites || "",
       hospedagemLink: pacote.hospedagemLink || "",
       hospedagemFoto: pacote.hospedagemFoto || null,
+      trasladoTipo: pacote.trasladoTipo || "",
+      trasladoData: pacote.trasladoData || "",
+      trasladoHorario: pacote.trasladoHorario || "",
+      trasladoLocalPartida: pacote.trasladoLocalPartida || "",
+      trasladoLocalChegada: pacote.trasladoLocalChegada || "",
+      trasladoVeiculoEmpresa: pacote.trasladoVeiculoEmpresa || "",
+      trasladoObservacoes: pacote.trasladoObservacoes || "",
+      ingressoNomeAtracao: pacote.ingressoNomeAtracao || "",
+      ingressoData: pacote.ingressoData || "",
+      ingressoHorario: pacote.ingressoHorario || "",
+      ingressoQuantidade: pacote.ingressoQuantidade || "",
+      ingressoObservacoes: pacote.ingressoObservacoes || "",
+      descricao: pacote.descricao || "",
       logAnalise: pacote.logAnalise || "",
     });
     setValorInput(pacote.valor ? formatarMoeda(Number(pacote.valor) || 0) : "");
@@ -1717,7 +1820,7 @@ Formato JSON esperado:
               className="gap-2 text-gray-600 hover:text-gray-900"
           >
             {vouchersMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-            {vouchersMinimizado ? "Maximizar" : "Minimizar"}
+            {vouchersMinimizado ? " " : " "}
           </Button>
           </div>
           {!vouchersMinimizado && (
@@ -1768,7 +1871,7 @@ Formato JSON esperado:
                                             className="h-6 gap-1 px-2 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900"
                                         >
                                           {relatoriosExpandidos.has(doc.id) ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                                          {relatoriosExpandidos.has(doc.id) ? "Minimizar" : "Maximizar"}
+                                          {relatoriosExpandidos.has(doc.id) ? " " : " "}
                                         </Button>
                                       </div>
                                       {relatoriosExpandidos.has(doc.id) && (
@@ -1837,7 +1940,7 @@ Formato JSON esperado:
                                 className="h-6 gap-1 px-2 text-gray-600 hover:text-gray-900"
                             >
                               {logAnaliseMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-                              {logAnaliseMinimizado ? "Maximizar" : "Minimizar"}
+                              {logAnaliseMinimizado ? " " : " "}
                             </Button>
                           </div>
                       )}
@@ -1861,7 +1964,6 @@ Formato JSON esperado:
                         className="gap-2"
                     >
                       <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
-                      Atualizar
                     </Button>
                     <Button
                         type="button"
@@ -1871,7 +1973,7 @@ Formato JSON esperado:
                         className="gap-2 text-gray-600 hover:text-gray-900"
                     >
                       {formMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                      {formMinimizado ? "Maximizar" : "Minimizar"}
+                      {formMinimizado ? " " : " "}
                     </Button>
                   </div>
                 </div>
@@ -2037,7 +2139,7 @@ Formato JSON esperado:
                                 className="gap-1 text-gray-600 hover:text-gray-900 h-7 px-1.5"
                             >
                               {politicaCancelamentoMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-                              <span className="text-xs">{politicaCancelamentoMinimizado ? "Maximizar" : "Minimizar"}</span>
+                              <span className="text-xs">{politicaCancelamentoMinimizado ? " " : " "}</span>
                             </Button>
                           </div>
                           {!politicaCancelamentoMinimizado && (
@@ -2103,7 +2205,6 @@ Formato JSON esperado:
                         className="gap-2"
                     >
                       <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
-                      Atualizar
                     </Button>
                     <Button
                         type="button"
@@ -2113,7 +2214,7 @@ Formato JSON esperado:
                         className="gap-2 text-gray-600 hover:text-gray-900"
                     >
                       {hospedagemMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                      {hospedagemMinimizado ? "Maximizar" : "Minimizar"}
+                      {hospedagemMinimizado ? " " : " "}
                     </Button>
                   </div>
                 </div>
@@ -2213,7 +2314,7 @@ Formato JSON esperado:
                               className="gap-1 text-gray-600 hover:text-gray-900 h-7 px-1.5"
                           >
                             {comodidadesMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-                            <span className="text-xs">{comodidadesMinimizado ? "Maximizar" : "Minimizar"}</span>
+                            <span className="text-xs">{comodidadesMinimizado ? " " : " "}</span>
                           </Button>
                         </div>
                         {!comodidadesMinimizado && (
@@ -2284,7 +2385,6 @@ Formato JSON esperado:
                         className="gap-2"
                     >
                       <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
-                      Atualizar
                     </Button>
                     <Button
                         type="button"
@@ -2294,7 +2394,7 @@ Formato JSON esperado:
                         className="gap-2 text-gray-600 hover:text-gray-900"
                     >
                       {trasladoMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                      {trasladoMinimizado ? "Maximizar" : "Minimizar"}
+                      {trasladoMinimizado ? " " : " "}
                     </Button>
                   </div>
                 </div>
@@ -2388,7 +2488,6 @@ Formato JSON esperado:
                         className="gap-2"
                     >
                       <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
-                      Atualizar
                     </Button>
                     <Button
                         type="button"
@@ -2398,7 +2497,7 @@ Formato JSON esperado:
                         className="gap-2 text-gray-600 hover:text-gray-900"
                     >
                       {ingressoMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                      {ingressoMinimizado ? "Maximizar" : "Minimizar"}
+                      {ingressoMinimizado ? " " : " "}
                     </Button>
                   </div>
                 </div>
@@ -2456,6 +2555,31 @@ Formato JSON esperado:
                       </div>
                     </div>
                 )}
+
+                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
+                  <h4 className="flex items-center gap-2 font-semibold text-gray-900">
+                    <FileText className="h-4 w-4 text-indigo-500" />
+                    Resumo do Pacote
+                  </h4>
+                  <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setForm((prev) => ({ ...prev, descricao: gerarResumoPacote(prev) }))}
+                      className="gap-2"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                <div className="mt-3">
+                  <Textarea
+                      className="mt-1 min-h-24"
+                      placeholder="Ex: Voo pela Latam de São Paulo para Paris em 15/07/2026. Hospedagem no Hotel Le Marais, de 15/07/2026 a 20/07/2026 (5 noites). Traslado privativo do aeroporto até o hotel. Ingresso para o Museu do Louvre (2)."
+                      value={form.descricao || ""}
+                      onChange={(e) => setForm((prev) => ({ ...prev, descricao: e.target.value }))}
+                  />
+                </div>
 
                 {(!formMinimizado || !hospedagemMinimizado) && (
                     <>
@@ -2536,6 +2660,11 @@ Formato JSON esperado:
                         <p className="text-xs text-gray-500 mt-0.5">
                           Ingresso: {pacote.ingressoNomeAtracao}
                           {pacote.ingressoQuantidade ? ` (${pacote.ingressoQuantidade})` : ""}
+                        </p>
+                    )}
+                    {pacote.descricao && (
+                        <p className="text-xs text-gray-600 mt-2 italic">
+                          "{pacote.descricao}"
                         </p>
                     )}
                   </div>
