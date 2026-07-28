@@ -908,35 +908,19 @@ Formato JSON esperado:
 }`;
 }
 
-function chaveNomeArquivo(nomeArquivo: string) {
-  const semExtensao = nomeArquivo.replace(/\.[^.]+$/, "");
-  return normalizarChave(semExtensao);
-}
-
-function ehDocumentoVoo(nomeArquivo: string) {
-  const chave = chaveNomeArquivo(nomeArquivo);
-  return chave.startsWith("voucherflight") || chave.startsWith("voucheraereo") || chave.includes("voucheraereo");
-}
-
-function ehDocumentoHotel(nomeArquivo: string) {
-  const chave = chaveNomeArquivo(nomeArquivo);
-  return chave.startsWith("voucherhotel") || chave.includes("voucherhotel");
-}
-
 function obterDadosIADocumento(doc: Documento) {
   if (!doc.dadosIA && !doc.analise) return null;
   return doc.dadosIA || extrairDadosIADeAnalise(doc.analise || "");
 }
 
+// Retorna o primeiro documento que possui resultado de IA, independente do nome do arquivo.
 function encontrarDocumentoVoo(documentos: Documento[]) {
-  return documentos.find((doc) => ehDocumentoVoo(doc.nome) && (doc.dadosIA || doc.analise));
+  return documentos.find((doc) => doc.dadosIA || doc.analise);
 }
 
+// Retorna o primeiro documento que possui resultado de IA, independente do nome do arquivo.
 function encontrarDocumentoHotel(documentos: Documento[]) {
-  const documentoEspecifico = documentos.find((doc) => ehDocumentoHotel(doc.nome) && (doc.dadosIA || doc.analise));
-  if (documentoEspecifico) return documentoEspecifico;
-
-  return documentos.find((doc) => ehDocumentoVoo(doc.nome) && (doc.dadosIA || doc.analise));
+  return documentos.find((doc) => doc.dadosIA || doc.analise);
 }
 
 function mapearDetalhesVoo<T extends Pick<
@@ -1081,18 +1065,13 @@ function possuiDadosIngresso(dados?: DadosIAExtraidos | null) {
   );
 }
 
-// O Traslado e o Ingresso podem estar descritos em qualquer documento do pacote
-// (geralmente no próprio "Voucheraereo"), então a busca considera todos os anexos,
-// dando prioridade ao documento de voo quando houver mais de um candidato.
+// Traslado e Ingresso podem estar descritos em qualquer documento do pacote,
+// independente do nome do arquivo. A busca considera todos os anexos com resultado de IA.
 function encontrarDocumentoTraslado(documentos: Documento[]) {
-  const documentoVoo = documentos.find((doc) => ehDocumentoVoo(doc.nome) && possuiDadosTraslado(obterDadosIADocumento(doc)));
-  if (documentoVoo) return documentoVoo;
   return documentos.find((doc) => possuiDadosTraslado(obterDadosIADocumento(doc)));
 }
 
 function encontrarDocumentoIngresso(documentos: Documento[]) {
-  const documentoVoo = documentos.find((doc) => ehDocumentoVoo(doc.nome) && possuiDadosIngresso(obterDadosIADocumento(doc)));
-  if (documentoVoo) return documentoVoo;
   return documentos.find((doc) => possuiDadosIngresso(obterDadosIADocumento(doc)));
 }
 
@@ -1369,18 +1348,16 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       return;
     }
 
-    // Os campos de Detalhes do Voo só devem ser populados com dados extraídos
-    // de um documento cujo nome seja "Voucheraereo" ou comece com "voucher_flight_".
+    // Usa o primeiro documento com resultado de IA para preencher Detalhes do Voo.
     const documentoVoo = encontrarDocumentoVoo(documentos);
     const dadosIAVoo = documentoVoo ? obterDadosIADocumento(documentoVoo) : null;
 
-    // Os campos de Detalhes da Hospedagem só devem ser populados com dados extraídos
-    // de um documento cujo nome seja "VoucherHotel" ou comece com "voucher_hotel_".
+    // Usa o primeiro documento com resultado de IA para preencher Detalhes da Hospedagem.
     const documentoHospedagem = encontrarDocumentoHotel(documentos);
     const dadosIAHospedagem = documentoHospedagem ? obterDadosIADocumento(documentoHospedagem) : null;
 
     if (!dadosIAVoo && !dadosIAHospedagem) {
-      setErro('Nenhum documento "Voucheraereo", "voucher_flight_", "VoucherHotel" ou "voucher_hotel_" com resultado de IA foi encontrado.');
+      setErro('Nenhum documento com resultado de IA foi encontrado. Analise os documentos antes de atualizar.');
       return;
     }
 
@@ -1418,7 +1395,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     const dadosIAVoo = documentoVoo ? obterDadosIADocumento(documentoVoo) : null;
 
     if (!dadosIAVoo || !temDadosExtraidos(dadosIAVoo)) {
-      setErro('Nenhum documento "Voucheraereo" ou "voucher_flight_" com resultado de IA foi encontrado.');
+      setErro('Nenhum documento com resultado de IA foi encontrado. Analise os documentos antes de atualizar.');
       return;
     }
 
@@ -1438,7 +1415,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     const dadosIAHospedagem = documentoHospedagem ? obterDadosIADocumento(documentoHospedagem) : null;
 
     if (!dadosIAHospedagem || !temDadosExtraidos(dadosIAHospedagem)) {
-      setErro('Nenhum documento "VoucherHotel" ou "voucher_hotel_" com resultado de IA foi encontrado.');
+      setErro('Nenhum documento com resultado de IA foi encontrado. Analise os documentos antes de atualizar.');
       return;
     }
 
