@@ -453,8 +453,7 @@ export default function Orcamentos() {
   const [detalhesMinimizados, setDetalhesMinimizados] = useState(true);
   const [secoesOrcamentoMinimizadas, setSecoesOrcamentoMinimizadas] = useState(true);
   const [vendasMinimizadas, setVendasMinimizadas] = useState(true);
-  const [resumoMinimizado, setResumoMinimizado] = useState(false);
-  const [observacoesMinimizadas, setObservacoesMinimizadas] = useState(true);
+  const [resumoMinimizado, setResumoMinimizado] = useState(true);
   const [voosMinimizados, setVoosMinimizados] = useState(true);
   const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
   const [hospedagemMinimizada, setHospedagemMinimizada] = useState(true);
@@ -704,7 +703,7 @@ export default function Orcamentos() {
     setDetalhesMinimizados(true);
     setSecoesOrcamentoMinimizadas(true);
     setVendasMinimizadas(true);
-    setResumoMinimizado(false);
+    setResumoMinimizado(true);
     setPassageiroSelecionado("");
     setStatusBloqueado(false);
     setSection("Pacotes");
@@ -739,7 +738,7 @@ export default function Orcamentos() {
     setDetalhesMinimizados(true);
     setSecoesOrcamentoMinimizadas(true);
     setVendasMinimizadas(true);
-    setResumoMinimizado(false);
+    setResumoMinimizado(true);
     setPassageiroSelecionado("");
     setSection("Pacotes");
     await verificarReceitaLancada(o.id);

@@ -901,6 +901,195 @@ function normalizeTextForComparison(value) {
         .trim();
 }
 
+// ---------------------------------------------------------------------------
+// GROQ AI fallback helpers — geram sugestões quando Google Places falha
+// ---------------------------------------------------------------------------
+
+async function generateAiFallbackOptions(place, tipo) {
+    const prompts = {
+        lodging: `Liste 5 opções de hospedagem (hotéis, pousadas ou resorts) em "${place}". Responda SOMENTE com um array JSON válido, sem texto extra. Formato de cada item: {"nome": "string", "local": "string", "endereco": "string", "classificacao": number (1-5), "totalAvaliacoes": number, "tiposQuarto": ["string"], "amenidades": ["string"], "precoBase": number, "linkOperadora": ""}`,
+        restaurant: `Liste 5 opções de restaurantes em "${place}". Responda SOMENTE com um array JSON válido, sem texto extra. Formato de cada item: {"nome": "string", "local": "string", "endereco": "string", "classificacao": number (1-5), "totalAvaliacoes": number, "telefone": "", "website": "", "priceLevel": "$$"}`,
+        experience: `Liste 5 experiências turísticas ou atrações em "${place}". Responda SOMENTE com um array JSON válido, sem texto extra. Formato de cada item: {"nome": "string", "local": "string", "endereco": "string", "classificacao": number (1-5), "totalAvaliacoes": number, "descricao": "string", "priceLevel": "$$"}`,
+    };
+
+    const provedores = ['groq', 'openai', 'gemini', 'openrouter', 'cloudflare'];
+    let raw = null;
+
+    for (const provedor of provedores) {
+        try {
+            raw = await AIService.generate([{ role: 'user', content: prompts[tipo] }], provedor);
+            if (raw) break;
+        } catch (_) {
+            // tenta o próximo provedor
+        }
+    }
+
+    if (!raw) return null;
+
+    try {
+        const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+        const parsed = JSON.parse(cleaned);
+        return Array.isArray(parsed) ? parsed : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Google Places API — busca hospedagens, restaurantes e experiências
+// ---------------------------------------------------------------------------
+
+async function searchPlacesByType(textQuery, apiKey, includedTypes) {
+    if (!textQuery || !apiKey) return [];
+
+    try {
+        const response = await axios.post(
+            'https://places.googleapis.com/v1/places:searchText',
+            { textQuery, languageCode: 'pt-BR', pageSize: 10 },
+            {
+                timeout: 10000,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Goog-Api-Key': apiKey,
+                    'X-Goog-FieldMask':
+                        'places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.priceLevel,places.internationalPhoneNumber,places.websiteUri,places.regularOpeningHours',
+                },
+            }
+        );
+        return Array.isArray(response?.data?.places) ? response.data.places : [];
+    } catch (error) {
+        logServerError('Erro ao buscar lugares por tipo:', error);
+        return [];
+    }
+}
+
+async function searchLodgingOptions(place) {
+    const apiKey = getGoogleMapsApiKey();
+    const candidates = buildPlaceSearchCandidates(place);
+
+    for (const query of candidates) {
+        const places = await searchPlacesByType(`hotéis pousadas ${query}`, apiKey, ['lodging']);
+        if (places.length > 0) {
+            return places.slice(0, 10).map((p, idx) => ({
+                placeId: idx + 1,
+                nome: String(p?.displayName?.text || query),
+                local: String((p?.formattedAddress || query).split(',')[0] || query),
+                endereco: String(p?.formattedAddress || query),
+                classificacao: Number(p?.rating || 0),
+                totalAvaliacoes: Number(p?.userRatingCount || 0),
+                tiposQuarto: ['Standard', 'Superior', 'Suíte'],
+                amenidades: ['Wi-Fi', 'Recepção 24h'],
+                precoBase: 0,
+                photos: null,
+                linkOperadora: '',
+            }));
+        }
+    }
+
+    // Nenhum resultado no Google Places — tenta GROQ AI
+    const aiOptions = await generateAiFallbackOptions(place, 'lodging');
+    if (aiOptions && aiOptions.length > 0) {
+        return aiOptions.map((item, idx) => ({
+            placeId: idx + 1,
+            nome: String(item?.nome || place),
+            local: String(item?.local || place),
+            endereco: String(item?.endereco || place),
+            classificacao: Number(item?.classificacao || 4.0),
+            totalAvaliacoes: Number(item?.totalAvaliacoes || 0),
+            tiposQuarto: Array.isArray(item?.tiposQuarto) ? item.tiposQuarto : ['Standard'],
+            amenidades: Array.isArray(item?.amenidades) ? item.amenidades : ['Wi-Fi'],
+            precoBase: Number(item?.precoBase || 0),
+            photos: null,
+            linkOperadora: String(item?.linkOperadora || ''),
+            fallback: 'ai-groq',
+        }));
+    }
+
+    throw new Error('Sem resultados para hospedagem.');
+}
+
+async function searchRestaurantOptions(place) {
+    const apiKey = getGoogleMapsApiKey();
+    const candidates = buildPlaceSearchCandidates(place);
+
+    for (const query of candidates) {
+        const places = await searchPlacesByType(`restaurantes ${query}`, apiKey, ['restaurant']);
+        if (places.length > 0) {
+            return places.slice(0, 10).map((p, idx) => ({
+                placeId: idx + 1,
+                nome: String(p?.displayName?.text || query),
+                local: String((p?.formattedAddress || query).split(',')[0] || query),
+                endereco: String(p?.formattedAddress || query),
+                classificacao: Number(p?.rating || 0),
+                totalAvaliacoes: Number(p?.userRatingCount || 0),
+                telefone: String(p?.internationalPhoneNumber || ''),
+                website: String(p?.websiteUri || ''),
+                priceLevel: p?.priceLevel ? String(p.priceLevel).replace('PRICE_LEVEL_', '') : '$$',
+            }));
+        }
+    }
+
+    // Nenhum resultado no Google Places — tenta GROQ AI
+    const aiOptions = await generateAiFallbackOptions(place, 'restaurant');
+    if (aiOptions && aiOptions.length > 0) {
+        return aiOptions.map((item, idx) => ({
+            placeId: idx + 1,
+            nome: String(item?.nome || place),
+            local: String(item?.local || place),
+            endereco: String(item?.endereco || place),
+            classificacao: Number(item?.classificacao || 4.0),
+            totalAvaliacoes: Number(item?.totalAvaliacoes || 0),
+            telefone: String(item?.telefone || ''),
+            website: String(item?.website || ''),
+            priceLevel: String(item?.priceLevel || '$$'),
+            fallback: 'ai-groq',
+        }));
+    }
+
+    throw new Error('Sem resultados para restaurantes.');
+}
+
+async function searchExperienceOptions(place) {
+    const apiKey = getGoogleMapsApiKey();
+    const candidates = buildPlaceSearchCandidates(place);
+
+    for (const query of candidates) {
+        const places = await searchPlacesByType(`atrações turísticas experiências ${query}`, apiKey, ['tourist_attraction', 'point_of_interest']);
+        if (places.length > 0) {
+            return places.slice(0, 10).map((p, idx) => ({
+                placeId: idx + 1,
+                nome: String(p?.displayName?.text || query),
+                local: String((p?.formattedAddress || query).split(',')[0] || query),
+                endereco: String(p?.formattedAddress || query),
+                classificacao: Number(p?.rating || 0),
+                totalAvaliacoes: Number(p?.userRatingCount || 0),
+                descricao: '',
+                priceLevel: p?.priceLevel ? String(p.priceLevel).replace('PRICE_LEVEL_', '') : '$$',
+            }));
+        }
+    }
+
+    // Nenhum resultado no Google Places — tenta GROQ AI (GROQ primeiro)
+    const aiOptions = await generateAiFallbackOptions(place, 'experience');
+    if (aiOptions && aiOptions.length > 0) {
+        return aiOptions.map((item, idx) => ({
+            placeId: idx + 1,
+            nome: String(item?.nome || place),
+            local: String(item?.local || place),
+            endereco: String(item?.endereco || place),
+            classificacao: Number(item?.classificacao || 4.5),
+            totalAvaliacoes: Number(item?.totalAvaliacoes || 0),
+            descricao: String(item?.descricao || ''),
+            priceLevel: String(item?.priceLevel || '$$'),
+            fallback: 'ai-groq',
+        }));
+    }
+
+    throw new Error('Sem resultados para experiências.');
+}
+
+// ---------------------------------------------------------------------------
+
 function buildQuotaFallbackLodgingOptions(place) {
     const normalizedPlace = normalizePlaceQuery(place)
         .replace(/\([^)]*\)/g, ' ')
@@ -1838,7 +2027,12 @@ app.get('/api/place-lodging', async (req, res) => {
 
     try {
         const options = await searchLodgingOptions(place);
-        return res.json({ totalPlaces: options.length, options });
+        const hasFallback = options.some((o) => o.fallback);
+        return res.json({
+            totalPlaces: options.length,
+            options,
+            ...(hasFallback ? { fallback: 'ai-groq' } : {}),
+        });
     } catch (error) {
         const status = Number(error?.response?.status || 0);
         if (status === 429) {
@@ -1854,15 +2048,19 @@ app.get('/api/place-lodging', async (req, res) => {
             });
         }
 
-        const parsed = parseAxiosError(error, 'Erro ao buscar hospedagens na Google Places API.');
-        logPlaceLodging('Error /api/place-lodging', {
+        // Última tentativa: fallback estático
+        const fallbackOptions = buildQuotaFallbackLodgingOptions(place);
+        logPlaceLodging('Error /api/place-lodging, returning static fallback', {
             place,
             status: error?.response?.status,
             code: error?.code,
             message: error?.message,
-            data: error?.response?.data,
         });
-        return res.status(parsed.status).json({ error: parsed.message, options: [] });
+        return res.json({
+            totalPlaces: fallbackOptions.length,
+            options: fallbackOptions,
+            fallback: 'static-fallback',
+        });
     }
 });
 
@@ -1880,7 +2078,12 @@ app.get('/api/place-restaurants', async (req, res) => {
 
     try {
         const options = await searchRestaurantOptions(place);
-        return res.json({ totalPlaces: options.length, options });
+        const hasFallback = options.some((o) => o.fallback);
+        return res.json({
+            totalPlaces: options.length,
+            options,
+            ...(hasFallback ? { fallback: 'ai-groq' } : {}),
+        });
     } catch (error) {
         const status = Number(error?.response?.status || 0);
         if (status === 429) {
@@ -1892,8 +2095,13 @@ app.get('/api/place-restaurants', async (req, res) => {
             });
         }
 
-        const parsed = parseAxiosError(error, 'Erro ao buscar restaurantes na Google Places API.');
-        return res.status(parsed.status).json({ error: parsed.message, options: [] });
+        // Última tentativa: fallback estático
+        const fallbackOptions = buildQuotaFallbackRestaurantOptions(place);
+        return res.json({
+            totalPlaces: fallbackOptions.length,
+            options: fallbackOptions,
+            fallback: 'static-fallback',
+        });
     }
 });
 
@@ -1911,7 +2119,12 @@ app.get('/api/place-experiences', async (req, res) => {
 
     try {
         const options = await searchExperienceOptions(place);
-        return res.json({ totalPlaces: options.length, options });
+        const hasFallback = options.some((o) => o.fallback);
+        return res.json({
+            totalPlaces: options.length,
+            options,
+            ...(hasFallback ? { fallback: 'ai-groq' } : {}),
+        });
     } catch (error) {
         const status = Number(error?.response?.status || 0);
         if (status === 429) {
@@ -1923,8 +2136,13 @@ app.get('/api/place-experiences', async (req, res) => {
             });
         }
 
-        const parsed = parseAxiosError(error, 'Erro ao buscar experiências na Google Places API.');
-        return res.status(parsed.status).json({ error: parsed.message, options: [] });
+        // Última tentativa: fallback estático
+        const fallbackOptions = buildQuotaFallbackExperienceOptions(place);
+        return res.json({
+            totalPlaces: fallbackOptions.length,
+            options: fallbackOptions,
+            fallback: 'static-fallback',
+        });
     }
 });
 

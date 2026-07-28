@@ -1092,6 +1092,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   const [trasladoMinimizado, setTrasladoMinimizado] = useState(true);
   const [ingressoMinimizado, setIngressoMinimizado] = useState(true);
   const [logAnaliseMinimizado, setLogAnaliseMinimizado] = useState(true);
+  const [resumoMinimizado, setResumoMinimizado] = useState(true);
   const [vouchersMinimizado, setVouchersMinimizado] = useState(true);
   const [comodidadesMinimizado, setComodidadesMinimizado] = useState(true);
   const [politicaCancelamentoMinimizado, setPoliticaCancelamentoMinimizado] = useState(true);
@@ -1242,8 +1243,8 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
 
   function editarPacote(pacote: Pacote) {
     setVouchersMinimizado(false);
-    setFormMinimizado(false);
-    setHospedagemMinimizado(false);
+    setFormMinimizado(true);
+    setHospedagemMinimizado(true);
     setPoliticaCancelamentoMinimizado(true); // Manter minimizado ao abrir edição
     setComodidadesMinimizado(true); // Manter minimizado ao abrir edição
     setEditandoId(pacote.id);
@@ -1899,7 +1900,7 @@ Formato JSON esperado:
                       className="gap-2 text-indigo-600 border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
                   >
                     <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
-                    {analisandoIA ? "Analisando..." : "Analisar com IA"}
+                    {analisandoIA ? "Analisando..." : ""}
                   </Button>
                   <select
                       value={provedorIA}
@@ -1927,28 +1928,7 @@ Formato JSON esperado:
                     <option value="cloudflare">Cloudflare</option>
                   </select>
                 </div>
-                {logAnaliseIA.length > 0 && (
-                    <div className={`mt-2 text-xs ${analisandoIA ? "text-gray-500" : "text-gray-600 p-2 border rounded-md bg-gray-50"}`}>
-                      {!analisandoIA && (
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="font-semibold">Log da última análise:</p>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setLogAnaliseMinimizado((prev) => !prev)}
-                                className="h-6 gap-1 px-2 text-gray-600 hover:text-gray-900"
-                            >
-                              {logAnaliseMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-                              {logAnaliseMinimizado ? " " : " "}
-                            </Button>
-                          </div>
-                      )}
-                      {(analisandoIA || !logAnaliseMinimizado) && (
-                          <pre className="whitespace-pre-wrap font-sans space-y-1 mt-1">{logAnaliseIA.join("\n")}</pre>
-                      )}
-                    </div>
-                )}
+
                 <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
                   <h4 className="flex items-center gap-2 font-semibold text-gray-900">
                     <Plus className="h-4 w-4 text-indigo-500" />
@@ -2561,25 +2541,38 @@ Formato JSON esperado:
                     <FileText className="h-4 w-4 text-indigo-500" />
                     Resumo do Pacote
                   </h4>
-                  <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setForm((prev) => ({ ...prev, descricao: gerarResumoPacote(prev) }))}
-                      className="gap-2"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setForm((prev) => ({ ...prev, descricao: gerarResumoPacote(prev) }))}
+                        className="gap-2"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setResumoMinimizado((prev) => !prev)}
+                        className="h-8 px-2 text-gray-600"
+                    >
+                      {resumoMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="mt-3">
-                  <Textarea
-                      className="mt-1 min-h-24"
-                      placeholder="Ex: Voo pela Latam de São Paulo para Paris em 15/07/2026. Hospedagem no Hotel Le Marais, de 15/07/2026 a 20/07/2026 (5 noites). Traslado privativo do aeroporto até o hotel. Ingresso para o Museu do Louvre (2)."
-                      value={form.descricao || ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, descricao: e.target.value }))}
-                  />
-                </div>
+                {!resumoMinimizado && (
+                  <div className="mt-3">
+                    <Textarea
+                        className="mt-1 min-h-24"
+                        placeholder="Ex: Voo pela Latam de São Paulo para Paris em 15/07/2026. Hospedagem no Hotel Le Marais, de 15/07/2026 a 20/07/2026 (5 noites). Traslado privativo do aeroporto até o hotel. Ingresso para o Museu do Louvre (2)."
+                        value={form.descricao || ""}
+                        onChange={(e) => setForm((prev) => ({ ...prev, descricao: e.target.value }))}
+                    />
+                  </div>
+                )}
 
                 {(!formMinimizado || !hospedagemMinimizado) && (
                     <>
