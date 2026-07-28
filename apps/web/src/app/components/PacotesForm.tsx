@@ -956,6 +956,9 @@ function mapearDetalhesVoo<T extends Pick<
     | "destinoVolta"
     | "duracaoVolta"
     | "politicaAlteracoesCancelamentos"
+    | "link"
+    | "foto"
+    | "valor"
 >>(formAtual: T, dadosIAVoo: NonNullable<Documento["dadosIA"]>): T {
   return {
     ...formAtual,
@@ -974,6 +977,9 @@ function mapearDetalhesVoo<T extends Pick<
     destinoVolta: dadosIAVoo.destinoVolta || formAtual.destinoVolta || "",
     duracaoVolta: dadosIAVoo.duracaoVolta || formAtual.duracaoVolta || "",
     politicaAlteracoesCancelamentos: dadosIAVoo.politicaAlteracoesCancelamentos || formAtual.politicaAlteracoesCancelamentos || "",
+    link: dadosIAVoo.link || formAtual.link || "",
+    foto: dadosIAVoo.foto || formAtual.foto || null,
+    valor: dadosIAVoo.valor ? parseMoeda(dadosIAVoo.valor) : (formAtual.valor || 0),
   };
 }
 
@@ -984,10 +990,14 @@ function mapearDetalhesHospedagem<T extends Pick<
     | "hospedagemTelefone"
     | "hospedagemEmail"
     | "hospedagemTipoQuarto"
+    | "hospedagemRegime"
     | "hospedagemComodidades"
+    | "hospedagemPoliticasCondicoesInformacoesEspeciais"
     | "hospedagemCheckin"
     | "hospedagemCheckout"
     | "hospedagemNoites"
+    | "hospedagemLink"
+    | "hospedagemFoto"
 >>(formAtual: T, dadosIAHospedagem: NonNullable<Documento["dadosIA"]>): T {
   return {
     ...formAtual,
@@ -996,10 +1006,14 @@ function mapearDetalhesHospedagem<T extends Pick<
     hospedagemTelefone: dadosIAHospedagem.telefoneHotel || formAtual.hospedagemTelefone || "",
     hospedagemEmail: dadosIAHospedagem.emailHotel || formAtual.hospedagemEmail || "",
     hospedagemTipoQuarto: dadosIAHospedagem.quarto || formAtual.hospedagemTipoQuarto || "",
+    hospedagemRegime: dadosIAHospedagem.regimeHotel || formAtual.hospedagemRegime || "",
     hospedagemComodidades: dadosIAHospedagem.comodidades || formAtual.hospedagemComodidades || "",
+    hospedagemPoliticasCondicoesInformacoesEspeciais: dadosIAHospedagem.politicasCondicoesInformacoesEspeciais || formAtual.hospedagemPoliticasCondicoesInformacoesEspeciais || "",
     hospedagemCheckin: dadosIAHospedagem.checkinHotel || formAtual.hospedagemCheckin || "",
     hospedagemCheckout: dadosIAHospedagem.checkoutHotel || formAtual.hospedagemCheckout || "",
     hospedagemNoites: dadosIAHospedagem.noitesHotel || formAtual.hospedagemNoites || "",
+    hospedagemLink: dadosIAHospedagem.linkHotel || formAtual.hospedagemLink || "",
+    hospedagemFoto: dadosIAHospedagem.fotoHotel || formAtual.hospedagemFoto || null,
   };
 }
 
@@ -1409,7 +1423,14 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     }
 
     setErro("");
-    setForm((f) => mapearDetalhesVoo(f, dadosIAVoo));
+    setForm((f) => {
+      const novo = mapearDetalhesVoo(f, dadosIAVoo);
+      if (novo.valor > 0) {
+        setValorInput(formatarMoeda(novo.valor));
+      }
+      return novo;
+    });
+    setFormMinimizado(false);
   }
 
   function atualizarDetalhesHospedagem() {
@@ -1423,6 +1444,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
 
     setErro("");
     setForm((f) => mapearDetalhesHospedagem(f, dadosIAHospedagem));
+    setHospedagemMinimizado(false);
   }
 
   function atualizarDetalhesTraslado() {
@@ -1608,67 +1630,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
               }
             }
 
-            const prompt = `Você é um assistente especialista em turismo. Analise o contexto de um arquivo de um pacote de viagem e extraia as informações solicitadas para o formato JSON.
-
-Contexto do arquivo para análise:
-${contextoArquivo}
-
-Instruções:
-1.  Extraia as seguintes informações do nome do arquivo e, se disponível, do conteúdo do PDF.
-2.  Se uma informação não for encontrada, retorne uma string vazia "" para o campo correspondente.
-3.  Para datas, use o formato AAAA-MM-DD.
-4.  O campo "ciaAerea" deve conter o nome da companhia aérea (ex: LATAM Airlines Group, GOL, Azul). Não confunda com operadora de turismo.
-5.  Identifique origem, destino e duração separadamente para o trecho de IDA e para o trecho de VOLTA (procure seções "Ida", "Volta", "Outbound", "Return" ou equivalentes no PDF).
-6.  A duração do voo deve estar no formato legível (ex: "2h 30min", "11h 45min", "1h 05min").
-7.  Localize a seção "Política de alterações e cancelamentos" no PDF e copie todo o texto dessa seção integralmente para o campo "politicaAlteracoesCancelamentos", sem resumir.
-8.  O campo "nomeHotel" deve conter o nome do estabelecimento de hospedagem (hotel, resort, pousada), exatamente como aparece no documento.
-9.  Identifique informações de TRASLADO (transfer), quando houver no documento: tipo (ex: "Aeroporto-Hotel", "Hotel-Aeroporto", "Hotel-Passeio"), data, horário, local de partida, local de chegada, veículo/empresa responsável e observações relevantes (ex: regular, privativo, ponto de encontro).
-10. Identifique informações de INGRESSO (tickets/atrações/passeios), quando houver no documento: nome da atração/local, data, horário, quantidade de ingressos e observações relevantes (ex: categoria do ingresso, se inclui guia).
-11. Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
-${!temConteudoPdf ? "\n12. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise **exclusivamente no nome do arquivo**." : ""}
-Formato JSON esperado:
-{
-  "ciaAerea": "string",
-  "reserva": "string",
-  "destino": "string",
-  "passageiros": "string",
-  "dataIda": "string",
-  "horaSaidaIda": "string",
-  "horaChegadaIda": "string",
-  "origemIda": "string",
-  "destinoIda": "string",
-  "duracaoIda": "string",
-  "dataVolta": "string",
-  "horaSaidaVolta": "string",
-  "horaChegadaVolta": "string",
-  "origemVolta": "string",
-  "destinoVolta": "string",
-  "duracaoVolta": "string",
-  "nomeHotel": "string",
-  "enderecoHotel": "string",
-  "telefoneHotel": "string",
-  "emailHotel": "string",
-  "quarto": "string",
-  "comodidades": "string",
-  "checkinHotel": "string",
-  "checkoutHotel": "string",
-  "noitesHotel": "string",
-  "linkHotel": "string",
-  "politicasCondicoesInformacoesEspeciais": "string",
-  "politicaAlteracoesCancelamentos": "string",
-  "trasladoTipo": "string",
-  "trasladoData": "string",
-  "trasladoHorario": "string",
-  "trasladoLocalPartida": "string",
-  "trasladoLocalChegada": "string",
-  "trasladoVeiculoEmpresa": "string",
-  "trasladoObservacoes": "string",
-  "ingressoNomeAtracao": "string",
-  "ingressoData": "string",
-  "ingressoHorario": "string",
-  "ingressoQuantidade": "string",
-  "ingressoObservacoes": "string"
-}`;
+            const prompt = criarPromptAnaliseCompleta(contextoArquivo, temConteudoPdf);
 
             const tentarComProvedor = async (provedor?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
               return enviarMensagemIA([{ role: "user", content: prompt }], provedor);
@@ -1787,6 +1749,10 @@ Formato JSON esperado:
         }
         if (dadosIAIngresso && possuiDadosIngresso(dadosIAIngresso)) {
           proximo = mapearDetalhesIngresso(proximo, dadosIAIngresso);
+        }
+        // Sincroniza o campo de texto do valor com o valor numérico extraído pela IA
+        if (proximo.valor > 0) {
+          setValorInput(formatarMoeda(proximo.valor));
         }
         return proximo;
       });

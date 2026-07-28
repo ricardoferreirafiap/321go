@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Plane, Bed, ShieldCheck, ShoppingCart, User, Mail, Share2, DollarSign, CalendarDays, Car, Utensils, Sparkles, Info, Users } from "lucide-react";
+import { Plane, Bed, ShieldCheck, ShoppingCart, User, Mail, Share2, DollarSign, CalendarDays, Car, Utensils, Sparkles, Info, Users, Package2, MapPin, Clock, Hash, Link2, Building2, Phone, Tag, Ticket } from "lucide-react";
 import { Button } from "./ui/button";
 import { buscarOrcamentoPublico } from "../data/orcamentosApi";
 // Tipos replicados de Orcamentos.tsx para consistência
@@ -77,12 +77,53 @@ interface Day {
 interface Pacote {
   id: number;
   operador: string;
+  ciaAerea?: string;
   origem?: string;
   destino?: string;
-  link: string;
-  descricao: string;
+  reserva?: string;
+  link?: string;
+  descricao?: string;
   foto: string | null;
   valor?: number;
+  dataIda?: string;
+  dataVolta?: string;
+  passageiros?: string;
+  origemIda?: string;
+  destinoIda?: string;
+  duracaoIda?: string;
+  horaSaidaIda?: string;
+  horaChegadaIda?: string;
+  origemVolta?: string;
+  destinoVolta?: string;
+  duracaoVolta?: string;
+  horaSaidaVolta?: string;
+  horaChegadaVolta?: string;
+  politicaAlteracoesCancelamentos?: string;
+  hospedagemNome?: string;
+  hospedagemEndereco?: string;
+  hospedagemTelefone?: string;
+  hospedagemEmail?: string;
+  hospedagemCheckin?: string;
+  hospedagemCheckout?: string;
+  hospedagemTipoQuarto?: string;
+  hospedagemRegime?: string;
+  hospedagemComodidades?: string;
+  hospedagemPoliticasCondicoesInformacoesEspeciais?: string;
+  hospedagemNoites?: string;
+  hospedagemLink?: string;
+  hospedagemFoto?: string | null;
+  trasladoTipo?: string;
+  trasladoData?: string;
+  trasladoHorario?: string;
+  trasladoLocalPartida?: string;
+  trasladoLocalChegada?: string;
+  trasladoVeiculoEmpresa?: string;
+  trasladoObservacoes?: string;
+  ingressoNomeAtracao?: string;
+  ingressoData?: string;
+  ingressoHorario?: string;
+  ingressoQuantidade?: string;
+  ingressoObservacoes?: string;
 }
 
 interface OrcamentoCompleto {
@@ -112,6 +153,11 @@ function calcItem(item: ItemOrc) {
   const bruto = item.quantidade * item.valorUnitario;
   const desc = bruto * (item.desconto / 100);
   return bruto - desc;
+}
+
+function fmtData(iso?: string) {
+  if (!iso) return "";
+  try { return new Date(iso + "T00:00:00").toLocaleDateString("pt-BR"); } catch { return iso; }
 }
 
 export default function ResumoOrcamento() {
@@ -278,6 +324,220 @@ export default function ResumoOrcamento() {
         )}
 
         <div className="space-y-6">
+          {/* Pacotes / Vouchers */}
+          {orcamento.pacotes && orcamento.pacotes.length > 0 && (
+            <div className="space-y-4">
+              {orcamento.pacotes.map((p, idx) => (
+                <Card key={p.id ?? idx} className="overflow-hidden">
+                  {/* Foto do pacote */}
+                  {p.hospedagemFoto && (
+                    <img src={p.hospedagemFoto} alt={p.hospedagemNome || "Hospedagem"} className="h-48 w-full object-cover" />
+                  )}
+                  {!p.hospedagemFoto && p.foto && (
+                    <img src={p.foto} alt="Pacote" className="h-48 w-full object-cover" />
+                  )}
+
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Package2 className="w-5 h-5 text-indigo-500" />
+                      <span>{p.operador || "Pacote"}</span>
+                      {p.reserva && (
+                        <span className="ml-auto text-xs font-normal bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full px-2 py-0.5 flex items-center gap-1">
+                          <Hash className="w-3 h-3" /> Reserva: {p.reserva}
+                        </span>
+                      )}
+                    </CardTitle>
+                    {(p.origem || p.destino) && (
+                      <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
+                        <MapPin className="w-3.5 h-3.5" />
+                        {p.origem && <span>{p.origem}</span>}
+                        {p.origem && p.destino && <span className="mx-1">→</span>}
+                        {p.destino && <span>{p.destino}</span>}
+                      </p>
+                    )}
+                  </CardHeader>
+
+                  <CardContent className="space-y-4 pt-0">
+                    {/* Valor */}
+                    {p.valor != null && Number(p.valor) > 0 && (
+                      <div className="flex items-center gap-2 text-sm font-semibold text-indigo-700">
+                        <DollarSign className="w-4 h-4" />
+                        {moeda(Number(p.valor))}
+                      </div>
+                    )}
+
+                    {/* Passageiros */}
+                    {p.passageiros?.trim() && (
+                      <div className="flex items-start gap-2 text-sm text-gray-700">
+                        <Users className="w-4 h-4 mt-0.5 shrink-0 text-gray-400" />
+                        <span>{p.passageiros}</span>
+                      </div>
+                    )}
+
+                    {/* Voo de Ida */}
+                    {(p.origemIda || p.destinoIda || p.dataIda || p.ciaAerea) && (
+                      <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 space-y-1">
+                        <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide flex items-center gap-1">
+                          <Plane className="w-3.5 h-3.5" /> Voo de Ida
+                        </p>
+                        {p.ciaAerea && <p className="text-sm text-gray-700">{p.ciaAerea}</p>}
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
+                          {(p.origemIda || p.destinoIda) && (
+                            <span>{p.origemIda || "?"} → {p.destinoIda || "?"}</span>
+                          )}
+                          {p.dataIda && <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" />{fmtData(p.dataIda)}</span>}
+                        </div>
+                        {(p.horaSaidaIda || p.horaChegadaIda || p.duracaoIda) && (
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                            {p.horaSaidaIda && <span>Partida: <strong>{p.horaSaidaIda}</strong></span>}
+                            {p.horaChegadaIda && <span>Chegada: <strong>{p.horaChegadaIda}</strong></span>}
+                            {p.duracaoIda && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{p.duracaoIda}</span>}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Voo de Volta */}
+                    {(p.origemVolta || p.destinoVolta || p.dataVolta) && (
+                      <div className="rounded-lg border border-sky-100 bg-sky-50 p-3 space-y-1">
+                        <p className="text-xs font-semibold text-sky-700 uppercase tracking-wide flex items-center gap-1">
+                          <Plane className="w-3.5 h-3.5 rotate-180" /> Voo de Volta
+                        </p>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
+                          {(p.origemVolta || p.destinoVolta) && (
+                            <span>{p.origemVolta || "?"} → {p.destinoVolta || "?"}</span>
+                          )}
+                          {p.dataVolta && <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" />{fmtData(p.dataVolta)}</span>}
+                        </div>
+                        {(p.horaSaidaVolta || p.horaChegadaVolta || p.duracaoVolta) && (
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                            {p.horaSaidaVolta && <span>Partida: <strong>{p.horaSaidaVolta}</strong></span>}
+                            {p.horaChegadaVolta && <span>Chegada: <strong>{p.horaChegadaVolta}</strong></span>}
+                            {p.duracaoVolta && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{p.duracaoVolta}</span>}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Hospedagem do Pacote */}
+                    {p.hospedagemNome?.trim() && (
+                      <div className="rounded-lg border border-purple-100 bg-purple-50 p-3 space-y-1">
+                        <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide flex items-center gap-1">
+                          <Bed className="w-3.5 h-3.5" /> Hospedagem
+                        </p>
+                        <p className="text-sm font-medium text-gray-800">{p.hospedagemNome}</p>
+                        {p.hospedagemEndereco?.trim() && (
+                          <p className="text-xs text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3" />{p.hospedagemEndereco}</p>
+                        )}
+                        {(p.hospedagemTelefone?.trim() || p.hospedagemEmail?.trim()) && (
+                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                            {p.hospedagemTelefone?.trim() && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{p.hospedagemTelefone}</span>}
+                            {p.hospedagemEmail?.trim() && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{p.hospedagemEmail}</span>}
+                          </div>
+                        )}
+                        {(p.hospedagemCheckin || p.hospedagemCheckout) && (
+                          <p className="text-xs text-gray-600">
+                            Check-in: <strong>{fmtData(p.hospedagemCheckin)}</strong>
+                            {p.hospedagemCheckout && <> → Check-out: <strong>{fmtData(p.hospedagemCheckout)}</strong></>}
+                            {p.hospedagemNoites?.trim() && <span className="ml-1 text-gray-400">({p.hospedagemNoites} noites)</span>}
+                          </p>
+                        )}
+                        {(p.hospedagemTipoQuarto?.trim() || p.hospedagemRegime?.trim()) && (
+                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-600">
+                            {p.hospedagemTipoQuarto?.trim() && <span className="flex items-center gap-1"><Building2 className="w-3 h-3" /> Quarto: {p.hospedagemTipoQuarto}</span>}
+                            {p.hospedagemRegime?.trim() && <span className="flex items-center gap-1"><Tag className="w-3 h-3" /> Regime: {p.hospedagemRegime}</span>}
+                          </div>
+                        )}
+                        {p.hospedagemComodidades?.trim() && (
+                          <p className="text-xs text-gray-500 mt-1">{p.hospedagemComodidades}</p>
+                        )}
+                        {p.hospedagemLink?.trim() && (
+                          <a href={p.hospedagemLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline mt-1">
+                            <Link2 className="w-3 h-3" /> Ver hospedagem
+                          </a>
+                        )}
+                        {p.hospedagemPoliticasCondicoesInformacoesEspeciais?.trim() && (
+                          <details className="mt-2">
+                            <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Políticas e condições</summary>
+                            <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap">{p.hospedagemPoliticasCondicoesInformacoesEspeciais}</p>
+                          </details>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Traslado */}
+                    {(p.trasladoTipo?.trim() || p.trasladoLocalPartida?.trim() || p.trasladoLocalChegada?.trim()) && (
+                      <div className="rounded-lg border border-yellow-100 bg-yellow-50 p-3 space-y-1">
+                        <p className="text-xs font-semibold text-yellow-700 uppercase tracking-wide flex items-center gap-1">
+                          <Car className="w-3.5 h-3.5" /> Traslado
+                        </p>
+                        {p.trasladoTipo?.trim() && <p className="text-sm text-gray-700">{p.trasladoTipo}</p>}
+                        {(p.trasladoLocalPartida?.trim() || p.trasladoLocalChegada?.trim()) && (
+                          <p className="text-sm text-gray-600">{p.trasladoLocalPartida || "?"} → {p.trasladoLocalChegada || "?"}</p>
+                        )}
+                        {(p.trasladoData?.trim() || p.trasladoHorario?.trim()) && (
+                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                            {p.trasladoData?.trim() && <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" />{fmtData(p.trasladoData)}</span>}
+                            {p.trasladoHorario?.trim() && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{p.trasladoHorario}</span>}
+                          </div>
+                        )}
+                        {p.trasladoVeiculoEmpresa?.trim() && (
+                          <p className="text-xs text-gray-500">{p.trasladoVeiculoEmpresa}</p>
+                        )}
+                        {p.trasladoObservacoes?.trim() && (
+                          <p className="text-xs text-gray-500 italic">{p.trasladoObservacoes}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Ingresso */}
+                    {p.ingressoNomeAtracao?.trim() && (
+                      <div className="rounded-lg border border-pink-100 bg-pink-50 p-3 space-y-1">
+                        <p className="text-xs font-semibold text-pink-700 uppercase tracking-wide flex items-center gap-1">
+                          <Ticket className="w-3.5 h-3.5" /> Ingresso
+                        </p>
+                        <p className="text-sm font-medium text-gray-800">{p.ingressoNomeAtracao}</p>
+                        {(p.ingressoData?.trim() || p.ingressoHorario?.trim()) && (
+                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                            {p.ingressoData?.trim() && <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" />{fmtData(p.ingressoData)}</span>}
+                            {p.ingressoHorario?.trim() && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{p.ingressoHorario}</span>}
+                          </div>
+                        )}
+                        {p.ingressoQuantidade?.trim() && (
+                          <p className="text-xs text-gray-500">Quantidade: {p.ingressoQuantidade}</p>
+                        )}
+                        {p.ingressoObservacoes?.trim() && (
+                          <p className="text-xs text-gray-500 italic">{p.ingressoObservacoes}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Descrição livre */}
+                    {p.descricao?.trim() && (
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap border-t pt-3 mt-1">{p.descricao}</p>
+                    )}
+
+                    {/* Políticas gerais de alteração/cancelamento */}
+                    {p.politicaAlteracoesCancelamentos?.trim() && (
+                      <details className="mt-1">
+                        <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600 flex items-center gap-1">
+                          <Info className="w-3 h-3" /> Políticas de alteração e cancelamento
+                        </summary>
+                        <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap">{p.politicaAlteracoesCancelamentos}</p>
+                      </details>
+                    )}
+
+                    {/* Link do pacote */}
+                    {p.link?.trim() && (
+                      <a href={p.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline">
+                        <Link2 className="w-3 h-3" /> Ver pacote completo
+                      </a>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
           {/* Voos */}
           {orcamento.voos && orcamento.voos.length > 0 && (
           <Card>
