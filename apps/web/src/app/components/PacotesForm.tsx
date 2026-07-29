@@ -67,6 +67,7 @@ type DadosIAExtraidos = {
   checkinHotel?: string;
   checkoutHotel?: string;
   noitesHotel?: string;
+  valorHotel?: string;
   linkHotel?: string;
   fotoHotel?: string;
   politicasCondicoesInformacoesEspeciais?: string;
@@ -124,6 +125,7 @@ interface Pacote {
   hospedagemComodidades?: string;
   hospedagemPoliticasCondicoesInformacoesEspeciais?: string;
   hospedagemNoites?: string;
+  hospedagemValor?: string;
   hospedagemLink?: string;
   hospedagemFoto?: string | null;
   trasladoTipo?: string;
@@ -198,6 +200,7 @@ const pacoteVazio: Omit<Pacote, "id"> = {
   hospedagemComodidades: "",
   hospedagemPoliticasCondicoesInformacoesEspeciais: "",
   hospedagemNoites: "",
+  hospedagemValor: "",
   hospedagemLink: "",
   hospedagemFoto: null,
   trasladoTipo: "",
@@ -782,6 +785,7 @@ function montarDadosIAFromJson(
     checkinHotel: respostaJson.checkinHotel || "",
     checkoutHotel: respostaJson.checkoutHotel || "",
     noitesHotel: respostaJson.noitesHotel || "",
+    valorHotel: respostaJson.valorHotel || "",
     linkHotel: respostaJson.linkHotel || "",
     fotoHotel: respostaJson.fotoHotel || "",
     politicasCondicoesInformacoesEspeciais: respostaJson.politicasCondicoesInformacoesEspeciais || "",
@@ -1050,16 +1054,17 @@ Instruções:
 6. A duração do voo deve estar no formato legível (ex: "2h 30min", "11h 45min", "1h 05min").
 7. Horários devem estar no formato HH:MM (ex: "08:35", "23:10").
 8. O campo "valor" deve conter o valor total do pacote/reserva como aparece no documento (ex: "R$ 5.432,10").
-9. Os campos "link" e "foto" devem conter URLs completas quando existirem no documento.
-10. O campo "nomeHotel" deve conter o nome do estabelecimento de hospedagem.
-11. O campo "regimeHotel" deve conter o regime de pensão (ex: "Café da manhã", "Meia pensão", "All inclusive").
-12. O campo "noitesHotel" deve conter apenas o número de noites (ex: "7").
-13. Localize a seção "Política de alterações e cancelamentos" e copie todo o texto integralmente para "politicaAlteracoesCancelamentos", sem resumir.
-14. Localize seções de "Políticas", "Condições" ou "Informações Especiais" da hospedagem e copie integralmente para "politicasCondicoesInformacoesEspeciais".
-15. Identifique informações de TRASLADO (transfer), quando houver: tipo (ex: "Aeroporto-Hotel", "Hotel-Aeroporto", "Hotel-Passeio"), data, horário, local de partida, local de chegada, veículo/empresa responsável e observações relevantes (ex: regular, privativo, ponto de encontro).
-16. Identifique informações de INGRESSO (tickets/atrações), quando houver: nome da atração/local, data, horário, quantidade de ingressos e observações relevantes (ex: categoria do ingresso, se inclui guia).
-17. Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
-${!temConteudoArquivo ? "\n18. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise no nome do arquivo e na imagem anexada (se houver)." : ""}
+9. O campo "valorHotel" deve conter o valor específico da hospedagem quando disponível (ex: "R$ 1.200,00").
+10. Os campos "link" e "foto" devem conter URLs completas quando existirem no documento.
+11. O campo "nomeHotel" deve conter o nome do estabelecimento de hospedagem.
+12. O campo "regimeHotel" deve conter o regime de pensão (ex: "Café da manhã", "Meia pensão", "All inclusive").
+13. O campo "noitesHotel" deve conter apenas o número de noites (ex: "7").
+14. Localize a seção "Política de alterações e cancelamentos" e copie todo o texto integralmente para "politicaAlteracoesCancelamentos", sem resumir.
+15. Localize seções de "Políticas", "Condições" ou "Informações Especiais" da hospedagem e copie integralmente para "politicasCondicoesInformacoesEspeciais".
+16. Identifique informações de TRASLADO (transfer), quando houver: tipo (ex: "Aeroporto-Hotel", "Hotel-Aeroporto", "Hotel-Passeio"), data, horário, local de partida, local de chegada, veículo/empresa responsável e observações relevantes (ex: regular, privativo, ponto de encontro).
+17. Identifique informações de INGRESSO (tickets/atrações), quando houver: nome da atração/local, data, horário, quantidade de ingressos e observações relevantes (ex: categoria do ingresso, se inclui guia).
+18. Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
+${!temConteudoArquivo ? "\n19. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise no nome do arquivo e na imagem anexada (se houver)." : ""}
 Formato JSON esperado:
 {
   "ciaAerea": "string",
@@ -1091,6 +1096,7 @@ Formato JSON esperado:
   "regimeHotel": "string",
   "comodidades": "string",
   "noitesHotel": "string",
+  "valorHotel": "string",
   "linkHotel": "string",
   "fotoHotel": "string",
   "politicasCondicoesInformacoesEspeciais": "string",
@@ -1201,6 +1207,7 @@ function mapearDetalhesHospedagem<T extends Pick<
     | "hospedagemCheckin"
     | "hospedagemCheckout"
     | "hospedagemNoites"
+    | "hospedagemValor"
     | "hospedagemLink"
     | "hospedagemFoto"
 >>(formAtual: T, dadosIAHospedagem: NonNullable<Documento["dadosIA"]>): T {
@@ -1217,6 +1224,7 @@ function mapearDetalhesHospedagem<T extends Pick<
     hospedagemCheckin: dadosIAHospedagem.checkinHotel || formAtual.hospedagemCheckin || "",
     hospedagemCheckout: dadosIAHospedagem.checkoutHotel || formAtual.hospedagemCheckout || "",
     hospedagemNoites: dadosIAHospedagem.noitesHotel || formAtual.hospedagemNoites || "",
+    hospedagemValor: dadosIAHospedagem.valorHotel || formAtual.hospedagemValor || "",
     hospedagemLink: dadosIAHospedagem.linkHotel || formAtual.hospedagemLink || "",
     hospedagemFoto: dadosIAHospedagem.fotoHotel || formAtual.hospedagemFoto || null,
   };
@@ -2212,16 +2220,54 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       const documentoIngresso = encontrarDocumentoIngresso(novasAnalises);
       const dadosIAIngresso = documentoIngresso ? obterDadosIADocumento(documentoIngresso) : null;
 
-      // Apenas atualizar a lista de documentos sem preencher campos automaticamente
-      // Preservar documentos do tipo URL que foram adicionados durante a análise de URLs
+      // Extrair dados de documentos do tipo URL se existirem
+      const documentoUrl = novasAnalises.find(doc => doc.tipo === "text/url" && doc.analise);
+      const dadosRelatorioUrl = documentoUrl ? extrairDadosIADeAnalise(documentoUrl.analise || "") : null;
+
+      // Mesclar dados: prioridade para relatório da URL, complementa com documentos
+      const dadosCompletosVoo = mesclarDadosIA(dadosRelatorioUrl, dadosIAVoo);
+      const dadosCompletosHospedagem = mesclarDadosIA(dadosRelatorioUrl, dadosIAHospedagem);
+      const dadosCompletosTraslado = mesclarDadosIA(dadosRelatorioUrl, dadosIATraslado);
+      const dadosCompletosIngresso = mesclarDadosIA(dadosRelatorioUrl, dadosIAIngresso);
+
+      // Preencher campos automaticamente após a análise
       setForm((f) => {
+        let novoForm = { ...f };
+
+        // Preencher Detalhes do Voo
+        if (dadosCompletosVoo && temDadosExtraidos(dadosCompletosVoo)) {
+          novoForm = mapearDetalhesVoo(novoForm, dadosCompletosVoo);
+          if (novoForm.valor > 0) {
+            setValorInput(formatarMoeda(novoForm.valor));
+          }
+        }
+
+        // Preencher Detalhes da Hospedagem
+        if (dadosCompletosHospedagem && temDadosExtraidos(dadosCompletosHospedagem)) {
+          novoForm = mapearDetalhesHospedagem(novoForm, dadosCompletosHospedagem);
+        }
+
+        // Preencher Detalhes do Traslado
+        if (dadosCompletosTraslado && possuiDadosTraslado(dadosCompletosTraslado)) {
+          novoForm = mapearDetalhesTraslado(novoForm, dadosCompletosTraslado);
+        }
+
+        // Preencher Detalhes do Ingresso
+        if (dadosCompletosIngresso && possuiDadosIngresso(dadosCompletosIngresso)) {
+          novoForm = mapearDetalhesIngresso(novoForm, dadosCompletosIngresso);
+        }
+
+        // Preservar documentos do tipo URL que foram adicionados durante a análise de URLs
         const documentosUrl = (f.documentos || []).filter(doc => doc.tipo === "text/url");
         const documentosNaoUrl = novasAnalises.filter(doc => doc.tipo !== "text/url");
+
         return {
-          ...f,
+          ...novoForm,
           documentos: [...documentosUrl, ...documentosNaoUrl],
         };
       });
+
+      adicionarLog("Campos preenchidos automaticamente com os dados extraídos.");
     } catch (error) {
       const mensagemErro = "Falha em ambos os provedores de IA. Verifique os logs e tente novamente.";
       adicionarLog(mensagemErro);
@@ -2274,6 +2320,25 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       onChange={handleFileUpload}
                       className="hidden"
                   />
+                  {(form.documentos || []).length > 0 && (
+                      <div className="space-y-1.5 pr-2">
+                        {(form.documentos || []).map((doc) => (
+                            <div key={doc.id} className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <a href={doc.arquivo} download={doc.nome} className="truncate text-indigo-600 hover:text-indigo-700 flex items-center gap-2">
+                                    <FileText className="h-4 w-4 flex-shrink-0" />
+                                    <span className="truncate">{doc.nome}</span>
+                                  </a>
+                                  <button type="button" onClick={() => removerDocumento(doc.id)} className="ml-2 rounded p-1 text-red-500 hover:bg-red-50" title="Remover documento">
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                        ))}
+                      </div>
+                  )}
                   <div className="mt-4">
                     <Label htmlFor="url-operador" className="text-xs text-gray-500">URL do Operador</Label>
                     <div className="relative mt-1 flex gap-2">
@@ -2283,7 +2348,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                           value={novaUrlOperador}
                           onChange={(e) => setNovaUrlOperador(e.target.value)}
                           placeholder="Cole a URL do operador aqui..."
-                          className="pl-8"
+                          className={`pl-8 ${!novaUrlOperador ? 'bg-yellow-50' : 'bg-white'}`}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
@@ -2319,25 +2384,6 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         </div>
                     )}
                   </div>
-                  {(form.documentos || []).length > 0 && (
-                      <div className="space-y-1.5 pr-2">
-                        {(form.documentos || []).map((doc) => (
-                            <div key={doc.id} className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between">
-                                  <a href={doc.arquivo} download={doc.nome} className="truncate text-indigo-600 hover:text-indigo-700 flex items-center gap-2">
-                                    <FileText className="h-4 w-4 flex-shrink-0" />
-                                    <span className="truncate">{doc.nome}</span>
-                                  </a>
-                                  <button type="button" onClick={() => removerDocumento(doc.id)} className="ml-2 rounded p-1 text-red-500 hover:bg-red-50" title="Remover documento">
-                                    <X className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                        ))}
-                      </div>
-                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -2511,7 +2557,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         <div className="sm:col-span-2">
                           <Label className="text-xs">Operador *</Label>
                           <Input
-                              className="mt-1"
+                              className={`mt-1 ${!form.operador ? 'bg-yellow-50' : 'bg-white'}`}
                               placeholder="Selecione da lista ou digite"
                               value={form.operador}
                               onChange={(e) => setForm((prev) => ({ ...prev, operador: e.target.value }))}
@@ -2527,7 +2573,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         <div className="sm:col-span-2">
                           <Label className="text-xs">CIA Aérea</Label>
                           <Input
-                              className="mt-1"
+                              className={`mt-1 ${!form.ciaAerea ? 'bg-yellow-50' : 'bg-white'}`}
                               placeholder="Ex: LATAM Airlines Group"
                               value={form.ciaAerea || ""}
                               onChange={(e) => setForm((prev) => ({ ...prev, ciaAerea: e.target.value }))}
@@ -2537,7 +2583,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         <div className="sm:col-span-2">
                           <Label className="text-xs">Nº de Reserva</Label>
                           <Input
-                              className="mt-1"
+                              className={`mt-1 ${!form.reserva ? 'bg-yellow-50' : 'bg-white'}`}
                               placeholder="Ex: ABC123"
                               value={form.reserva || ""}
                               onChange={(e) => setForm((prev) => ({ ...prev, reserva: e.target.value }))}
@@ -2550,7 +2596,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                             <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                             <Input
                                 placeholder="https://..."
-                                className="pl-8"
+                                className={`pl-8 ${!form.link ? 'bg-yellow-50' : 'bg-white'}`}
                                 value={form.link}
                                 onChange={(e) => setForm((prev) => ({ ...prev, link: e.target.value }))}
                             />
@@ -2563,7 +2609,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                             <div>
                               <Label className="text-xs">Origem (Ida)</Label>
                               <Input
-                                  className="mt-1"
+                                  className={`mt-1 ${!form.origemIda ? 'bg-yellow-50' : 'bg-white'}`}
                                   placeholder="Ex: São Paulo (GRU)"
                                   value={form.origemIda || ""}
                                   onChange={(e) => setForm((prev) => ({ ...prev, origemIda: e.target.value, origem: e.target.value }))}
@@ -2572,7 +2618,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                             <div>
                               <Label className="text-xs">Destino (Ida)</Label>
                               <Input
-                                  className="mt-1"
+                                  className={`mt-1 ${!form.destinoIda ? 'bg-yellow-50' : 'bg-white'}`}
                                   placeholder="Ex: Lisboa (LIS)"
                                   value={form.destinoIda || ""}
                                   onChange={(e) => setForm((prev) => ({ ...prev, destinoIda: e.target.value, destino: e.target.value }))}
@@ -2581,7 +2627,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                             <div>
                               <Label className="text-xs">Duração (Ida)</Label>
                               <Input
-                                  className="mt-1"
+                                  className={`mt-1 ${!form.duracaoIda ? 'bg-yellow-50' : 'bg-white'}`}
                                   placeholder="Ex: 11h 30min"
                                   value={form.duracaoIda || ""}
                                   onChange={(e) => setForm((prev) => ({ ...prev, duracaoIda: e.target.value }))}
@@ -2592,7 +2638,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                             <div>
                               <Label className="text-xs">Horário de Saída (Ida)</Label>
                               <Input
-                                  className="mt-1"
+                                  className={`mt-1 ${!form.horaSaidaIda ? 'bg-yellow-50' : 'bg-white'}`}
                                   placeholder="Ex: 14:30"
                                   value={form.horaSaidaIda || ""}
                                   onChange={(e) => setForm((prev) => ({ ...prev, horaSaidaIda: e.target.value }))}
@@ -2601,7 +2647,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                             <div>
                               <Label className="text-xs">Horário de Chegada (Ida)</Label>
                               <Input
-                                  className="mt-1"
+                                  className={`mt-1 ${!form.horaChegadaIda ? 'bg-yellow-50' : 'bg-white'}`}
                                   placeholder="Ex: 05:30"
                                   value={form.horaChegadaIda || ""}
                                   onChange={(e) => setForm((prev) => ({ ...prev, horaChegadaIda: e.target.value }))}
@@ -2616,7 +2662,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                             <div>
                               <Label className="text-xs">Origem (Volta)</Label>
                               <Input
-                                  className="mt-1"
+                                  className={`mt-1 ${!form.origemVolta ? 'bg-yellow-50' : 'bg-white'}`}
                                   placeholder="Ex: Lisboa (LIS)"
                                   value={form.origemVolta || ""}
                                   onChange={(e) => setForm((prev) => ({ ...prev, origemVolta: e.target.value }))}
@@ -2625,7 +2671,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                             <div>
                               <Label className="text-xs">Destino (Volta)</Label>
                               <Input
-                                  className="mt-1"
+                                  className={`mt-1 ${!form.destinoVolta ? 'bg-yellow-50' : 'bg-white'}`}
                                   placeholder="Ex: São Paulo (GRU)"
                                   value={form.destinoVolta || ""}
                                   onChange={(e) => setForm((prev) => ({ ...prev, destinoVolta: e.target.value }))}
@@ -2634,7 +2680,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                             <div>
                               <Label className="text-xs">Duração (Volta)</Label>
                               <Input
-                                  className="mt-1"
+                                  className={`mt-1 ${!form.duracaoVolta ? 'bg-yellow-50' : 'bg-white'}`}
                                   placeholder="Ex: 11h 30min"
                                   value={form.duracaoVolta || ""}
                                   onChange={(e) => setForm((prev) => ({ ...prev, duracaoVolta: e.target.value }))}
@@ -2645,7 +2691,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                             <div>
                               <Label className="text-xs">Horário de Saída (Volta)</Label>
                               <Input
-                                  className="mt-1"
+                                  className={`mt-1 ${!form.horaSaidaVolta ? 'bg-yellow-50' : 'bg-white'}`}
                                   placeholder="Ex: 18:30"
                                   value={form.horaSaidaVolta || ""}
                                   onChange={(e) => setForm((prev) => ({ ...prev, horaSaidaVolta: e.target.value }))}
@@ -2654,7 +2700,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                             <div>
                               <Label className="text-xs">Horário de Chegada (Volta)</Label>
                               <Input
-                                  className="mt-1"
+                                  className={`mt-1 ${!form.horaChegadaVolta ? 'bg-yellow-50' : 'bg-white'}`}
                                   placeholder="Ex: 02:30"
                                   value={form.horaChegadaVolta || ""}
                                   onChange={(e) => setForm((prev) => ({ ...prev, horaChegadaVolta: e.target.value }))}
@@ -2668,7 +2714,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                             <Label className="text-xs">Data de Ida</Label>
                             <Input
                                 type="date"
-                                className="mt-1"
+                                className={`mt-1 ${!form.dataIda ? 'bg-yellow-50' : 'bg-white'}`}
                                 value={form.dataIda || ""}
                                 onChange={(e) => setForm((prev) => ({ ...prev, dataIda: e.target.value }))}
                             />
@@ -2677,7 +2723,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                             <Label className="text-xs">Data de Volta</Label>
                             <Input
                                 type="date"
-                                className="mt-1"
+                                className={`mt-1 ${!form.dataVolta ? 'bg-yellow-50' : 'bg-white'}`}
                                 value={form.dataVolta || ""}
                                 onChange={(e) => setForm((prev) => ({ ...prev, dataVolta: e.target.value }))}
                             />
@@ -2685,7 +2731,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                           <div>
                             <Label className="text-xs">Passageiros</Label>
                             <Input
-                                className="mt-1"
+                                className={`mt-1 ${!form.passageiros ? 'bg-yellow-50' : 'bg-white'}`}
                                 placeholder="Ex: 2 adultos, 1 criança"
                                 value={form.passageiros || ""}
                                 onChange={(e) => setForm((prev) => ({ ...prev, passageiros: e.target.value }))}
@@ -2711,7 +2757,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                           </div>
                           {!politicaCancelamentoMinimizado && (
                               <Textarea
-                                  className="mt-1 min-h-28"
+                                  className={`mt-1 min-h-28 ${!form.politicaAlteracoesCancelamentos ? 'bg-yellow-50' : 'bg-white'}`}
                                   placeholder="Texto extraído do voucher sobre alterações e cancelamentos"
                                   value={form.politicaAlteracoesCancelamentos || ""}
                                   onChange={(e) => setForm((prev) => ({ ...prev, politicaAlteracoesCancelamentos: e.target.value }))}
@@ -2725,7 +2771,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                             <Image className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                             <Input
                                 placeholder="https://media.staticontent.com/media/pictures/..."
-                                className="pl-8"
+                                className={`pl-8 ${!form.foto ? 'bg-yellow-50' : 'bg-white'}`}
                                 value={form.foto || ""}
                                 onChange={(e) => setForm((prev) => ({ ...prev, foto: e.target.value.trim() || null }))}
                             />
@@ -2750,7 +2796,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                               onBlur={() => {
                                 setValorInput(form.valor > 0 ? formatarMoeda(form.valor) : "");
                               }}
-                              className="mt-1"
+                              className={`mt-1 ${!valorInput ? 'bg-yellow-50' : 'bg-white'}`}
                           />
                         </div>
                       </div>
@@ -2790,7 +2836,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       <div className="sm:col-span-2">
                         <Label className="text-xs">Nome do Hotel</Label>
                         <Input
-                            className="mt-1"
+                            className={`mt-1 ${!form.hospedagemNome ? 'bg-yellow-50' : 'bg-white'}`}
                             placeholder="Ex: Hotel Ibis Lisboa"
                             value={form.hospedagemNome || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, hospedagemNome: e.target.value }))}
@@ -2800,7 +2846,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       <div className="sm:col-span-2">
                         <Label className="text-xs">Endereço</Label>
                         <Input
-                            className="mt-1"
+                            className={`mt-1 ${!form.hospedagemEndereco ? 'bg-yellow-50' : 'bg-white'}`}
                             placeholder="Ex: Rua Augusta, 123 - Lisboa"
                             value={form.hospedagemEndereco || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, hospedagemEndereco: e.target.value }))}
@@ -2811,7 +2857,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         <Label className="text-xs">Telefone</Label>
                         <Input
                             type="tel"
-                            className="mt-1"
+                            className={`mt-1 ${!form.hospedagemTelefone ? 'bg-yellow-50' : 'bg-white'}`}
                             placeholder="Ex: +55 11 1234-5678"
                             value={form.hospedagemTelefone || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, hospedagemTelefone: e.target.value }))}
@@ -2822,7 +2868,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         <Label className="text-xs">E-mail</Label>
                         <Input
                             type="email"
-                            className="mt-1"
+                            className={`mt-1 ${!form.hospedagemEmail ? 'bg-yellow-50' : 'bg-white'}`}
                             placeholder="Ex: reservas@hotel.com"
                             value={form.hospedagemEmail || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, hospedagemEmail: e.target.value }))}
@@ -2833,7 +2879,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         <Label className="text-xs">Check-in</Label>
                         <Input
                             type="date"
-                            className="mt-1"
+                            className={`mt-1 ${!form.hospedagemCheckin ? 'bg-yellow-50' : 'bg-white'}`}
                             value={form.hospedagemCheckin || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, hospedagemCheckin: e.target.value }))}
                         />
@@ -2843,7 +2889,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         <Label className="text-xs">Check-out</Label>
                         <Input
                             type="date"
-                            className="mt-1"
+                            className={`mt-1 ${!form.hospedagemCheckout ? 'bg-yellow-50' : 'bg-white'}`}
                             value={form.hospedagemCheckout || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, hospedagemCheckout: e.target.value }))}
                         />
@@ -2852,7 +2898,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       <div>
                         <Label className="text-xs">Tipo de Quarto</Label>
                         <Input
-                            className="mt-1"
+                            className={`mt-1 ${!form.hospedagemTipoQuarto ? 'bg-yellow-50' : 'bg-white'}`}
                             placeholder="Ex: Duplo Standard"
                             value={form.hospedagemTipoQuarto || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, hospedagemTipoQuarto: e.target.value }))}
@@ -2862,7 +2908,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       <div>
                         <Label className="text-xs">Regime / Pensão</Label>
                         <Input
-                            className="mt-1"
+                            className={`mt-1 ${!form.hospedagemRegime ? 'bg-yellow-50' : 'bg-white'}`}
                             placeholder="Ex: Café da manhã"
                             value={form.hospedagemRegime || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, hospedagemRegime: e.target.value }))}
@@ -2885,7 +2931,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         </div>
                         {!comodidadesMinimizado && (
                             <Textarea
-                                className="mt-1 min-h-20"
+                                className={`mt-1 min-h-20 ${!form.hospedagemComodidades ? 'bg-yellow-50' : 'bg-white'}`}
                                 placeholder="Ex: piscina, Wi-Fi, academia, estacionamento"
                                 value={form.hospedagemComodidades || ""}
                                 onChange={(e) => setForm((prev) => ({ ...prev, hospedagemComodidades: e.target.value }))}
@@ -2896,10 +2942,20 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       <div>
                         <Label className="text-xs">Noites</Label>
                         <Input
-                            className="mt-1"
+                            className={`mt-1 ${!form.hospedagemNoites ? 'bg-yellow-50' : 'bg-white'}`}
                             placeholder="Ex: 7"
                             value={form.hospedagemNoites || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, hospedagemNoites: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Valor (R$)</Label>
+                        <Input
+                            className={`mt-1 ${!form.hospedagemValor ? 'bg-yellow-50' : 'bg-white'}`}
+                            placeholder="R$ 0,00"
+                            value={form.hospedagemValor || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, hospedagemValor: e.target.value }))}
                         />
                       </div>
 
@@ -2909,7 +2965,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                           <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                           <Input
                               placeholder="https://..."
-                              className="pl-8"
+                              className={`pl-8 ${!form.hospedagemLink ? 'bg-yellow-50' : 'bg-white'}`}
                               value={form.hospedagemLink || ""}
                               onChange={(e) => setForm((prev) => ({ ...prev, hospedagemLink: e.target.value }))}
                           />
@@ -2922,7 +2978,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                           <Image className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                           <Input
                               placeholder="https://..."
-                              className="pl-8"
+                              className={`pl-8 ${!form.hospedagemFoto ? 'bg-yellow-50' : 'bg-white'}`}
                               value={form.hospedagemFoto || ""}
                               onChange={(e) => setForm((prev) => ({ ...prev, hospedagemFoto: e.target.value.trim() || null }))}
                           />
@@ -2969,7 +3025,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       <div>
                         <Label className="text-xs">Tipo de Traslado</Label>
                         <Input
-                            className="mt-1"
+                            className={`mt-1 ${!form.trasladoTipo ? 'bg-yellow-50' : 'bg-white'}`}
                             placeholder="Ex: Aeroporto-Hotel"
                             value={form.trasladoTipo || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, trasladoTipo: e.target.value }))}
@@ -2979,7 +3035,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       <div>
                         <Label className="text-xs">Veículo/Empresa</Label>
                         <Input
-                            className="mt-1"
+                            className={`mt-1 ${!form.trasladoVeiculoEmpresa ? 'bg-yellow-50' : 'bg-white'}`}
                             placeholder="Ex: Shuttle Regular XYZ"
                             value={form.trasladoVeiculoEmpresa || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, trasladoVeiculoEmpresa: e.target.value }))}
@@ -2990,7 +3046,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         <Label className="text-xs">Data do Traslado</Label>
                         <Input
                             type="date"
-                            className="mt-1"
+                            className={`mt-1 ${!form.trasladoData ? 'bg-yellow-50' : 'bg-white'}`}
                             value={form.trasladoData || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, trasladoData: e.target.value }))}
                         />
@@ -3000,7 +3056,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         <Label className="text-xs">Horário do Traslado</Label>
                         <Input
                             type="time"
-                            className="mt-1"
+                            className={`mt-1 ${!form.trasladoHorario ? 'bg-yellow-50' : 'bg-white'}`}
                             value={form.trasladoHorario || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, trasladoHorario: e.target.value }))}
                         />
@@ -3009,7 +3065,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       <div>
                         <Label className="text-xs">Local de Partida</Label>
                         <Input
-                            className="mt-1"
+                            className={`mt-1 ${!form.trasladoLocalPartida ? 'bg-yellow-50' : 'bg-white'}`}
                             placeholder="Ex: Aeroporto de Lisboa"
                             value={form.trasladoLocalPartida || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, trasladoLocalPartida: e.target.value }))}
@@ -3019,7 +3075,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       <div>
                         <Label className="text-xs">Local de Chegada</Label>
                         <Input
-                            className="mt-1"
+                            className={`mt-1 ${!form.trasladoLocalChegada ? 'bg-yellow-50' : 'bg-white'}`}
                             placeholder="Ex: Hotel Ibis Lisboa"
                             value={form.trasladoLocalChegada || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, trasladoLocalChegada: e.target.value }))}
@@ -3029,7 +3085,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       <div className="sm:col-span-2">
                         <Label className="text-xs">Observações do Traslado</Label>
                         <Textarea
-                            className="mt-1 min-h-20"
+                            className={`mt-1 min-h-20 ${!form.trasladoObservacoes ? 'bg-yellow-50' : 'bg-white'}`}
                             placeholder="Ex: regular, privativo, ponto de encontro"
                             value={form.trasladoObservacoes || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, trasladoObservacoes: e.target.value }))}
@@ -3071,7 +3127,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       <div className="sm:col-span-2">
                         <Label className="text-xs">Nome da Atração/Ingresso</Label>
                         <Input
-                            className="mt-1"
+                            className={`mt-1 ${!form.ingressoNomeAtracao ? 'bg-yellow-50' : 'bg-white'}`}
                             placeholder="Ex: Torre Eiffel - Acesso ao topo"
                             value={form.ingressoNomeAtracao || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, ingressoNomeAtracao: e.target.value }))}
@@ -3082,7 +3138,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         <Label className="text-xs">Data do Ingresso</Label>
                         <Input
                             type="date"
-                            className="mt-1"
+                            className={`mt-1 ${!form.ingressoData ? 'bg-yellow-50' : 'bg-white'}`}
                             value={form.ingressoData || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, ingressoData: e.target.value }))}
                         />
@@ -3092,7 +3148,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         <Label className="text-xs">Horário do Ingresso</Label>
                         <Input
                             type="time"
-                            className="mt-1"
+                            className={`mt-1 ${!form.ingressoHorario ? 'bg-yellow-50' : 'bg-white'}`}
                             value={form.ingressoHorario || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, ingressoHorario: e.target.value }))}
                         />
@@ -3101,7 +3157,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       <div>
                         <Label className="text-xs">Quantidade de Ingressos</Label>
                         <Input
-                            className="mt-1"
+                            className={`mt-1 ${!form.ingressoQuantidade ? 'bg-yellow-50' : 'bg-white'}`}
                             placeholder="Ex: 2"
                             value={form.ingressoQuantidade || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, ingressoQuantidade: e.target.value }))}
@@ -3111,7 +3167,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       <div className="sm:col-span-2">
                         <Label className="text-xs">Observações do Ingresso</Label>
                         <Textarea
-                            className="mt-1 min-h-20"
+                            className={`mt-1 min-h-20 ${!form.ingressoObservacoes ? 'bg-yellow-50' : 'bg-white'}`}
                             placeholder="Ex: categoria do ingresso, se inclui guia"
                             value={form.ingressoObservacoes || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, ingressoObservacoes: e.target.value }))}
@@ -3150,7 +3206,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                 {!resumoMinimizado && (
                   <div className="mt-3">
                     <Textarea
-                        className="mt-1 min-h-24"
+                        className={`mt-1 min-h-24 ${!form.descricao ? 'bg-yellow-50' : 'bg-white'}`}
                         placeholder="Ex: Voo pela Latam de São Paulo para Paris em 15/07/2026. Hospedagem no Hotel Le Marais, de 15/07/2026 a 20/07/2026 (5 noites). Traslado privativo do aeroporto até o hotel. Ingresso para o Museu do Louvre (2)."
                         value={form.descricao || ""}
                         onChange={(e) => setForm((prev) => ({ ...prev, descricao: e.target.value }))}
