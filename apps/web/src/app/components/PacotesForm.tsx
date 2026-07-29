@@ -634,13 +634,17 @@ function extrairPoliticaAlteracoesCancelamentos(texto: string): string {
 }
 
 function extrairDadosIADeAnalise(analise: string): DadosIAExtraidos {
+  // Captura sempre o último grupo da regex (o valor real), ignorando grupos opcionais anteriores
   const extrair = (regex: RegExp) => {
-    const valor = analise.match(regex)?.[1];
+    const match = analise.match(regex);
+    if (!match) return "";
+    // Pega o último grupo capturado não-undefined
+    const valor = [...match].slice(1).filter(v => v !== undefined).pop();
     return normalizarValorIA(valor);
   };
 
-  const dataIdaBr = extrair(/\*\*Data (de )?Ida:\*\*\s*(.+)/);
-  const dataVoltaBr = extrair(/\*\*Data (de )?Volta:\*\*\s*(.+)/);
+  const dataIdaBr = extrair(/\*\*Data (?:de )?Ida:\*\*\s*(.+)/);
+  const dataVoltaBr = extrair(/\*\*Data (?:de )?Volta:\*\*\s*(.+)/);
   const checkinBr = extrair(/\*\*Check-in:\*\*\s*(.+)/i);
   const checkoutBr = extrair(/\*\*Check-out:\*\*\s*(.+)/i);
 
@@ -652,49 +656,49 @@ function extrairDadosIADeAnalise(analise: string): DadosIAExtraidos {
     passageiros: extrair(/\*\*Passageiros:\*\*\s*(.+)/),
     dataIda: dataIdaBr ? dataBrParaIso(dataIdaBr) : "",
     dataVolta: dataVoltaBr ? dataBrParaIso(dataVoltaBr) : "",
-    origemIda: extrair(/\*\*Origem (\(Ida\))?:\*\*\s*(.+)/),
-    destinoIda: extrair(/\*\*Destino (\(Ida\))?:\*\*\s*(.+)/),
-    duracaoIda: extrair(/\*\*Duração (\(Ida\))?:\*\*\s*(.+)/i),
-    origemVolta: extrair(/\*\*Origem (\(Volta\))?:\*\*\s*(.+)/),
-    destinoVolta: extrair(/\*\*Destino (\(Volta\))?:\*\*\s*(.+)/),
-    duracaoVolta: extrair(/\*\*Duração (\(Volta\))?:\*\*\s*(.+)/i),
-    horaSaidaIda: extrair(/\*\*Horário (de )?Saída (\(Ida\))?:\*\*\s*(.+)/i),
-    horaChegadaIda: extrair(/\*\*Horário (de )?Chegada (\(Ida\))?:\*\*\s*(.+)/i),
-    horaSaidaVolta: extrair(/\*\*Horário (de )?Saída (\(Volta\))?:\*\*\s*(.+)/i),
-    horaChegadaVolta: extrair(/\*\*Horário (de )?Chegada (\(Volta\))?:\*\*\s*(.+)/i),
+    origemIda: extrair(/\*\*Origem (?:\(Ida\))?:\*\*\s*(.+)/),
+    destinoIda: extrair(/\*\*Destino (?:\(Ida\))?:\*\*\s*(.+)/),
+    duracaoIda: extrair(/\*\*Duração (?:\(Ida\))?:\*\*\s*(.+)/i),
+    origemVolta: extrair(/\*\*Origem (?:\(Volta\))?:\*\*\s*(.+)/),
+    destinoVolta: extrair(/\*\*Destino (?:\(Volta\))?:\*\*\s*(.+)/),
+    duracaoVolta: extrair(/\*\*Duração (?:\(Volta\))?:\*\*\s*(.+)/i),
+    horaSaidaIda: extrair(/\*\*Horário (?:de )?Saída (?:\(Ida\))?:\*\*\s*(.+)/i),
+    horaChegadaIda: extrair(/\*\*Horário (?:de )?Chegada (?:\(Ida\))?:\*\*\s*(.+)/i),
+    horaSaidaVolta: extrair(/\*\*Horário (?:de )?Saída (?:\(Volta\))?:\*\*\s*(.+)/i),
+    horaChegadaVolta: extrair(/\*\*Horário (?:de )?Chegada (?:\(Volta\))?:\*\*\s*(.+)/i),
     link: extrair(/\*\*Link:\*\*\s*(.+)/i),
     valor: extrair(/\*\*Valor:\*\*\s*(.+)/i),
     foto: extrair(/\*\*Foto:\*\*\s*(.+)/i),
-    nomeHotel: extrair(/\*\*Nome (do )?Hotel:\*\*\s*(.+)/i),
-    enderecoHotel: extrair(/\*\*Endereço (do )?Hotel:\*\*\s*(.+)/i),
-    telefoneHotel: extrair(/\*\*Telefone (do )?Hotel:\*\*\s*(.+)/i),
-    emailHotel: extrair(/\*\*E-mail (do )?Hotel:\*\*\s*(.+)/i),
-    quarto: extrair(/\*\*Tipo (de )?Quarto:\*\*\s*(.+)/i),
+    nomeHotel: extrair(/\*\*Nome (?:do )?Hotel:\*\*\s*(.+)/i),
+    enderecoHotel: extrair(/\*\*Endereço (?:do )?Hotel:\*\*\s*(.+)/i),
+    telefoneHotel: extrair(/\*\*Telefone (?:do )?Hotel:\*\*\s*(.+)/i),
+    emailHotel: extrair(/\*\*E-mail (?:do )?Hotel:\*\*\s*(.+)/i),
+    quarto: extrair(/\*\*Tipo (?:de )?Quarto:\*\*\s*(.+)/i),
     regimeHotel: extrair(/\*\*Regime \/ Pensão:\*\*\s*(.+)/i),
-    comodidades: extrair(/\*\*Comodidades (do )?Estabelecimento:\*\*\s*(.+)/i),
+    comodidades: extrair(/\*\*Comodidades (?:do )?Estabelecimento:\*\*\s*(.+)/i),
     checkinHotel: checkinBr ? dataBrParaIso(checkinBr) : "",
     checkoutHotel: checkoutBr ? dataBrParaIso(checkoutBr) : "",
     noitesHotel: extrair(/\*\*Noites:\*\*\s*(.+)/i),
-    linkHotel: extrair(/\*\*Link (do )?Hotel:\*\*\s*(.+)/i),
-    fotoHotel: extrair(/\*\*Foto (da )?Hospedagem:\*\*\s*(.+)/i),
+    linkHotel: extrair(/\*\*Link (?:do )?Hotel:\*\*\s*(.+)/i),
+    fotoHotel: extrair(/\*\*Foto (?:da )?Hospedagem:\*\*\s*(.+)/i),
     politicasCondicoesInformacoesEspeciais: (() => {
       const match = analise.match(/\*\*Políticas, Condições e Informações Especiais:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
       const valor = match?.[1]?.trim();
       return valor && valor.toLowerCase() !== "não informado" ? valor : "";
     })(),
     politicaAlteracoesCancelamentos: (() => {
-      const match = analise.match(/\*\*Políticas? (de )?Alterações? (e )?Cancelamentos?:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
+      const match = analise.match(/\*\*Políticas? (?:de )?Alterações? (?:e )?Cancelamentos?:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
       const valor = match?.[1]?.trim();
       return valor && valor.toLowerCase() !== "não informado" ? valor : "";
     })(),
     trasladoTipo: extrair(/\*\*Tipo de Traslado:\*\*\s*(.+)/i),
     trasladoData: (() => {
-      const dataBr = extrair(/\*\*Data (do )?Traslado:\*\*\s*(.+)/i);
+      const dataBr = extrair(/\*\*Data (?:do )?Traslado:\*\*\s*(.+)/i);
       return dataBr ? dataBrParaIso(dataBr) : "";
     })(),
-    trasladoHorario: extrair(/\*\*Horário (do )?Traslado:\*\*\s*(.+)/i),
-    trasladoLocalPartida: extrair(/\*\*Local (de )?Partida( \(Traslado\))?:\*\*\s*(.+)/i),
-    trasladoLocalChegada: extrair(/\*\*Local (de )?Chegada( \(Traslado\))?:\*\*\s*(.+)/i),
+    trasladoHorario: extrair(/\*\*Horário (?:do )?Traslado:\*\*\s*(.+)/i),
+    trasladoLocalPartida: extrair(/\*\*Local (?:de )?Partida(?:\s*\(Traslado\))?:\*\*\s*(.+)/i),
+    trasladoLocalChegada: extrair(/\*\*Local (?:de )?Chegada(?:\s*\(Traslado\))?:\*\*\s*(.+)/i),
     trasladoVeiculoEmpresa: extrair(/\*\*Veículo\/Empresa( \(Traslado\))?:\*\*\s*(.+)/i),
     trasladoObservacoes: (() => {
       const match = analise.match(/\*\*Observações( do)? Traslado:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
@@ -1118,7 +1122,24 @@ Formato JSON esperado:
 
 function obterDadosIADocumento(doc: Documento) {
   if (!doc.dadosIA && !doc.analise) return null;
-  return doc.dadosIA || extrairDadosIADeAnalise(doc.analise || "");
+  if (doc.dadosIA && doc.analise) {
+    const dadosAnalise = extrairDadosIADeAnalise(doc.analise);
+    return mesclarDadosIA(doc.dadosIA, dadosAnalise);
+  }
+  if (doc.analise) {
+    return extrairDadosIADeAnalise(doc.analise);
+  }
+  return doc.dadosIA!;
+}
+
+// Mescla dados de TODOS os documentos (incluindo URL), sem depender do nome do arquivo.
+// Garante que campos preenchidos em qualquer documento sejam aproveitados.
+function obterDadosMescladosDeTodos(documentos: Documento[]): DadosIAExtraidos {
+  const fontes = documentos
+    .filter((doc) => doc.dadosIA || doc.analise)
+    .map((doc) => obterDadosIADocumento(doc))
+    .filter((d): d is DadosIAExtraidos => d !== null);
+  return mesclarDadosIA(...fontes);
 }
 
 // Funções auxiliares para identificar tipo de documento pelo nome
@@ -1319,6 +1340,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   const [vouchersMinimizado, setVouchersMinimizado] = useState(true);
   const [comodidadesMinimizado, setComodidadesMinimizado] = useState(true);
   const [politicaCancelamentoMinimizado, setPoliticaCancelamentoMinimizado] = useState(true);
+  const [urlOperadorMinimizado, setUrlOperadorMinimizado] = useState(true);
   const [relatoriosExpandidos, setRelatoriosExpandidos] = useState<Set<number>>(new Set());
   const [analisandoIA, setAnalisandoIA] = useState(false);
   const [logAnaliseIA, setLogAnaliseIA] = useState<string[]>([]);
@@ -1608,202 +1630,111 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     }))
   }
 
-  function atualizarCamposComResultadoIA() {
+  // Função auxiliar interna: mescla todos os documentos e retorna dados unificados
+  function obterDadosUnificados(): DadosIAExtraidos | null {
     const documentos = form.documentos || [];
-    if (documentos.length === 0) {
-      setErro("Nenhum documento para atualizar os campos.");
+    if (documentos.length === 0) return null;
+    const dados = obterDadosMescladosDeTodos(documentos);
+    return temDadosExtraidos(dados) ? dados : null;
+  }
+
+  // Propaga o pacote editado ao estado pai para atualizar o Resumo em tempo real
+  function propagarAoPai(novoForm: Omit<Pacote, "id">) {
+    if (editandoId !== null) {
+      onPacotesChange(
+        pacotes.map((item) =>
+          item.id === editandoId ? { ...item, ...novoForm } : item
+        )
+      );
+    }
+  }
+
+  function atualizarCamposComResultadoIA() {
+    const dados = obterDadosUnificados();
+    if (!dados) {
+      setErro("Nenhum documento com resultado de IA foi encontrado. Analise os documentos antes de atualizar.");
       return;
     }
-
-    // Usa o primeiro documento com resultado de IA para preencher Detalhes do Voo.
-    const documentoVoo = encontrarDocumentoVoo(documentos);
-    const dadosIAVoo = documentoVoo ? obterDadosIADocumento(documentoVoo) : null;
-
-    // Usa o primeiro documento com resultado de IA para preencher Detalhes da Hospedagem.
-    const documentoHospedagem = encontrarDocumentoHotel(documentos);
-    const dadosIAHospedagem = documentoHospedagem ? obterDadosIADocumento(documentoHospedagem) : null;
-
-    if (!dadosIAVoo && !dadosIAHospedagem) {
-      setErro('Nenhum documento com resultado de IA foi encontrado. Analise os documentos antes de atualizar.');
-      return;
-    }
-
-    if (dadosIAVoo && !temDadosExtraidos(dadosIAVoo)) {
-      setErro("Não foi possível extrair dados do voucher de voo para atualizar os campos.");
-      return;
-    }
-
-    const documentoTraslado = encontrarDocumentoTraslado(documentos);
-    const dadosIATraslado = documentoTraslado ? obterDadosIADocumento(documentoTraslado) : null;
-    const documentoIngresso = encontrarDocumentoIngresso(documentos);
-    const dadosIAIngresso = documentoIngresso ? obterDadosIADocumento(documentoIngresso) : null;
-
     setErro("");
-    setForm((f) => {
-      let proximo = { ...f };
-      if (dadosIAVoo && temDadosExtraidos(dadosIAVoo)) {
-        proximo = mapearDetalhesVoo(proximo, dadosIAVoo);
-      }
-      if (dadosIAHospedagem && temDadosExtraidos(dadosIAHospedagem)) {
-        proximo = mapearDetalhesHospedagem(proximo, dadosIAHospedagem);
-      }
-      if (dadosIATraslado && possuiDadosTraslado(dadosIATraslado)) {
-        proximo = mapearDetalhesTraslado(proximo, dadosIATraslado);
-      }
-      if (dadosIAIngresso && possuiDadosIngresso(dadosIAIngresso)) {
-        proximo = mapearDetalhesIngresso(proximo, dadosIAIngresso);
-      }
-      return proximo;
-    });
+    let novoForm = { ...form };
+    novoForm = mapearDetalhesVoo(novoForm, dados);
+    novoForm = mapearDetalhesHospedagem(novoForm, dados);
+    if (possuiDadosTraslado(dados)) novoForm = mapearDetalhesTraslado(novoForm, dados);
+    if (possuiDadosIngresso(dados)) novoForm = mapearDetalhesIngresso(novoForm, dados);
+    if (novoForm.valor > 0) setValorInput(formatarMoeda(novoForm.valor));
+    setForm((f) => ({ ...novoForm, documentos: f.documentos }));
+    propagarAoPai({ ...novoForm, documentos: form.documentos });
   }
 
   function atualizarDetalhesVoo() {
-    const documentoVoo = encontrarDocumentoVoo(form.documentos || []);
-    const dadosIAVoo = documentoVoo ? obterDadosIADocumento(documentoVoo) : null;
-
-    // Extrair dados de documentos do tipo URL se existirem
-    const documentoUrl = (form.documentos || []).find(doc => doc.tipo === "text/url" && doc.analise);
-    const dadosRelatorioUrl = documentoUrl ? extrairDadosIADeAnalise(documentoUrl.analise || "") : null;
-
-    // Mesclar dados: prioridade para relatório da URL, complementa com documentos
-    const dadosCompletos = mesclarDadosIA(dadosRelatorioUrl, dadosIAVoo);
-
-    if (!dadosCompletos || !temDadosExtraidos(dadosCompletos)) {
-      setErro('Nenhum dado de IA encontrado em documentos ou relatório da URL.');
+    const dados = obterDadosUnificados();
+    if (!dados) {
+      setErro("Nenhum dado de IA encontrado nos documentos. Analise os documentos antes de atualizar.");
       return;
     }
-
     setErro("");
-    setForm((f) => {
-      const novo = mapearDetalhesVoo(f, dadosCompletos);
-      if (novo.valor > 0) {
-        setValorInput(formatarMoeda(novo.valor));
-      }
-      return novo;
-    });
+    const novoForm = mapearDetalhesVoo(form, dados);
+    if (novoForm.valor > 0) setValorInput(formatarMoeda(novoForm.valor));
+    setForm((f) => ({ ...novoForm, documentos: f.documentos }));
+    propagarAoPai({ ...novoForm, documentos: form.documentos });
     setFormMinimizado(false);
   }
 
   function atualizarDetalhesHospedagem() {
-    const documentoHospedagem = encontrarDocumentoHotel(form.documentos || []);
-    const dadosIAHospedagem = documentoHospedagem ? obterDadosIADocumento(documentoHospedagem) : null;
-
-    // Extrair dados de documentos do tipo URL se existirem
-    const documentoUrl = (form.documentos || []).find(doc => doc.tipo === "text/url" && doc.analise);
-    const dadosRelatorioUrl = documentoUrl ? extrairDadosIADeAnalise(documentoUrl.analise || "") : null;
-
-    // Mesclar dados: prioridade para relatório da URL, complementa com documentos
-    const dadosCompletos = mesclarDadosIA(dadosRelatorioUrl, dadosIAHospedagem);
-
-    if (!dadosCompletos || !temDadosExtraidos(dadosCompletos)) {
-      setErro('Nenhum dado de IA encontrado em documentos ou relatório da URL.');
+    const dados = obterDadosUnificados();
+    if (!dados) {
+      setErro("Nenhum dado de IA encontrado nos documentos. Analise os documentos antes de atualizar.");
       return;
     }
-
     setErro("");
-    setForm((f) => mapearDetalhesHospedagem(f, dadosCompletos));
+    let novoForm = mapearDetalhesVoo(form, dados);
+    novoForm = mapearDetalhesHospedagem(novoForm, dados);
+    if (novoForm.valor > 0) setValorInput(formatarMoeda(novoForm.valor));
+    setForm((f) => ({ ...novoForm, documentos: f.documentos }));
+    propagarAoPai({ ...novoForm, documentos: form.documentos });
     setHospedagemMinimizado(false);
   }
 
   function atualizarDetalhesTraslado() {
-    const documentoTraslado = encontrarDocumentoTraslado(form.documentos || []);
-    const dadosIATraslado = documentoTraslado ? obterDadosIADocumento(documentoTraslado) : null;
-
-    // Extrair dados de documentos do tipo URL se existirem
-    const documentoUrl = (form.documentos || []).find(doc => doc.tipo === "text/url" && doc.analise);
-    const dadosRelatorioUrl = documentoUrl ? extrairDadosIADeAnalise(documentoUrl.analise || "") : null;
-
-    // Mesclar dados: prioridade para relatório da URL, complementa com documentos
-    const dadosCompletos = mesclarDadosIA(dadosRelatorioUrl, dadosIATraslado);
-
-    if (!possuiDadosTraslado(dadosCompletos)) {
-      setErro('Nenhum dado de Traslado encontrado em documentos ou relatório da URL.');
+    const dados = obterDadosUnificados();
+    if (!dados || !possuiDadosTraslado(dados)) {
+      setErro("Nenhum dado de Traslado encontrado nos documentos.");
       return;
     }
-
     setErro("");
-    setForm((f) => mapearDetalhesTraslado(f, dadosCompletos!));
+    const novoForm = mapearDetalhesTraslado(form, dados);
+    setForm((f) => ({ ...novoForm, documentos: f.documentos }));
+    propagarAoPai({ ...novoForm, documentos: form.documentos });
   }
 
   function atualizarDetalhesIngresso() {
-    const documentoIngresso = encontrarDocumentoIngresso(form.documentos || []);
-    const dadosIAIngresso = documentoIngresso ? obterDadosIADocumento(documentoIngresso) : null;
-
-    // Extrair dados de documentos do tipo URL se existirem
-    const documentoUrl = (form.documentos || []).find(doc => doc.tipo === "text/url" && doc.analise);
-    const dadosRelatorioUrl = documentoUrl ? extrairDadosIADeAnalise(documentoUrl.analise || "") : null;
-
-    // Mesclar dados: prioridade para relatório da URL, complementa com documentos
-    const dadosCompletos = mesclarDadosIA(dadosRelatorioUrl, dadosIAIngresso);
-
-    if (!possuiDadosIngresso(dadosCompletos)) {
-      setErro('Nenhum dado de Ingresso encontrado em documentos ou relatório da URL.');
+    const dados = obterDadosUnificados();
+    if (!dados || !possuiDadosIngresso(dados)) {
+      setErro("Nenhum dado de Ingresso encontrado nos documentos.");
       return;
     }
-
     setErro("");
-    setForm((f) => mapearDetalhesIngresso(f, dadosCompletos!));
+    const novoForm = mapearDetalhesIngresso(form, dados);
+    setForm((f) => ({ ...novoForm, documentos: f.documentos }));
+    propagarAoPai({ ...novoForm, documentos: form.documentos });
   }
 
   function atualizarResumoPacote() {
-    const documentos = form.documentos || [];
-    if (documentos.length === 0) {
-      setErro("Nenhum documento para atualizar os campos.");
+    const dados = obterDadosUnificados();
+    if (!dados) {
+      setErro("Nenhum documento com resultado de IA foi encontrado. Analise os documentos antes de atualizar.");
       return;
     }
-
-    // Extrair dados de documentos do tipo URL se existirem
-    const documentoUrl = documentos.find(doc => doc.tipo === "text/url" && doc.analise);
-    const dadosRelatorioUrl = documentoUrl ? extrairDadosIADeAnalise(documentoUrl.analise || "") : null;
-
-    // Usa o primeiro documento com resultado de IA para preencher Detalhes do Voo.
-    const documentoVoo = encontrarDocumentoVoo(documentos);
-    const dadosIAVoo = documentoVoo ? obterDadosIADocumento(documentoVoo) : null;
-
-    // Usa o primeiro documento com resultado de IA para preencher Detalhes da Hospedagem.
-    const documentoHospedagem = encontrarDocumentoHotel(documentos);
-    const dadosIAHospedagem = documentoHospedagem ? obterDadosIADocumento(documentoHospedagem) : null;
-
-    // Mesclar dados: prioridade para relatório da URL, complementa com documentos
-    const dadosCompletosVoo = mesclarDadosIA(dadosRelatorioUrl, dadosIAVoo);
-    const dadosCompletosHospedagem = mesclarDadosIA(dadosRelatorioUrl, dadosIAHospedagem);
-
-    if (!dadosCompletosVoo && !dadosCompletosHospedagem) {
-      setErro('Nenhum documento com resultado de IA foi encontrado. Analise os documentos antes de atualizar.');
-      return;
-    }
-
-    if (dadosCompletosVoo && !temDadosExtraidos(dadosCompletosVoo)) {
-      setErro("Não foi possível extrair dados do voucher de voo para atualizar os campos.");
-      return;
-    }
-
-    const documentoTraslado = encontrarDocumentoTraslado(documentos);
-    const dadosIATraslado = documentoTraslado ? obterDadosIADocumento(documentoTraslado) : null;
-    const dadosCompletosTraslado = mesclarDadosIA(dadosRelatorioUrl, dadosIATraslado);
-
-    const documentoIngresso = encontrarDocumentoIngresso(documentos);
-    const dadosIAIngresso = documentoIngresso ? obterDadosIADocumento(documentoIngresso) : null;
-    const dadosCompletosIngresso = mesclarDadosIA(dadosRelatorioUrl, dadosIAIngresso);
-
     setErro("");
-    setForm((f) => {
-      let proximo = { ...f };
-      if (dadosCompletosVoo && temDadosExtraidos(dadosCompletosVoo)) {
-        proximo = mapearDetalhesVoo(proximo, dadosCompletosVoo);
-      }
-      if (dadosCompletosHospedagem && temDadosExtraidos(dadosCompletosHospedagem)) {
-        proximo = mapearDetalhesHospedagem(proximo, dadosCompletosHospedagem);
-      }
-      if (dadosCompletosTraslado && possuiDadosTraslado(dadosCompletosTraslado)) {
-        proximo = mapearDetalhesTraslado(proximo, dadosCompletosTraslado);
-      }
-      if (dadosCompletosIngresso && possuiDadosIngresso(dadosCompletosIngresso)) {
-        proximo = mapearDetalhesIngresso(proximo, dadosCompletosIngresso);
-      }
-      // Após atualizar os campos, gera o resumo
-      return { ...proximo, descricao: gerarResumoPacote(proximo) };
-    });
+    let novoForm = { ...form };
+    novoForm = mapearDetalhesVoo(novoForm, dados);
+    novoForm = mapearDetalhesHospedagem(novoForm, dados);
+    if (possuiDadosTraslado(dados)) novoForm = mapearDetalhesTraslado(novoForm, dados);
+    if (possuiDadosIngresso(dados)) novoForm = mapearDetalhesIngresso(novoForm, dados);
+    novoForm = { ...novoForm, descricao: gerarResumoPacote(novoForm) };
+    if (novoForm.valor > 0) setValorInput(formatarMoeda(novoForm.valor));
+    setForm((f) => ({ ...novoForm, documentos: f.documentos }));
+    propagarAoPai({ ...novoForm, documentos: form.documentos });
     setResumoMinimizado(false);
   }
 
@@ -2211,61 +2142,29 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
           })
       );
 
-      const documentoVoo = encontrarDocumentoVoo(novasAnalises);
-      const dadosIAVoo = documentoVoo ? obterDadosIADocumento(documentoVoo) : null;
-      const documentoHospedagem = encontrarDocumentoHotel(novasAnalises);
-      const dadosIAHospedagem = documentoHospedagem ? obterDadosIADocumento(documentoHospedagem) : null;
-      const documentoTraslado = encontrarDocumentoTraslado(novasAnalises);
-      const dadosIATraslado = documentoTraslado ? obterDadosIADocumento(documentoTraslado) : null;
-      const documentoIngresso = encontrarDocumentoIngresso(novasAnalises);
-      const dadosIAIngresso = documentoIngresso ? obterDadosIADocumento(documentoIngresso) : null;
-
-      // Extrair dados de documentos do tipo URL se existirem
-      const documentoUrl = novasAnalises.find(doc => doc.tipo === "text/url" && doc.analise);
-      const dadosRelatorioUrl = documentoUrl ? extrairDadosIADeAnalise(documentoUrl.analise || "") : null;
-
-      // Mesclar dados: prioridade para relatório da URL, complementa com documentos
-      const dadosCompletosVoo = mesclarDadosIA(dadosRelatorioUrl, dadosIAVoo);
-      const dadosCompletosHospedagem = mesclarDadosIA(dadosRelatorioUrl, dadosIAHospedagem);
-      const dadosCompletosTraslado = mesclarDadosIA(dadosRelatorioUrl, dadosIATraslado);
-      const dadosCompletosIngresso = mesclarDadosIA(dadosRelatorioUrl, dadosIAIngresso);
+      const dadosUnificados = obterDadosMescladosDeTodos(novasAnalises);
 
       // Preencher campos automaticamente após a análise
-      setForm((f) => {
-        let novoForm = { ...f };
+      let novoFormCalculado = { ...form };
+      if (temDadosExtraidos(dadosUnificados)) {
+        novoFormCalculado = mapearDetalhesVoo(novoFormCalculado, dadosUnificados);
+        novoFormCalculado = mapearDetalhesHospedagem(novoFormCalculado, dadosUnificados);
+        if (possuiDadosTraslado(dadosUnificados)) novoFormCalculado = mapearDetalhesTraslado(novoFormCalculado, dadosUnificados);
+        if (possuiDadosIngresso(dadosUnificados)) novoFormCalculado = mapearDetalhesIngresso(novoFormCalculado, dadosUnificados);
+        novoFormCalculado = { ...novoFormCalculado, descricao: gerarResumoPacote(novoFormCalculado) };
+      }
 
-        // Preencher Detalhes do Voo
-        if (dadosCompletosVoo && temDadosExtraidos(dadosCompletosVoo)) {
-          novoForm = mapearDetalhesVoo(novoForm, dadosCompletosVoo);
-          if (novoForm.valor > 0) {
-            setValorInput(formatarMoeda(novoForm.valor));
-          }
-        }
+      if (novoFormCalculado.valor > 0) {
+        setValorInput(formatarMoeda(novoFormCalculado.valor));
+      }
 
-        // Preencher Detalhes da Hospedagem
-        if (dadosCompletosHospedagem && temDadosExtraidos(dadosCompletosHospedagem)) {
-          novoForm = mapearDetalhesHospedagem(novoForm, dadosCompletosHospedagem);
-        }
+      // Preservar documentos do tipo URL que foram adicionados durante a análise de URLs
+      const documentosUrl = (form.documentos || []).filter(doc => doc.tipo === "text/url");
+      const documentosNaoUrl = novasAnalises.filter(doc => doc.tipo !== "text/url");
+      const formFinal = { ...novoFormCalculado, documentos: [...documentosUrl, ...documentosNaoUrl] };
 
-        // Preencher Detalhes do Traslado
-        if (dadosCompletosTraslado && possuiDadosTraslado(dadosCompletosTraslado)) {
-          novoForm = mapearDetalhesTraslado(novoForm, dadosCompletosTraslado);
-        }
-
-        // Preencher Detalhes do Ingresso
-        if (dadosCompletosIngresso && possuiDadosIngresso(dadosCompletosIngresso)) {
-          novoForm = mapearDetalhesIngresso(novoForm, dadosCompletosIngresso);
-        }
-
-        // Preservar documentos do tipo URL que foram adicionados durante a análise de URLs
-        const documentosUrl = (f.documentos || []).filter(doc => doc.tipo === "text/url");
-        const documentosNaoUrl = novasAnalises.filter(doc => doc.tipo !== "text/url");
-
-        return {
-          ...novoForm,
-          documentos: [...documentosUrl, ...documentosNaoUrl],
-        };
-      });
+      setForm(() => formFinal);
+      propagarAoPai(formFinal);
 
       adicionarLog("Campos preenchidos automaticamente com os dados extraídos.");
     } catch (error) {
@@ -2340,7 +2239,20 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       </div>
                   )}
                   <div className="mt-4">
-                    <Label htmlFor="url-operador" className="text-xs text-gray-500">URL do Operador</Label>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <Label htmlFor="url-operador" className="text-xs text-gray-500">URL do Operador</Label>
+                      <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setUrlOperadorMinimizado((prev) => !prev)}
+                          className="h-6 gap-1 px-2 text-gray-500 hover:text-gray-700"
+                      >
+                        {urlOperadorMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
+                    {!urlOperadorMinimizado && (
+                      <>
                     <div className="relative mt-1 flex gap-2">
                       <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                       <Input
@@ -2382,6 +2294,8 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                               </div>
                           ))}
                         </div>
+                    )}
+                      </>
                     )}
                   </div>
                 </div>
