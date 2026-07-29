@@ -80,6 +80,7 @@ interface Pacote {
   destino: string;
   reserva?: string;
   link: string;
+  urlOperador?: string;
 
   foto: string | null;
   valor: number;
@@ -121,6 +122,7 @@ interface Pacote {
   descricao?: string;
   logAnalise?: string;
   documentos: Documento[];
+  relatorioUrl?: string;
 }
 
 interface PacotesFormProps {
@@ -146,6 +148,7 @@ const pacoteVazio: Omit<Pacote, "id"> = {
   destino: "",
   reserva: "",
   link: "",
+  urlOperador: "",
 
   foto: null,
   valor: 0,
@@ -186,7 +189,8 @@ const pacoteVazio: Omit<Pacote, "id"> = {
   ingressoObservacoes: "",
   descricao: "",
   logAnalise: "",
-  documentos: []
+  documentos: [],
+  relatorioUrl: ""
 };
 
 function formatarMoeda(v: number) {
@@ -831,6 +835,159 @@ function montarRelatorioCompleto(
     "**Observações do Ingresso:**",
     dados.ingressoObservacoes || "Não informado",
   ].join("\n");
+}
+
+function criarPromptAnaliseUrl(conteudo: string) {
+  return `Você é um assistente especialista em turismo. Analise o conteúdo fornecido de uma página de operador de turismo e extraia TODAS as informações disponíveis para o formato JSON.
+
+Conteúdo da página:
+${conteudo}
+
+O conteúdo pode conter as seguintes seções:
+- Dados do Cliente
+- HotelDO (operador)
+- Voo de Ida
+- Voo de Volta
+- Hospedagem
+- Traslado
+- Políticas de alteração e cancelamento
+- Valor Total da Viagem
+
+Instruções:
+1. Analise o conteúdo fornecido cuidadosamente.
+2. Extraia todas as informações disponíveis nas seções mencionadas acima.
+3. Para o campo "operador", extraia o nome do operador (ex: HotelDO, Decolar, CVC).
+4. Para datas (dataIda, dataVolta, checkinHotel, checkoutHotel), use o formato AAAA-MM-DD.
+5. O campo "ciaAerea" deve conter o nome da companhia aérea (ex: LATAM Airlines Group, GOL, Azul).
+6. Identifique origem, destino e duração separadamente para o trecho de IDA e para o trecho de VOLTA.
+7. A duração do voo deve estar no formato legível (ex: "2h 30min", "11h 45min", "1h 05min").
+8. Horários devem estar no formato HH:MM (ex: "08:35", "23:10").
+9. O campo "valor" deve conter o valor total da viagem como aparece na página (ex: "R$ 5.432,10").
+10. Os campos "link" e "foto" devem conter URLs completas quando existirem na página.
+11. O campo "nomeHotel" deve conter o nome do estabelecimento de hospedagem.
+12. O campo "regimeHotel" deve conter o regime de pensão (ex: "Café da manhã", "Meia pensão", "All inclusive").
+13. O campo "noitesHotel" deve conter apenas o número de noites (ex: "7").
+14. Localize a seção "Políticas de alteração e cancelamento" e copie todo o texto integralmente para "politicaAlteracoesCancelamentos", sem resumir.
+15. Extraia informações sobre traslado (tipo, data, horário, locais, veículo/empresa, observações).
+16. Extraia informações sobre ingressos (nome da atração, data, horário, quantidade, observações).
+17. IMPORTANTE: Se uma informação não for encontrada no conteúdo, retorne uma string vazia "" para o campo correspondente.
+18. Retorne APENAS o JSON, sem formatação adicional, sem blocos de código markdown.
+
+Retorne o JSON no seguinte formato:
+{
+  "operador": "",
+  "ciaAerea": "",
+  "reserva": "",
+  "destino": "",
+  "passageiros": "",
+  "dataIda": "",
+  "dataVolta": "",
+  "origemIda": "",
+  "destinoIda": "",
+  "duracaoIda": "",
+  "origemVolta": "",
+  "destinoVolta": "",
+  "duracaoVolta": "",
+  "horaSaidaIda": "",
+  "horaChegadaIda": "",
+  "horaSaidaVolta": "",
+  "horaChegadaVolta": "",
+  "politicaAlteracoesCancelamentos": "",
+  "link": "",
+  "valor": "",
+  "foto": "",
+  "nomeHotel": "",
+  "enderecoHotel": "",
+  "telefoneHotel": "",
+  "emailHotel": "",
+  "quarto": "",
+  "regimeHotel": "",
+  "comodidades": "",
+  "checkinHotel": "",
+  "checkoutHotel": "",
+  "noitesHotel": "",
+  "linkHotel": "",
+  "fotoHotel": "",
+  "politicasCondicoesInformacoesEspeciais": "",
+  "trasladoTipo": "",
+  "trasladoData": "",
+  "trasladoHorario": "",
+  "trasladoLocalPartida": "",
+  "trasladoLocalChegada": "",
+  "trasladoVeiculoEmpresa": "",
+  "trasladoObservacoes": "",
+  "ingressoNomeAtracao": "",
+  "ingressoData": "",
+  "ingressoHorario": "",
+  "ingressoQuantidade": "",
+  "ingressoObservacoes": ""
+}`;
+}
+
+function montarRelatorioUrl(provedor: string, dados: DadosIAExtraidos): string {
+  const campos: [string, string | undefined][] = [
+    ["Operador", dados.operador],
+    ["CIA Aérea", dados.ciaAerea],
+    ["Reserva", dados.reserva],
+    ["Destino", dados.destino],
+    ["Passageiros", dados.passageiros],
+    ["Data Ida", dados.dataIda],
+    ["Data Volta", dados.dataVolta],
+    ["Origem Ida", dados.origemIda],
+    ["Destino Ida", dados.destinoIda],
+    ["Duração Ida", dados.duracaoIda],
+    ["Origem Volta", dados.origemVolta],
+    ["Destino Volta", dados.destinoVolta],
+    ["Duração Volta", dados.duracaoVolta],
+    ["Hora Saída Ida", dados.horaSaidaIda],
+    ["Hora Chegada Ida", dados.horaChegadaIda],
+    ["Hora Saída Volta", dados.horaSaidaVolta],
+    ["Hora Chegada Volta", dados.horaChegadaVolta],
+    ["Valor", dados.valor],
+    ["Link", dados.link],
+    ["Nome Hotel", dados.nomeHotel],
+    ["Endereço Hotel", dados.enderecoHotel],
+    ["Telefone Hotel", dados.telefoneHotel],
+    ["Email Hotel", dados.emailHotel],
+    ["Quarto", dados.quarto],
+    ["Regime Hotel", dados.regimeHotel],
+    ["Comodidades", dados.comodidades],
+    ["Check-in Hotel", dados.checkinHotel],
+    ["Check-out Hotel", dados.checkoutHotel],
+    ["Noites Hotel", dados.noitesHotel],
+    ["Link Hotel", dados.linkHotel],
+    ["Tipo Traslado", dados.trasladoTipo],
+    ["Data Traslado", dados.trasladoData],
+    ["Horário Traslado", dados.trasladoHorario],
+    ["Local Partida Traslado", dados.trasladoLocalPartida],
+    ["Local Chegada Traslado", dados.trasladoLocalChegada],
+    ["Veículo/Empresa Traslado", dados.trasladoVeiculoEmpresa],
+    ["Observações Traslado", dados.trasladoObservacoes],
+    ["Nome Atração/Ingresso", dados.ingressoNomeAtracao],
+    ["Data Ingresso", dados.ingressoData],
+    ["Horário Ingresso", dados.ingressoHorario],
+    ["Quantidade Ingressos", dados.ingressoQuantidade],
+    ["Observações Ingresso", dados.ingressoObservacoes],
+  ];
+
+  // Filtrar apenas campos populados
+  const camposPopulados = campos.filter(([_, valor]) => valor && valor.trim() !== "" && valor !== "Não informado");
+
+  if (camposPopulados.length === 0) {
+    return `**Relatório da Análise da URL**\n\nProvedor: ${provedor}\n\nNenhuma informação foi extraída do conteúdo da página.`;
+  }
+
+  const linhas = camposPopulados.map(([label, valor]) => `**${label}:** ${valor}`);
+
+  let relatorio = `**Relatório da Análise da URL**\n\nProvedor: ${provedor}\n\n`;
+  relatorio += linhas.join("\n");
+
+  if (dados.politicaAlteracoesCancelamentos) {
+    relatorio += "\n\n**Políticas de Alteração e Cancelamento:**\n";
+    relatorio += dados.politicaAlteracoesCancelamentos;
+  }
+
+  return relatorio;
 }
 
 function criarPromptAnaliseCompleta(contextoArquivo: string, temConteudoArquivo: boolean) {
@@ -1518,8 +1675,10 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
 
   async function analisarDocumentosComIA() {
     if (!form.documentos || form.documentos.length === 0) {
-      setErro("Nenhum documento para analisar.");
-      return;
+      if (!form.urlOperador?.trim()) {
+        setErro("Nenhum documento ou URL para analisar.");
+        return;
+      }
     }
 
     setAnalisandoIA(true);
@@ -1535,6 +1694,117 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       setLogAnaliseIA([...logEntries]);
     };
 
+    // Analisar URL do operador se estiver preenchida
+    if (form.urlOperador?.trim()) {
+      try {
+        adicionarLog(`Baixando conteúdo da URL: ${form.urlOperador}`);
+
+        // Fazer download do conteúdo da página
+        const response = await fetch(form.urlOperador);
+        if (!response.ok) {
+          throw new Error(`Falha ao baixar página: ${response.status} ${response.statusText}`);
+        }
+
+        const htmlContent = await response.text();
+        adicionarLog(`Conteúdo baixado com sucesso (${htmlContent.length} caracteres).`);
+
+        const prompt = criarPromptAnaliseUrl(htmlContent);
+
+        const tentarComProvedor = async (provedor?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
+          return enviarMensagemIA([{ role: "user", content: prompt }], provedor);
+        };
+
+        let data;
+        let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare";
+        const provedoresAutomatico: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
+
+        if (provedorIA === "automático") {
+          const mapaProvedorCapitalizado: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
+            openai: "OpenAI",
+            groq: "Groq",
+            gemini: "Gemini",
+            openrouter: "OpenRouter",
+            cloudflare: "Cloudflare",
+          };
+
+          for (const provedor of provedoresAutomatico) {
+            try {
+              const nomeProvedor = mapaProvedorCapitalizado[provedor];
+              adicionarLog(`Analisando URL com ${nomeProvedor}...`);
+              data = await tentarComProvedor(provedor);
+              provedorUsado = nomeProvedor;
+              if (data) break;
+            } catch (error) {
+              const nomeProvedor = mapaProvedorCapitalizado[provedor];
+              console.warn(`Falha no ${nomeProvedor}, tentando com o próximo...`, error);
+              adicionarLog(`Falha no ${nomeProvedor} para URL. Tentando com o próximo...`);
+            }
+          }
+
+          if (!data) {
+            adicionarLog(`Todos os provedores de IA falharam para a URL. Continuando com análise de documentos...`);
+          }
+        } else {
+          const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
+            openai: "OpenAI",
+            groq: "Groq",
+            gemini: "Gemini",
+            openrouter: "OpenRouter",
+            cloudflare: "Cloudflare",
+          };
+          const provedorCapitalizado = mapaProvedor[provedorIA] || "OpenAI";
+          adicionarLog(`Analisando URL com ${provedorCapitalizado}...`);
+          try {
+            data = await tentarComProvedor(provedorIA);
+            provedorUsado = provedorCapitalizado;
+          } catch (error) {
+            adicionarLog(`Falha ao analisar URL com ${provedorCapitalizado}. Continuando com análise de documentos...`);
+          }
+        }
+
+        if (data) {
+          adicionarLog(`Resposta recebida da IA.`);
+          const respostaLimpa = data.reply.replace(/^```json\s*/, "").replace(/```$/, "").trim();
+
+          // Verificar se a resposta parece ser JSON válido
+          if (!respostaLimpa.startsWith('{') && !respostaLimpa.startsWith('[')) {
+            adicionarLog(`Resposta não é JSON válido. Resposta: ${respostaLimpa.substring(0, 100)}...`);
+            throw new Error("A IA não retornou um JSON válido. Verifique os logs para mais detalhes.");
+          }
+
+          adicionarLog(`Parseando resposta JSON...`);
+          const respostaJson = JSON.parse(respostaLimpa);
+
+          adicionarLog(`Dados extraídos do JSON: ${JSON.stringify(respostaJson).substring(0, 200)}...`);
+
+          const dadosIACompletos = montarDadosIAFromJson(respostaJson, respostaJson.operador || "", respostaJson.politicaAlteracoesCancelamentos || "");
+          adicionarLog(`Dados IA completos gerados.`);
+
+          const relatorioCompleto = montarRelatorioUrl(provedorUsado, dadosIACompletos);
+          adicionarLog(`Relatório gerado: ${relatorioCompleto.substring(0, 100)}...`);
+
+          adicionarLog(`Análise da URL concluída com sucesso.`);
+          adicionarLog(`Relatório gerado com ${relatorioCompleto.length} caracteres.`);
+
+          // Salvar o relatório no campo específico para URL
+          setForm((f) => ({
+            ...f,
+            relatorioUrl: relatorioCompleto,
+          }));
+
+          // Expandir seção de vouchers para mostrar o relatório da URL
+          setVouchersMinimizado(false);
+        } else {
+          adicionarLog(`Nenhum dado recebido da IA para a URL.`);
+          throw new Error("Todos os provedores de IA falharam. Verifique suas configurações de API e tente novamente.");
+        }
+      } catch (error) {
+        const mensagemErro = error instanceof Error ? error.message : "Não foi possível analisar a URL.";
+        adicionarLog(`Falha ao analisar URL: ${mensagemErro}`);
+        console.error("Erro na análise da URL:", error);
+      }
+    }
+
     let workerOcr: Worker | null = null;
     try {
       try {
@@ -1544,7 +1814,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       }
 
       const novasAnalises = await Promise.all(
-          form.documentos.map(async (doc) => {
+          (form.documentos || []).map(async (doc) => {
             let contextoArquivo = "Nome do arquivo: " + doc.nome + "\n\n";
             let temConteudoPdf = false;
             let operadorDetectado = "";
@@ -1696,43 +1966,11 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       const documentoIngresso = encontrarDocumentoIngresso(novasAnalises);
       const dadosIAIngresso = documentoIngresso ? obterDadosIADocumento(documentoIngresso) : null;
 
-      if (dadosIAVoo && temDadosExtraidos(dadosIAVoo)) {
-        adicionarLog(`Preenchendo Detalhes do Voo com base no relatório de "${documentoVoo?.nome}".`);
-        setFormMinimizado(false);
-      }
-      if (dadosIAHospedagem && temDadosExtraidos(dadosIAHospedagem)) {
-        adicionarLog(`Preenchendo Detalhes da Hospedagem com base no relatório de "${documentoHospedagem?.nome}".`);
-        setHospedagemMinimizado(false);
-      }
-      if (dadosIATraslado && possuiDadosTraslado(dadosIATraslado)) {
-        adicionarLog(`Preenchendo Detalhes do Traslado com base no relatório de "${documentoTraslado?.nome}".`);
-        setTrasladoMinimizado(false);
-      }
-      if (dadosIAIngresso && possuiDadosIngresso(dadosIAIngresso)) {
-        adicionarLog(`Preenchendo Detalhes do Ingresso com base no relatório de "${documentoIngresso?.nome}".`);
-        setIngressoMinimizado(false);
-      }
-
-      setForm((f) => {
-        let proximo = { ...f, documentos: novasAnalises };
-        if (dadosIAVoo && temDadosExtraidos(dadosIAVoo)) {
-          proximo = mapearDetalhesVoo(proximo, dadosIAVoo);
-        }
-        if (dadosIAHospedagem && temDadosExtraidos(dadosIAHospedagem)) {
-          proximo = mapearDetalhesHospedagem(proximo, dadosIAHospedagem);
-        }
-        if (dadosIATraslado && possuiDadosTraslado(dadosIATraslado)) {
-          proximo = mapearDetalhesTraslado(proximo, dadosIATraslado);
-        }
-        if (dadosIAIngresso && possuiDadosIngresso(dadosIAIngresso)) {
-          proximo = mapearDetalhesIngresso(proximo, dadosIAIngresso);
-        }
-        // Sincroniza o campo de texto do valor com o valor numérico extraído pela IA
-        if (proximo.valor > 0) {
-          setValorInput(formatarMoeda(proximo.valor));
-        }
-        return proximo;
-      });
+      // Apenas atualizar a lista de documentos sem preencher campos automaticamente
+      setForm((f) => ({
+        ...f,
+        documentos: novasAnalises,
+      }));
     } catch (error) {
       const mensagemErro = "Falha em ambos os provedores de IA. Verifique os logs e tente novamente.";
       adicionarLog(mensagemErro);
@@ -1785,6 +2023,38 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       onChange={handleFileUpload}
                       className="hidden"
                   />
+                  <div className="mt-4">
+                    <Label htmlFor="url-operador" className="text-xs text-gray-500">URL do Operador</Label>
+                    <div className="relative mt-1">
+                      <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                      <Input
+                          id="url-operador"
+                          value={form.urlOperador || ""}
+                          onChange={(e) => setForm({ ...form, urlOperador: e.target.value })}
+                          placeholder="Cole a URL do operador aqui..."
+                          className="pl-8"
+                      />
+                    </div>
+                  </div>
+                  {form.relatorioUrl && (
+                      <div className="mt-3 rounded-md border border-indigo-200 bg-indigo-50 text-xs text-indigo-800">
+                        <div className="flex items-center justify-between gap-2 p-2">
+                          <span className="font-medium">Relatório da URL</span>
+                          <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setForm((f) => ({ ...f, relatorioUrl: "" }))}
+                              className="h-6 gap-1 px-2 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        <div className="whitespace-pre-wrap border-t border-indigo-200 px-2 pb-2 pt-2">
+                          {form.relatorioUrl}
+                        </div>
+                      </div>
+                  )}
                   {(form.documentos || []).length > 0 ? (
                       <div className="space-y-1.5 pr-2">
                         {(form.documentos || []).map((doc) => (
@@ -1839,7 +2109,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       variant="outline"
                       size="sm"
                       onClick={analisarDocumentosComIA}
-                      disabled={analisandoIA || (form.documentos || []).length === 0}
+                      disabled={analisandoIA || ((form.documentos || []).length === 0 && !form.urlOperador?.trim())}
                       className="gap-2 text-indigo-600 border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
                   >
                     <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />

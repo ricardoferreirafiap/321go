@@ -16,6 +16,7 @@ export interface ItemOrc {
   valorUnitario: number;
   desconto: number;
   link?: string;
+  urlOperador?: string;
   documentos?: DocumentoVenda[];
 }
 

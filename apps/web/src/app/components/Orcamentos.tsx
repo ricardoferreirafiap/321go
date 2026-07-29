@@ -49,6 +49,7 @@ const itemVazio = (): ItemOrc => ({
   valorUnitario: 0,
   desconto: 0,
   link: "",
+  urlOperador: "",
   documentos: [],
 });
 
@@ -1689,6 +1690,19 @@ export default function Orcamentos() {
                                                     multiple
                                                     onChange={(e) => uploadDocumentosVenda(item.id, e)}
                                                     className="mt-1"
+                                                />
+                                              </div>
+                                            </div>
+                                            <div className="mt-3">
+                                              <Label htmlFor={`item-url-operador-${item.id}`} className="text-xs text-gray-500">URL do Operador</Label>
+                                              <div className="relative mt-1">
+                                                <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                                <Input
+                                                    id={`item-url-operador-${item.id}`}
+                                                    value={item.urlOperador || ""}
+                                                    onChange={(e) => updateItem(item.id, "urlOperador", e.target.value)}
+                                                    placeholder="Cole a URL do operador aqui..."
+                                                    className="pl-8"
                                                 />
                                               </div>
                                             </div>
