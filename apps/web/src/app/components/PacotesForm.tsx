@@ -5,6 +5,17 @@ import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./ui/alert-dialog";
 import { enviarMensagemIA } from "../data/aiChatApi";
 import { API_CONFIG } from "../data/apiConfig";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
@@ -1290,6 +1301,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   const [valorInput, setValorInput] = useState("");
   const [erro, setErro] = useState("");
   const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [voucherParaExcluir, setVoucherParaExcluir] = useState<number | null>(null);
   const [formMinimizado, setFormMinimizado] = useState(true);
   const [hospedagemMinimizado, setHospedagemMinimizado] = useState(true);
   const [trasladoMinimizado, setTrasladoMinimizado] = useState(true);
@@ -1332,14 +1344,6 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       [pacotes],
   );
 
-  function limparFormulario() {
-    setForm(pacoteVazio);
-    setValorInput("");
-    setEditandoId(null);
-    setFormMinimizado(true);
-    setPoliticaCancelamentoMinimizado(true);
-    setComodidadesMinimizado(true);
-  }
 
   function salvarPacote() {
     if (!form.operador.trim()) {
@@ -1404,7 +1408,12 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                   : item,
           ),
       );
-      limparFormulario();
+      setForm(pacoteVazio);
+      setValorInput("");
+      setEditandoId(null);
+      setFormMinimizado(true);
+      setPoliticaCancelamentoMinimizado(true);
+      setComodidadesMinimizado(true);
       setErro("");
       return;
     }
@@ -1462,7 +1471,12 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
         documentos: form.documentos,
       },
     ]);
-    limparFormulario();
+    setForm(pacoteVazio);
+    setValorInput("");
+    setEditandoId(null);
+    setFormMinimizado(true);
+    setPoliticaCancelamentoMinimizado(true);
+    setComodidadesMinimizado(true);
     setErro("");
   }
 
@@ -1541,8 +1555,14 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   function removerPacote(id: number) {
     onPacotesChange(pacotes.filter((item) => item.id !== id));
     if (editandoId === id) {
-      limparFormulario();
+      setForm(pacoteVazio);
+      setValorInput("");
+      setEditandoId(null);
+      setFormMinimizado(true);
+      setPoliticaCancelamentoMinimizado(true);
+      setComodidadesMinimizado(true);
     }
+    setVoucherParaExcluir(null);
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -3138,23 +3158,14 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                   </div>
                 )}
 
-                {(!formMinimizado || !hospedagemMinimizado) && (
-                    <>
-                      {erro && <p className="mt-3 text-xs text-red-500">{erro}</p>}
+                {erro && <p className="mt-3 text-xs text-red-500">{erro}</p>}
 
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <Button type="button" onClick={salvarPacote} className="gap-2">
-                          <Plus className="h-4 w-4" />
-                          {editandoId !== null ? "Salvar voucher" : "Adicionar voucher"}
-                        </Button>
-                        {editandoId !== null && (
-                            <Button type="button" variant="outline" onClick={limparFormulario}>
-                              Cancelar edição
-                            </Button>
-                        )}
-                      </div>
-                    </>
-                )}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button type="button" onClick={salvarPacote} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    {editandoId !== null ? "Salvar voucher" : "Adicionar voucher"}
+                  </Button>
+                </div>
               </>
           )}
 
@@ -3234,14 +3245,32 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
-                    <button
-                        type="button"
-                        onClick={() => removerPacote(pacote.id)}
-                        className="rounded p-1.5 text-red-500 hover:bg-red-50"
-                        title="Remover pacote"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <AlertDialog open={voucherParaExcluir === pacote.id} onOpenChange={(open) => !open && setVoucherParaExcluir(null)}>
+                      <AlertDialogTrigger asChild>
+                        <button
+                            type="button"
+                            onClick={() => setVoucherParaExcluir(pacote.id)}
+                            className="rounded p-1.5 text-red-500 hover:bg-red-50"
+                            title="Remover pacote"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Deseja realmente excluir o Voucher {index + 1} ({pacote.operador || "Sem operador"})? Esta ação não pode ser desfeita.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => removerPacote(pacote.id)} className="bg-red-600 hover:bg-red-700">
+                            Excluir
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               </Card>

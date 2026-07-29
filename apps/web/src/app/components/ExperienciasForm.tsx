@@ -4,10 +4,21 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card } from "./ui/card";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./ui/alert-dialog";
+import {
   Plus, Trash2, Search, MapPin, Star, Globe, Sparkles,
   FileText, Upload, X, Calendar, DollarSign,
   Package2, ChevronDown, ChevronUp, Link2, Phone, User,
-  Info, AlertCircle,
+  Info, AlertCircle, Pencil,
 } from "lucide-react";
 import { buscarExperienciasDestino } from "../data/destinationsApi";
 import { enviarMensagemIA } from "../data/aiChatApi";
@@ -237,8 +248,12 @@ export default function ExperienciasForm({
     "automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare"
   >("automático");
   const [logAnalise, setLogAnalise] = useState<string[]>([]);
-  const [vouchersMinimizado, setVouchersMinimizado] = useState(false);
+  const [vouchersMinimizado, setVouchersMinimizado] = useState(true);
   const [relatoriosExpandidos, setRelatoriosExpandidos] = useState<Set<number>>(new Set());
+  const [experienciaParaExcluir, setExperienciaParaExcluir] = useState<number | null>(null);
+  const [buscaMinimizado, setBuscaMinimizado] = useState(true);
+  const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [manualMinimizado, setManualMinimizado] = useState(true);
   const docFileInputRef = useRef<HTMLInputElement>(null);
   const [preenchidoComIA, setPreenchidoComIA] = useState(false);
 
@@ -535,31 +550,99 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
       setErro("Preencha os campos obrigatórios: Nome e Local."); return;
     }
     if (!formDetalhes.data) { setErro("Preencha a data da experiência."); return; }
-    onExperienciasChange([...experiencias, {
-      id: Date.now(),
-      nome: formManual.nome, local: formManual.local, endereco: formManual.endereco,
-      tipo: formDetalhes.tipo, data: formDetalhes.data, horario: formDetalhes.horario,
-      duracao: formDetalhes.duracao, qtdPessoas: formDetalhes.qtdPessoas,
-      preco: formDetalhes.preco, descricao: formManual.descricao,
-      inclui: formDetalhes.inclui, observacoes: formManual.observacoes,
-      operador: formManual.operador, nomeGuia: formManual.nomeGuia,
-      nReserva: formManual.nReserva, pontoEncontro: formManual.pontoEncontro,
-      telefoneOperador: formManual.telefoneOperador, linkIngresso: formManual.linkIngresso,
-      politicaCancelamento: formManual.politicaCancelamento,
-      voucher: voucher?.base64 || null, voucherTipo: voucher?.tipo || null, voucherNome: voucher?.nome || "",
-    }]);
+
+    if (editandoId !== null) {
+      // Atualizar experiência existente
+      onExperienciasChange(experiencias.map((exp) =>
+        exp.id === editandoId
+          ? {
+              ...exp,
+              nome: formManual.nome, local: formManual.local, endereco: formManual.endereco,
+              tipo: formDetalhes.tipo, data: formDetalhes.data, horario: formDetalhes.horario,
+              duracao: formDetalhes.duracao, qtdPessoas: formDetalhes.qtdPessoas,
+              preco: formDetalhes.preco, descricao: formManual.descricao,
+              inclui: formDetalhes.inclui, observacoes: formManual.observacoes,
+              operador: formManual.operador, nomeGuia: formManual.nomeGuia,
+              nReserva: formManual.nReserva, pontoEncontro: formManual.pontoEncontro,
+              telefoneOperador: formManual.telefoneOperador, linkIngresso: formManual.linkIngresso,
+              politicaCancelamento: formManual.politicaCancelamento,
+              voucher: voucher?.base64 || null, voucherTipo: voucher?.tipo || null, voucherNome: voucher?.nome || "",
+            }
+          : exp
+      ));
+      setEditandoId(null);
+    } else {
+      // Adicionar nova experiência
+      onExperienciasChange([...experiencias, {
+        id: Date.now(),
+        nome: formManual.nome, local: formManual.local, endereco: formManual.endereco,
+        tipo: formDetalhes.tipo, data: formDetalhes.data, horario: formDetalhes.horario,
+        duracao: formDetalhes.duracao, qtdPessoas: formDetalhes.qtdPessoas,
+        preco: formDetalhes.preco, descricao: formManual.descricao,
+        inclui: formDetalhes.inclui, observacoes: formManual.observacoes,
+        operador: formManual.operador, nomeGuia: formManual.nomeGuia,
+        nReserva: formManual.nReserva, pontoEncontro: formManual.pontoEncontro,
+        telefoneOperador: formManual.telefoneOperador, linkIngresso: formManual.linkIngresso,
+        politicaCancelamento: formManual.politicaCancelamento,
+        voucher: voucher?.base64 || null, voucherTipo: voucher?.tipo || null, voucherNome: voucher?.nome || "",
+      }]);
+    }
     setFormManual(formManualVazio); setFormDetalhes(formDetalhesVazio);
     setVoucher(null); setMostrarManual(false); setErro(""); setPreenchidoComIA(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const removerExperiencia = (id: number) =>
+  const removerExperiencia = (id: number) => {
     onExperienciasChange(experiencias.filter((e) => e.id !== id));
+    setExperienciaParaExcluir(null);
+  };
 
   const abrirFormManual = () => {
     setMostrarManual(true); setResultados([]); setSelecionado(null); setErro(""); setBuscou(false);
+    setManualMinimizado(false);
     setTimeout(() => formManualRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
+
+  function editarExperiencia(exp: Experiencia) {
+    setEditandoId(exp.id);
+    setBuscaMinimizado(true);
+    setVouchersMinimizado(false);
+    setMostrarManual(true);
+    setManualMinimizado(false);
+    setSelecionado(null);
+    setResultados([]);
+    setBuscou(false);
+    setErro("");
+
+    setFormManual({
+      nome: exp.nome,
+      local: exp.local,
+      endereco: exp.endereco,
+      descricao: exp.descricao,
+      observacoes: exp.observacoes,
+      operador: exp.operador,
+      nomeGuia: exp.nomeGuia,
+      nReserva: exp.nReserva,
+      pontoEncontro: exp.pontoEncontro,
+      telefoneOperador: exp.telefoneOperador,
+      linkIngresso: exp.linkIngresso,
+      politicaCancelamento: exp.politicaCancelamento,
+    });
+
+    setFormDetalhes({
+      data: exp.data,
+      horario: exp.horario,
+      duracao: exp.duracao,
+      qtdPessoas: exp.qtdPessoas,
+      preco: exp.preco,
+      tipo: exp.tipo,
+      inclui: exp.inclui,
+    });
+
+    setVoucher(exp.voucher ? { base64: exp.voucher, tipo: exp.voucherTipo || "pdf", nome: exp.voucherNome } : null);
+
+    setTimeout(() => formManualRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+  }
 
   // ─── helpers de renderização ─────────────────────────────────────────────
   const campoTexto = (
@@ -570,7 +653,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
     <div className={span2 ? "sm:col-span-2" : ""}>
       <Label className="text-xs">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</Label>
       <Input placeholder={placeholder} value={value}
-        onChange={(e) => onChange(e.target.value)} className="mt-1" />
+        onChange={(e) => onChange(e.target.value)} className={`mt-1 ${!value ? 'bg-yellow-50' : 'bg-white'}`} />
     </div>
   );
 
@@ -583,7 +666,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
       <Label className="text-xs">{label}</Label>
       <textarea value={value} onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder} rows={rows}
-        className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring resize-none" />
+        className={`mt-1 w-full rounded-md border border-input px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring resize-none ${!value ? 'bg-yellow-50' : 'bg-white'}`} />
     </div>
   );
 
@@ -593,29 +676,38 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
     <div className="space-y-4">
       {/* ── Busca ─────────────────────────────────────────────────────────── */}
       <Card className="p-4">
-        <h4 className="font-semibold text-gray-900 mb-4">
-          <Sparkles className="w-4 h-4 inline-block mr-2 text-indigo-500" />
-          Buscar Experiências / Atrações
-        </h4>
-        <div className="space-y-3">
-          <div>
-            <Label className="text-xs">Local / Cidade / Atração</Label>
-            <div className="flex gap-2 mt-1">
-              <Input placeholder="Ex: Paris, Nova York, Disney..."
-                value={busca} onChange={(e) => setBusca(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && buscarExperiencia()}
-                className="flex-1" />
-              <button
-                onClick={buscarExperiencia} disabled={carregando}
-                className="inline-flex items-center gap-2 px-4 h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
-              >
-                <Search className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-          {erro && <p className="text-xs text-red-500">{erro}</p>}
-          {avisoTemporario && <p className="text-xs text-amber-600">{avisoTemporario}</p>}
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h4 className="font-semibold text-gray-900">
+            <Sparkles className="w-4 h-4 inline-block mr-2 text-indigo-500" />
+            Buscar Experiências / Atrações
+          </h4>
+          <Button type="button" variant="ghost" size="sm"
+            onClick={() => setBuscaMinimizado((p) => !p)}
+            className="gap-2 text-gray-600 hover:text-gray-900">
+            {buscaMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          </Button>
         </div>
+        {!buscaMinimizado && (
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Local / Cidade / Atração</Label>
+              <div className="flex gap-2 mt-1">
+                <Input placeholder="Ex: Paris, Nova York, Disney..."
+                  value={busca} onChange={(e) => setBusca(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && buscarExperiencia()}
+                  className="flex-1" />
+                <button
+                  onClick={buscarExperiencia} disabled={carregando}
+                  className="inline-flex items-center gap-2 px-4 h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
+                >
+                  <Search className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            {erro && <p className="text-xs text-red-500">{erro}</p>}
+            {avisoTemporario && <p className="text-xs text-amber-600">{avisoTemporario}</p>}
+          </div>
+        )}
       </Card>
 
       {/* ── Vouchers / IA ─────────────────────────────────────────────────── */}
@@ -642,7 +734,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
                 <p className="text-xs text-gray-400 mt-0.5">PDF, ZIP, JPG, PNG, etc.</p>
               </div>
               <input ref={docFileInputRef} type="file" multiple
-                accept=".pdf,.zip,image/*" onChange={handleDocUpload} className="hidden" />
+                onChange={handleDocUpload} className="hidden" />
 
               {documentos.length > 0 ? (
                 <div className="space-y-1.5">
@@ -736,12 +828,6 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
         )}
       </Card>
 
-      <div className="text-center">
-        <Button variant="link" onClick={abrirFormManual} className="text-indigo-600 text-sm">
-          Não encontrou a experiência? Adicionar manualmente
-        </Button>
-      </div>
-
       {/* ── Resultados da busca ──────────────────────────────────────────── */}
       {resultados.length > 0 && !selecionado && (
         <Card className="p-4 bg-blue-50 border border-blue-200">
@@ -786,7 +872,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
           </div>
           <div className="mt-3 pt-3 border-t border-blue-200">
             <Button variant="ghost" size="sm"
-              onClick={() => { setMostrarManual(true); setResultados([]); }}
+              onClick={() => { setMostrarManual(true); setResultados([]); setManualMinimizado(false); }}
               className="text-xs text-indigo-600 w-full">
               Não encontrou o ideal? <strong className="ml-1">Adicionar manualmente</strong>
             </Button>
@@ -799,7 +885,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
         <Card className="p-6 text-center">
           <Sparkles className="w-10 h-10 mx-auto mb-2 text-gray-300" />
           <p className="text-sm text-gray-500 mb-3">Nenhuma experiência encontrada para "{busca}".</p>
-          <Button onClick={() => setMostrarManual(true)} className="gap-2">
+          <Button onClick={() => { setMostrarManual(true); setManualMinimizado(false); }} className="gap-2">
             <Plus className="w-4 h-4" /> Adicionar Manualmente
           </Button>
         </Card>
@@ -887,7 +973,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
                   <p className="text-xs text-gray-400 mt-0.5">PDF ou imagem</p>
                 </div>
               )}
-              <input ref={fileInputRef} type="file" accept=".pdf,image/*" onChange={handleFileUpload} className="hidden" />
+              <input ref={fileInputRef} type="file" onChange={handleFileUpload} className="hidden" />
             </div>
           </div>
           {erro && selecionado && <p className="text-xs text-red-500 mb-3">{erro}</p>}
@@ -908,166 +994,177 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
               <Sparkles className="w-4 h-4 inline-block mr-1 text-indigo-500" />
               Adicionar Experiência Manualmente
             </h4>
-            <button onClick={() => { setMostrarManual(false); setBuscou(false); setPreenchidoComIA(false); }}
-              className="p-1 text-gray-400 hover:text-gray-600">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {preenchidoComIA && (
-            <div className="mb-3 flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700">
-              <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
-              Campos preenchidos automaticamente com o relatório da IA. Revise antes de adicionar.
-            </div>
-          )}
-
-          {/* ── Identificação ── */}
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-1">Identificação</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-            {campoTexto("Nome da Experiência", "Ex: Tour pelo Louvre",
-              formManual.nome, (v) => setFormManual({ ...formManual, nome: v }), false, true)}
-            {campoTexto("Local / Cidade", "Ex: Paris, França",
-              formManual.local, (v) => setFormManual({ ...formManual, local: v }), false, true)}
-            {campoTexto("Endereço / Ponto de Encontro", "Ex: Museu do Louvre, Paris",
-              formManual.endereco, (v) => setFormManual({ ...formManual, endereco: v }), true)}
-            {campoTexto("Ponto de Encontro (detalhe)", "Ex: Entrada principal, portão A",
-              formManual.pontoEncontro, (v) => setFormManual({ ...formManual, pontoEncontro: v }), true)}
-          </div>
-
-          {/* ── Tipo e datas ── */}
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Data e Horário</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-            <div>
-              <Label className="text-xs">Tipo de Experiência</Label>
-              <select value={formDetalhes.tipo}
-                onChange={(e) => setFormDetalhes({ ...formDetalhes, tipo: e.target.value })}
-                className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm">
-                <option value="">Selecione o tipo</option>
-                {tiposExperiencia.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <div>
-              <Label className="text-xs">Data <span className="text-red-500">*</span></Label>
-              <Input type="date" value={formDetalhes.data}
-                onChange={(e) => setFormDetalhes({ ...formDetalhes, data: e.target.value })} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs">Horário</Label>
-              <Input type="time" value={formDetalhes.horario}
-                onChange={(e) => setFormDetalhes({ ...formDetalhes, horario: e.target.value })} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs">Duração</Label>
-              <Input placeholder="Ex: 2h, 4h, Dia inteiro" value={formDetalhes.duracao}
-                onChange={(e) => setFormDetalhes({ ...formDetalhes, duracao: e.target.value })} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs">Nº de Pessoas</Label>
-              <Input type="number" min="1" value={formDetalhes.qtdPessoas}
-                onChange={(e) => setFormDetalhes({ ...formDetalhes, qtdPessoas: parseInt(e.target.value) || 1 })} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs">Preço (R$)</Label>
-              <Input type="number" min="0" step="0.01" placeholder="0,00"
-                value={formDetalhes.preco || ""}
-                onChange={(e) => setFormDetalhes({ ...formDetalhes, preco: parseFloat(e.target.value) || 0 })} className="mt-1" />
-            </div>
-            <div className="sm:col-span-2">
-              <Label className="text-xs">Inclui</Label>
-              <Input placeholder="Ex: Ingresso, transporte, guia, alimentação..."
-                value={formDetalhes.inclui}
-                onChange={(e) => setFormDetalhes({ ...formDetalhes, inclui: e.target.value })} className="mt-1" />
+            <div className="flex items-center gap-1">
+              <Button type="button" variant="ghost" size="sm"
+                onClick={() => setManualMinimizado((p) => !p)}
+                className="gap-2 text-gray-600 hover:text-gray-900">
+                {manualMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+              </Button>
+              <button onClick={() => { setMostrarManual(false); setBuscou(false); setPreenchidoComIA(false); setEditandoId(null); }}
+                className="p-1 text-gray-400 hover:text-gray-600">
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
-          {/* ── Operador / Reserva ── */}
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Operador / Reserva</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-            <div>
-              <Label className="text-xs"><User className="w-3 h-3 inline-block mr-0.5" />Operador / Fornecedor</Label>
-              <Input placeholder="Ex: GetYourGuide, Civitatis, agência local..."
-                value={formManual.operador}
-                onChange={(e) => setFormManual({ ...formManual, operador: e.target.value })} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs">Nº de Reserva / Código</Label>
-              <Input placeholder="Ex: REF-123456"
-                value={formManual.nReserva}
-                onChange={(e) => setFormManual({ ...formManual, nReserva: e.target.value })} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs"><User className="w-3 h-3 inline-block mr-0.5" />Nome do Guia</Label>
-              <Input placeholder="Ex: João Silva"
-                value={formManual.nomeGuia}
-                onChange={(e) => setFormManual({ ...formManual, nomeGuia: e.target.value })} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs"><Phone className="w-3 h-3 inline-block mr-0.5" />Telefone / WhatsApp</Label>
-              <Input placeholder="Ex: +55 11 99999-9999"
-                value={formManual.telefoneOperador}
-                onChange={(e) => setFormManual({ ...formManual, telefoneOperador: e.target.value })} className="mt-1" />
-            </div>
-            <div className="sm:col-span-2">
-              <Label className="text-xs"><Link2 className="w-3 h-3 inline-block mr-0.5" />Link do Ingresso / Voucher</Label>
-              <Input placeholder="https://..."
-                value={formManual.linkIngresso}
-                onChange={(e) => setFormManual({ ...formManual, linkIngresso: e.target.value })} className="mt-1" />
-            </div>
-          </div>
-
-          {/* ── Descrição e Observações ── */}
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Informações Adicionais</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-            {campoTextArea("Descrição", "Descreva a experiência, o que esperar, etc.",
-              formManual.descricao, (v) => setFormManual({ ...formManual, descricao: v }))}
-            {campoTextArea("Observações", "O que levar, restrições, idioma do guia, etc.",
-              formManual.observacoes, (v) => setFormManual({ ...formManual, observacoes: v }))}
-            <div className="sm:col-span-2">
-              <Label className="text-xs"><AlertCircle className="w-3 h-3 inline-block mr-0.5" />Política de Cancelamento</Label>
-              <textarea value={formManual.politicaCancelamento}
-                onChange={(e) => setFormManual({ ...formManual, politicaCancelamento: e.target.value })}
-                placeholder="Ex: Cancelamento gratuito até 24h antes. Após esse prazo, não há reembolso."
-                rows={3}
-                className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring resize-none" />
-            </div>
-          </div>
-
-          {/* ── Voucher single-file ── */}
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Voucher / Comprovante</p>
-          <div className="mb-4">
-            {voucher ? (
-              <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <FileText className="w-8 h-8 text-red-500 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{voucher.nome}</p>
-                  <p className="text-xs text-gray-500">{voucher.tipo === "pdf" ? "Documento PDF" : "Imagem"}</p>
+          {!manualMinimizado && (
+            <>
+              {preenchidoComIA && (
+                <div className="mb-3 flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700">
+                  <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
+                  Campos preenchidos automaticamente com o relatório da IA. Revise antes de adicionar.
                 </div>
-                <button onClick={removerVoucher} className="p-1.5 text-red-500 hover:bg-red-50 rounded">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <div onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
-                <Upload className="w-6 h-6 mx-auto mb-1 text-gray-400" />
-                <p className="text-xs text-gray-500">Clique para fazer upload do voucher</p>
-                <p className="text-xs text-gray-400 mt-0.5">PDF ou imagem (JPG, PNG)</p>
-              </div>
-            )}
-            <input ref={fileInputRef} type="file" accept=".pdf,image/*" onChange={handleFileUpload} className="hidden" />
-          </div>
+              )}
 
-          {erro && mostrarManual && <p className="text-xs text-red-500 mb-3">{erro}</p>}
-          <div className="flex gap-2">
-            <Button onClick={adicionarExperienciaManual}
-              className="flex-1 gap-2 bg-indigo-600 hover:bg-indigo-700">
-              <Plus className="w-4 h-4" /> Adicionar Experiência
-            </Button>
-            <Button onClick={() => { setMostrarManual(false); setBuscou(false); setPreenchidoComIA(false); }}
-              variant="outline" className="flex-1">
-              Cancelar
-            </Button>
-          </div>
+              {/* ── Identificação ── */}
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-1">Identificação</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                {campoTexto("Nome da Experiência", "Ex: Tour pelo Louvre",
+                  formManual.nome, (v) => setFormManual({ ...formManual, nome: v }), false, true)}
+                {campoTexto("Local / Cidade", "Ex: Paris, França",
+                  formManual.local, (v) => setFormManual({ ...formManual, local: v }), false, true)}
+                {campoTexto("Endereço / Ponto de Encontro", "Ex: Museu do Louvre, Paris",
+                  formManual.endereco, (v) => setFormManual({ ...formManual, endereco: v }), true)}
+                {campoTexto("Ponto de Encontro (detalhe)", "Ex: Entrada principal, portão A",
+                  formManual.pontoEncontro, (v) => setFormManual({ ...formManual, pontoEncontro: v }), true)}
+              </div>
+
+              {/* ── Tipo e datas ── */}
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Data e Horário</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                <div>
+                  <Label className="text-xs">Tipo de Experiência</Label>
+                  <select value={formDetalhes.tipo}
+                    onChange={(e) => setFormDetalhes({ ...formDetalhes, tipo: e.target.value })}
+                    className={`mt-1 w-full rounded-md border border-input px-3 py-2 text-sm ${!formDetalhes.tipo ? 'bg-yellow-50' : 'bg-white'}`}>
+                    <option value="">Selecione o tipo</option>
+                    {tiposExperiencia.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-xs">Data <span className="text-red-500">*</span></Label>
+                  <Input type="date" value={formDetalhes.data}
+                    onChange={(e) => setFormDetalhes({ ...formDetalhes, data: e.target.value })} className={`mt-1 ${!formDetalhes.data ? 'bg-yellow-50' : 'bg-white'}`} />
+                </div>
+                <div>
+                  <Label className="text-xs">Horário</Label>
+                  <Input type="time" value={formDetalhes.horario}
+                    onChange={(e) => setFormDetalhes({ ...formDetalhes, horario: e.target.value })} className={`mt-1 ${!formDetalhes.horario ? 'bg-yellow-50' : 'bg-white'}`} />
+                </div>
+                <div>
+                  <Label className="text-xs">Duração</Label>
+                  <Input placeholder="Ex: 2h, 4h, Dia inteiro" value={formDetalhes.duracao}
+                    onChange={(e) => setFormDetalhes({ ...formDetalhes, duracao: e.target.value })} className={`mt-1 ${!formDetalhes.duracao ? 'bg-yellow-50' : 'bg-white'}`} />
+                </div>
+                <div>
+                  <Label className="text-xs">Nº de Pessoas</Label>
+                  <Input type="number" min="1" value={formDetalhes.qtdPessoas}
+                    onChange={(e) => setFormDetalhes({ ...formDetalhes, qtdPessoas: parseInt(e.target.value) || 1 })} className={`mt-1 ${!formDetalhes.qtdPessoas ? 'bg-yellow-50' : 'bg-white'}`} />
+                </div>
+                <div>
+                  <Label className="text-xs">Preço (R$)</Label>
+                  <Input type="number" min="0" step="0.01" placeholder="0,00"
+                    value={formDetalhes.preco || ""}
+                    onChange={(e) => setFormDetalhes({ ...formDetalhes, preco: parseFloat(e.target.value) || 0 })} className={`mt-1 ${!formDetalhes.preco ? 'bg-yellow-50' : 'bg-white'}`} />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label className="text-xs">Inclui</Label>
+                  <Input placeholder="Ex: Ingresso, transporte, guia, alimentação..."
+                    value={formDetalhes.inclui}
+                    onChange={(e) => setFormDetalhes({ ...formDetalhes, inclui: e.target.value })} className={`mt-1 ${!formDetalhes.inclui ? 'bg-yellow-50' : 'bg-white'}`} />
+                </div>
+              </div>
+
+              {/* ── Operador / Reserva ── */}
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Operador / Reserva</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                <div>
+                  <Label className="text-xs"><User className="w-3 h-3 inline-block mr-0.5" />Operador / Fornecedor</Label>
+                  <Input placeholder="Ex: GetYourGuide, Civitatis, agência local..."
+                    value={formManual.operador}
+                    onChange={(e) => setFormManual({ ...formManual, operador: e.target.value })} className={`mt-1 ${!formManual.operador ? 'bg-yellow-50' : 'bg-white'}`} />
+                </div>
+                <div>
+                  <Label className="text-xs">Nº de Reserva / Código</Label>
+                  <Input placeholder="Ex: REF-123456"
+                    value={formManual.nReserva}
+                    onChange={(e) => setFormManual({ ...formManual, nReserva: e.target.value })} className={`mt-1 ${!formManual.nReserva ? 'bg-yellow-50' : 'bg-white'}`} />
+                </div>
+                <div>
+                  <Label className="text-xs"><User className="w-3 h-3 inline-block mr-0.5" />Nome do Guia</Label>
+                  <Input placeholder="Ex: João Silva"
+                    value={formManual.nomeGuia}
+                    onChange={(e) => setFormManual({ ...formManual, nomeGuia: e.target.value })} className={`mt-1 ${!formManual.nomeGuia ? 'bg-yellow-50' : 'bg-white'}`} />
+                </div>
+                <div>
+                  <Label className="text-xs"><Phone className="w-3 h-3 inline-block mr-0.5" />Telefone / WhatsApp</Label>
+                  <Input placeholder="Ex: +55 11 99999-9999"
+                    value={formManual.telefoneOperador}
+                    onChange={(e) => setFormManual({ ...formManual, telefoneOperador: e.target.value })} className={`mt-1 ${!formManual.telefoneOperador ? 'bg-yellow-50' : 'bg-white'}`} />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label className="text-xs"><Link2 className="w-3 h-3 inline-block mr-0.5" />Link do Ingresso / Voucher</Label>
+                  <Input placeholder="https://..."
+                    value={formManual.linkIngresso}
+                    onChange={(e) => setFormManual({ ...formManual, linkIngresso: e.target.value })} className={`mt-1 ${!formManual.linkIngresso ? 'bg-yellow-50' : 'bg-white'}`} />
+                </div>
+              </div>
+
+              {/* ── Descrição e Observações ── */}
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Informações Adicionais</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                {campoTextArea("Descrição", "Descreva a experiência, o que esperar, etc.",
+                  formManual.descricao, (v) => setFormManual({ ...formManual, descricao: v }))}
+                {campoTextArea("Observações", "O que levar, restrições, idioma do guia, etc.",
+                  formManual.observacoes, (v) => setFormManual({ ...formManual, observacoes: v }))}
+                <div className="sm:col-span-2">
+                  <Label className="text-xs"><AlertCircle className="w-3 h-3 inline-block mr-0.5" />Política de Cancelamento</Label>
+                  <textarea value={formManual.politicaCancelamento}
+                    onChange={(e) => setFormManual({ ...formManual, politicaCancelamento: e.target.value })}
+                    placeholder="Ex: Cancelamento gratuito até 24h antes. Após esse prazo, não há reembolso."
+                    rows={3}
+                    className={`mt-1 w-full rounded-md border border-input px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring resize-none ${!formManual.politicaCancelamento ? 'bg-yellow-50' : 'bg-white'}`} />
+                </div>
+              </div>
+
+              {/* ── Voucher single-file ── */}
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Voucher / Comprovante</p>
+              <div className="mb-4">
+                {voucher ? (
+                  <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <FileText className="w-8 h-8 text-red-500 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{voucher.nome}</p>
+                      <p className="text-xs text-gray-500">{voucher.tipo === "pdf" ? "Documento PDF" : "Imagem"}</p>
+                    </div>
+                    <button onClick={removerVoucher} className="p-1.5 text-red-500 hover:bg-red-50 rounded">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
+                    <Upload className="w-6 h-6 mx-auto mb-1 text-gray-400" />
+                    <p className="text-xs text-gray-500">Clique para fazer upload do voucher</p>
+                    <p className="text-xs text-gray-400 mt-0.5">PDF ou imagem (JPG, PNG)</p>
+                  </div>
+                )}
+                <input ref={fileInputRef} type="file" onChange={handleFileUpload} className="hidden" />
+              </div>
+
+              {erro && mostrarManual && <p className="text-xs text-red-500 mb-3">{erro}</p>}
+              <div className="flex gap-2">
+                <Button onClick={adicionarExperienciaManual}
+                  className="flex-1 gap-2 bg-indigo-600 hover:bg-indigo-700">
+                  <Plus className="w-4 h-4" /> Adicionar Experiência
+                </Button>
+                <Button onClick={() => { setMostrarManual(false); setBuscou(false); setPreenchidoComIA(false); setEditandoId(null); }}
+                  variant="outline" className="flex-1">
+                  Cancelar
+                </Button>
+              </div>
+            </>
+          )}
         </Card>
       )}
 
@@ -1158,10 +1255,39 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
                     </div>
                   )}
                 </div>
-                <button onClick={() => removerExperiencia(exp.id)}
-                  className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors ml-3 flex-shrink-0">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1 ml-3 flex-shrink-0">
+                  <button
+                    onClick={() => editarExperiencia(exp)}
+                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                    title="Editar experiência"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <AlertDialog open={experienciaParaExcluir === exp.id} onOpenChange={(open) => !open && setExperienciaParaExcluir(null)}>
+                    <AlertDialogTrigger asChild>
+                      <button
+                        onClick={() => setExperienciaParaExcluir(exp.id)}
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Deseja realmente excluir a experiência "{exp.nome || "Sem nome"}"? Esta ação não pode ser desfeita.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => removerExperiencia(exp.id)} className="bg-red-600 hover:bg-red-700">
+                          Excluir
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </div>
             ))}
           </div>
