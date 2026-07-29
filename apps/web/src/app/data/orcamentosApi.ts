@@ -16,7 +16,7 @@ export interface ItemOrc {
   valorUnitario: number;
   desconto: number;
   link?: string;
-  urlOperador?: string;
+  urlOperador?: string[];
   documentos?: DocumentoVenda[];
 }
 
@@ -38,6 +38,7 @@ export interface Orcamento {
   statusViagem?: StatusViagem;
   dataCriacao: string;
 
+  itens?: ItemOrc[];
   pacotes?: any[];
   voos?: any[];
   hospedagem?: any[];

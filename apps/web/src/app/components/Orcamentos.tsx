@@ -49,7 +49,7 @@ const itemVazio = (): ItemOrc => ({
   valorUnitario: 0,
   desconto: 0,
   link: "",
-  urlOperador: "",
+  urlOperador: [],
   documentos: [],
 });
 
@@ -458,6 +458,43 @@ export default function Orcamentos() {
   const [voosMinimizados, setVoosMinimizados] = useState(true);
   const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
   const [hospedagemMinimizada, setHospedagemMinimizada] = useState(true);
+  const [mostrarVoosHospedagem, setMostrarVoosHospedagem] = useState(false);
+  const [novaUrlOperadorItem, setNovaUrlOperadorItem] = useState("");
+  
+  function adicionarUrlOperadorItem(itemId: number) {
+    const url = novaUrlOperadorItem.trim();
+    if (!url) return;
+    
+    const itensAtualizados = form.itens?.map(item => {
+      if (item.id === itemId) {
+        const urlsAtuais = item.urlOperador || [];
+        if (urlsAtuais.includes(url)) {
+          setErro("Esta URL já foi adicionada.");
+          return item;
+        }
+        return { ...item, urlOperador: [...urlsAtuais, url] };
+      }
+      return item;
+    }) || [];
+    
+    setForm({ ...form, itens: itensAtualizados });
+    setNovaUrlOperadorItem("");
+    setErro("");
+  }
+
+  function removerUrlOperadorItem(itemId: number, urlIndex: number) {
+    const itensAtualizados = form.itens?.map(item => {
+      if (item.id === itemId) {
+        const urlsAtuais = item.urlOperador || [];
+        const novasUrls = urlsAtuais.filter((_, i) => i !== urlIndex);
+        return { ...item, urlOperador: novasUrls };
+      }
+      return item;
+    }) || [];
+    
+    setForm({ ...form, itens: itensAtualizados });
+  }
+  
   function obterDestinoPrincipalOrcamento(orcBase?: Partial<Orcamento>, preferirEstadoFormulario = false) {
     const hospedagemFonte = hospedagem.length > 0 ? hospedagem : Array.isArray(orcBase?.hospedagem) ? orcBase.hospedagem : [];
     const transporteFonte = transporte.length > 0 ? transporte : Array.isArray(orcBase?.transporte) ? orcBase.transporte : [];
@@ -634,6 +671,10 @@ export default function Orcamentos() {
     carregarDadosCadastros();
     carregarOrcamentos();
 
+    // Garantir que Voos e Hospedagem estejam minimizados no carregamento inicial
+    setVoosMinimizados(true);
+    setHospedagemMinimizada(true);
+
     return () => {
       mounted = false;
     };
@@ -705,6 +746,9 @@ export default function Orcamentos() {
     setSecoesOrcamentoMinimizadas(true);
     setVendasMinimizadas(true);
     setResumoMinimizado(true);
+    setVoosMinimizados(true);
+    setHospedagemMinimizada(true);
+    setMostrarVoosHospedagem(false);
     setPassageiroSelecionado("");
     setStatusBloqueado(false);
     setSection("Pacotes");
@@ -740,6 +784,9 @@ export default function Orcamentos() {
     setSecoesOrcamentoMinimizadas(true);
     setVendasMinimizadas(true);
     setResumoMinimizado(true);
+    setVoosMinimizados(true);
+    setHospedagemMinimizada(true);
+    setMostrarVoosHospedagem(false);
     setPassageiroSelecionado("");
     setSection("Pacotes");
     await verificarReceitaLancada(o.id);
@@ -1498,42 +1545,72 @@ export default function Orcamentos() {
                         {section === 'Pacotes' && (
                             <div className="space-y-6">
                               <PacotesForm pacotes={pacotes} onPacotesChange={setPacotes} />
-                              <Card className="p-4">
-                                <div className="mb-4 flex items-center justify-between gap-3">
-                                  <h4 className="font-semibold text-gray-900 flex items-center gap-2">
-                                    <Plane className="w-4 h-4 text-indigo-500" /> Voos
-                                  </h4>
-                                  <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => setVoosMinimizados((prev) => !prev)}
-                                      className="gap-2 text-gray-600 hover:text-gray-900 h-8 px-2"
-                                  >
-                                    {voosMinimizados ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                                    {voosMinimizados ? " " : " "}
-                                  </Button>
-                                </div>
-                                {!voosMinimizados && <VoosForm voos={voos} onVoosChange={setVoos} />}
-                              </Card>
-                              <Card className="p-4">
-                                <div className="mb-4 flex items-center justify-between gap-3">
-                                  <h4 className="font-semibold text-gray-900 flex items-center gap-2">
-                                    <Bed className="w-4 h-4 text-indigo-500" /> Hospedagem
-                                  </h4>
-                                  <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => setHospedagemMinimizada((prev) => !prev)}
-                                      className="gap-2 text-gray-600 hover:text-gray-900 h-8 px-2"
-                                  >
-                                    {hospedagemMinimizada ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                                    {hospedagemMinimizada ? " " : " "}
-                                  </Button>
-                                </div>
-                                {!hospedagemMinimizada && <HospedagemForm hospedagens={hospedagem} onHospedagensChange={setHospedagem} />}
-                              </Card>
+                              <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="w-full flex items-center justify-center gap-2 text-indigo-600 border-indigo-300 hover:bg-indigo-50"
+                                  onClick={() => {
+                                    if (!mostrarVoosHospedagem) {
+                                      setMostrarVoosHospedagem(true);
+                                      setVoosMinimizados(true);
+                                      setHospedagemMinimizada(true);
+                                    } else {
+                                      setMostrarVoosHospedagem(false);
+                                      setVoosMinimizados(true);
+                                      setHospedagemMinimizada(true);
+                                    }
+                                  }}
+                              >
+                                {!mostrarVoosHospedagem ? (
+                                  <>
+                                    <Plus className="w-4 h-4" /> Incluir Manualmente Voo e Hospedagem
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronUp className="w-4 h-4" /> Ocultar Voos e Hospedagem
+                                  </>
+                                )}
+                              </Button>
+                              {mostrarVoosHospedagem && (
+                                <>
+                                  <Card className="p-4">
+                                    <div className="mb-4 flex items-center justify-between gap-3">
+                                      <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                                        <Plane className="w-4 h-4 text-indigo-500" /> Voos
+                                      </h4>
+                                      <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => setVoosMinimizados((prev) => !prev)}
+                                          className="gap-2 text-gray-600 hover:text-gray-900 h-8 px-2"
+                                      >
+                                        {voosMinimizados ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                                        {voosMinimizados ? " " : " "}
+                                      </Button>
+                                    </div>
+                                    {!voosMinimizados && <VoosForm voos={voos} onVoosChange={setVoos} />}
+                                  </Card>
+                                  <Card className="p-4">
+                                    <div className="mb-4 flex items-center justify-between gap-3">
+                                      <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                                        <Bed className="w-4 h-4 text-indigo-500" /> Hospedagem
+                                      </h4>
+                                      <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => setHospedagemMinimizada((prev) => !prev)}
+                                          className="gap-2 text-gray-600 hover:text-gray-900 h-8 px-2"
+                                      >
+                                        {hospedagemMinimizada ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                                        {hospedagemMinimizada ? " " : " "}
+                                      </Button>
+                                    </div>
+                                    {!hospedagemMinimizada && <HospedagemForm hospedagens={hospedagem} onHospedagensChange={setHospedagem} />}
+                                  </Card>
+                                </>
+                              )}
                             </div>
                         )}
 
@@ -1695,16 +1772,48 @@ export default function Orcamentos() {
                                             </div>
                                             <div className="mt-3">
                                               <Label htmlFor={`item-url-operador-${item.id}`} className="text-xs text-gray-500">URL do Operador</Label>
-                                              <div className="relative mt-1">
+                                              <div className="relative mt-1 flex gap-2">
                                                 <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                                                 <Input
                                                     id={`item-url-operador-${item.id}`}
-                                                    value={item.urlOperador || ""}
-                                                    onChange={(e) => updateItem(item.id, "urlOperador", e.target.value)}
+                                                    value={novaUrlOperadorItem}
+                                                    onChange={(e) => setNovaUrlOperadorItem(e.target.value)}
                                                     placeholder="Cole a URL do operador aqui..."
                                                     className="pl-8"
+                                                    onKeyDown={(e) => {
+                                                      if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        adicionarUrlOperadorItem(item.id);
+                                                      }
+                                                    }}
                                                 />
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => adicionarUrlOperadorItem(item.id)}
+                                                    className="shrink-0"
+                                                >
+                                                  <Plus className="h-4 w-4" />
+                                                </Button>
                                               </div>
+                                              {(item.urlOperador || []).length > 0 && (
+                                                  <div className="space-y-1.5 pr-2 mt-2">
+                                                    {(item.urlOperador || []).map((url, urlIndex) => (
+                                                        <div key={urlIndex} className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs">
+                                                          <div className="flex-1 min-w-0">
+                                                            <a href={url} target="_blank" rel="noopener noreferrer" className="truncate text-indigo-600 hover:text-indigo-700 flex items-center gap-2">
+                                                              <Link2 className="h-4 w-4 flex-shrink-0" />
+                                                              <span className="truncate">{url}</span>
+                                                            </a>
+                                                          </div>
+                                                          <button type="button" onClick={() => removerUrlOperadorItem(item.id, urlIndex)} className="ml-2 rounded p-1 text-red-500 hover:bg-red-50" title="Remover URL">
+                                                            <X className="h-3.5 w-3.5" />
+                                                          </button>
+                                                        </div>
+                                                    ))}
+                                                  </div>
+                                              )}
                                             </div>
                                             {(item.documentos || []).length > 0 && (
                                                 <div className="mt-3 space-y-1.5">
