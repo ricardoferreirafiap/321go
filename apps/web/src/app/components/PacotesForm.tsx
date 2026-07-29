@@ -6,6 +6,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { enviarMensagemIA } from "../data/aiChatApi";
+import { API_CONFIG } from "../data/apiConfig";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
 import { createWorker, type Worker } from "tesseract.js";
 
@@ -70,6 +71,9 @@ type DadosIAExtraidos = {
   ingressoHorario?: string;
   ingressoQuantidade?: string;
   ingressoObservacoes?: string;
+  dadosCliente?: string;
+  informacoesAdicionais?: string;
+  conteudoCompleto?: string;
 }
 
 interface Pacote {
@@ -80,7 +84,7 @@ interface Pacote {
   destino: string;
   reserva?: string;
   link: string;
-  urlOperador?: string;
+  urlOperador?: string[];
 
   foto: string | null;
   valor: number;
@@ -93,6 +97,10 @@ interface Pacote {
   origemVolta?: string;
   destinoVolta?: string;
   duracaoVolta?: string;
+  horaSaidaIda?: string;
+  horaChegadaIda?: string;
+  horaSaidaVolta?: string;
+  horaChegadaVolta?: string;
   politicaAlteracoesCancelamentos?: string;
   hospedagemNome?: string;
   hospedagemEndereco?: string;
@@ -119,10 +127,12 @@ interface Pacote {
   ingressoHorario?: string;
   ingressoQuantidade?: string;
   ingressoObservacoes?: string;
+  dadosCliente?: string;
+  informacoesAdicionais?: string;
+  conteudoCompleto?: string;
   descricao?: string;
   logAnalise?: string;
   documentos: Documento[];
-  relatorioUrl?: string;
 }
 
 interface PacotesFormProps {
@@ -148,7 +158,7 @@ const pacoteVazio: Omit<Pacote, "id"> = {
   destino: "",
   reserva: "",
   link: "",
-  urlOperador: "",
+  urlOperador: [],
 
   foto: null,
   valor: 0,
@@ -161,6 +171,10 @@ const pacoteVazio: Omit<Pacote, "id"> = {
   origemVolta: "",
   destinoVolta: "",
   duracaoVolta: "",
+  horaSaidaIda: "",
+  horaChegadaIda: "",
+  horaSaidaVolta: "",
+  horaChegadaVolta: "",
   politicaAlteracoesCancelamentos: "",
   hospedagemNome: "",
   hospedagemEndereco: "",
@@ -187,10 +201,12 @@ const pacoteVazio: Omit<Pacote, "id"> = {
   ingressoHorario: "",
   ingressoQuantidade: "",
   ingressoObservacoes: "",
+  dadosCliente: "",
+  informacoesAdicionais: "",
+  conteudoCompleto: "",
   descricao: "",
   logAnalise: "",
-  documentos: [],
-  relatorioUrl: ""
+  documentos: []
 };
 
 function formatarMoeda(v: number) {
@@ -609,8 +625,8 @@ function extrairDadosIADeAnalise(analise: string): DadosIAExtraidos {
     return normalizarValorIA(valor);
   };
 
-  const dataIdaBr = extrair(/\*\*Data de Ida:\*\*\s*(.+)/);
-  const dataVoltaBr = extrair(/\*\*Data de Volta:\*\*\s*(.+)/);
+  const dataIdaBr = extrair(/\*\*Data (de )?Ida:\*\*\s*(.+)/);
+  const dataVoltaBr = extrair(/\*\*Data (de )?Volta:\*\*\s*(.+)/);
   const checkinBr = extrair(/\*\*Check-in:\*\*\s*(.+)/i);
   const checkoutBr = extrair(/\*\*Check-out:\*\*\s*(.+)/i);
 
@@ -622,65 +638,65 @@ function extrairDadosIADeAnalise(analise: string): DadosIAExtraidos {
     passageiros: extrair(/\*\*Passageiros:\*\*\s*(.+)/),
     dataIda: dataIdaBr ? dataBrParaIso(dataIdaBr) : "",
     dataVolta: dataVoltaBr ? dataBrParaIso(dataVoltaBr) : "",
-    origemIda: extrair(/\*\*Origem \(Ida\):\*\*\s*(.+)/),
-    destinoIda: extrair(/\*\*Destino \(Ida\):\*\*\s*(.+)/),
-    duracaoIda: extrair(/\*\*Duração \(Ida\):\*\*\s*(.+)/i),
-    origemVolta: extrair(/\*\*Origem \(Volta\):\*\*\s*(.+)/),
-    destinoVolta: extrair(/\*\*Destino \(Volta\):\*\*\s*(.+)/),
-    duracaoVolta: extrair(/\*\*Duração \(Volta\):\*\*\s*(.+)/i),
-    horaSaidaIda: extrair(/\*\*Horário de Saída \(Ida\):\*\*\s*(.+)/i),
-    horaChegadaIda: extrair(/\*\*Horário de Chegada \(Ida\):\*\*\s*(.+)/i),
-    horaSaidaVolta: extrair(/\*\*Horário de Saída \(Volta\):\*\*\s*(.+)/i),
-    horaChegadaVolta: extrair(/\*\*Horário de Chegada \(Volta\):\*\*\s*(.+)/i),
+    origemIda: extrair(/\*\*Origem (\(Ida\))?:\*\*\s*(.+)/),
+    destinoIda: extrair(/\*\*Destino (\(Ida\))?:\*\*\s*(.+)/),
+    duracaoIda: extrair(/\*\*Duração (\(Ida\))?:\*\*\s*(.+)/i),
+    origemVolta: extrair(/\*\*Origem (\(Volta\))?:\*\*\s*(.+)/),
+    destinoVolta: extrair(/\*\*Destino (\(Volta\))?:\*\*\s*(.+)/),
+    duracaoVolta: extrair(/\*\*Duração (\(Volta\))?:\*\*\s*(.+)/i),
+    horaSaidaIda: extrair(/\*\*Horário (de )?Saída (\(Ida\))?:\*\*\s*(.+)/i),
+    horaChegadaIda: extrair(/\*\*Horário (de )?Chegada (\(Ida\))?:\*\*\s*(.+)/i),
+    horaSaidaVolta: extrair(/\*\*Horário (de )?Saída (\(Volta\))?:\*\*\s*(.+)/i),
+    horaChegadaVolta: extrair(/\*\*Horário (de )?Chegada (\(Volta\))?:\*\*\s*(.+)/i),
     link: extrair(/\*\*Link:\*\*\s*(.+)/i),
     valor: extrair(/\*\*Valor:\*\*\s*(.+)/i),
     foto: extrair(/\*\*Foto:\*\*\s*(.+)/i),
-    nomeHotel: extrair(/\*\*Nome do Hotel:\*\*\s*(.+)/i),
-    enderecoHotel: extrair(/\*\*Endereço do Hotel:\*\*\s*(.+)/i),
-    telefoneHotel: extrair(/\*\*Telefone do Hotel:\*\*\s*(.+)/i),
-    emailHotel: extrair(/\*\*E-mail do Hotel:\*\*\s*(.+)/i),
-    quarto: extrair(/\*\*Tipo de Quarto:\*\*\s*(.+)/i),
+    nomeHotel: extrair(/\*\*Nome (do )?Hotel:\*\*\s*(.+)/i),
+    enderecoHotel: extrair(/\*\*Endereço (do )?Hotel:\*\*\s*(.+)/i),
+    telefoneHotel: extrair(/\*\*Telefone (do )?Hotel:\*\*\s*(.+)/i),
+    emailHotel: extrair(/\*\*E-mail (do )?Hotel:\*\*\s*(.+)/i),
+    quarto: extrair(/\*\*Tipo (de )?Quarto:\*\*\s*(.+)/i),
     regimeHotel: extrair(/\*\*Regime \/ Pensão:\*\*\s*(.+)/i),
-    comodidades: extrair(/\*\*Comodidades do Estabelecimento:\*\*\s*(.+)/i),
+    comodidades: extrair(/\*\*Comodidades (do )?Estabelecimento:\*\*\s*(.+)/i),
     checkinHotel: checkinBr ? dataBrParaIso(checkinBr) : "",
     checkoutHotel: checkoutBr ? dataBrParaIso(checkoutBr) : "",
     noitesHotel: extrair(/\*\*Noites:\*\*\s*(.+)/i),
-    linkHotel: extrair(/\*\*Link do Hotel:\*\*\s*(.+)/i),
-    fotoHotel: extrair(/\*\*Foto da Hospedagem:\*\*\s*(.+)/i),
+    linkHotel: extrair(/\*\*Link (do )?Hotel:\*\*\s*(.+)/i),
+    fotoHotel: extrair(/\*\*Foto (da )?Hospedagem:\*\*\s*(.+)/i),
     politicasCondicoesInformacoesEspeciais: (() => {
       const match = analise.match(/\*\*Políticas, Condições e Informações Especiais:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
       const valor = match?.[1]?.trim();
       return valor && valor.toLowerCase() !== "não informado" ? valor : "";
     })(),
     politicaAlteracoesCancelamentos: (() => {
-      const match = analise.match(/\*\*Política de alterações e cancelamentos:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
+      const match = analise.match(/\*\*Políticas? (de )?Alterações? (e )?Cancelamentos?:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
       const valor = match?.[1]?.trim();
       return valor && valor.toLowerCase() !== "não informado" ? valor : "";
     })(),
     trasladoTipo: extrair(/\*\*Tipo de Traslado:\*\*\s*(.+)/i),
     trasladoData: (() => {
-      const dataBr = extrair(/\*\*Data do Traslado:\*\*\s*(.+)/i);
+      const dataBr = extrair(/\*\*Data (do )?Traslado:\*\*\s*(.+)/i);
       return dataBr ? dataBrParaIso(dataBr) : "";
     })(),
-    trasladoHorario: extrair(/\*\*Horário do Traslado:\*\*\s*(.+)/i),
-    trasladoLocalPartida: extrair(/\*\*Local de Partida \(Traslado\):\*\*\s*(.+)/i),
-    trasladoLocalChegada: extrair(/\*\*Local de Chegada \(Traslado\):\*\*\s*(.+)/i),
-    trasladoVeiculoEmpresa: extrair(/\*\*Veículo\/Empresa \(Traslado\):\*\*\s*(.+)/i),
+    trasladoHorario: extrair(/\*\*Horário (do )?Traslado:\*\*\s*(.+)/i),
+    trasladoLocalPartida: extrair(/\*\*Local (de )?Partida( \(Traslado\))?:\*\*\s*(.+)/i),
+    trasladoLocalChegada: extrair(/\*\*Local (de )?Chegada( \(Traslado\))?:\*\*\s*(.+)/i),
+    trasladoVeiculoEmpresa: extrair(/\*\*Veículo\/Empresa( \(Traslado\))?:\*\*\s*(.+)/i),
     trasladoObservacoes: (() => {
-      const match = analise.match(/\*\*Observações do Traslado:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
-      const valor = match?.[1]?.trim();
+      const match = analise.match(/\*\*Observações( do)? Traslado:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
+      const valor = match?.[2]?.trim();
       return valor && valor.toLowerCase() !== "não informado" ? valor : "";
     })(),
-    ingressoNomeAtracao: extrair(/\*\*Nome da Atração\/Ingresso:\*\*\s*(.+)/i),
+    ingressoNomeAtracao: extrair(/\*\*Nome (da )?Atração\/Ingresso:\*\*\s*(.+)/i),
     ingressoData: (() => {
-      const dataBr = extrair(/\*\*Data do Ingresso:\*\*\s*(.+)/i);
+      const dataBr = extrair(/\*\*Data (do )?Ingresso:\*\*\s*(.+)/i);
       return dataBr ? dataBrParaIso(dataBr) : "";
     })(),
-    ingressoHorario: extrair(/\*\*Horário do Ingresso:\*\*\s*(.+)/i),
-    ingressoQuantidade: extrair(/\*\*Quantidade de Ingressos:\*\*\s*(.+)/i),
+    ingressoHorario: extrair(/\*\*Horário (do )?Ingresso:\*\*\s*(.+)/i),
+    ingressoQuantidade: extrair(/\*\*Quantidade (de )?Ingressos:\*\*\s*(.+)/i),
     ingressoObservacoes: (() => {
-      const match = analise.match(/\*\*Observações do Ingresso:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
-      const valor = match?.[1]?.trim();
+      const match = analise.match(/\*\*Observações( do)? Ingresso:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
+      const valor = match?.[2]?.trim();
       return valor && valor.toLowerCase() !== "não informado" ? valor : "";
     })(),
   };
@@ -770,6 +786,9 @@ function montarDadosIAFromJson(
     ingressoHorario: respostaJson.ingressoHorario || "",
     ingressoQuantidade: respostaJson.ingressoQuantidade || "",
     ingressoObservacoes: respostaJson.ingressoObservacoes || "",
+    dadosCliente: respostaJson.dadosCliente || "",
+    informacoesAdicionais: respostaJson.informacoesAdicionais || "",
+    conteudoCompleto: respostaJson.conteudoCompleto || "",
   };
 }
 
@@ -852,11 +871,13 @@ O conteúdo pode conter as seguintes seções:
 - Traslado
 - Políticas de alteração e cancelamento
 - Valor Total da Viagem
+- Informações adicionais
+- Outros dados relevantes
 
 Instruções:
 1. Analise o conteúdo fornecido cuidadosamente.
 2. Extraia todas as informações disponíveis nas seções mencionadas acima.
-3. Para o campo "operador", extraia o nome do operador (ex: HotelDO, Decolar, CVC).
+3. Para o campo "operador", extraia o nome do operador (ex: HotelDO, Decolar, CVC). NÃO INVENTE ou HALLUCINE dados que não existem no conteúdo.
 4. Para datas (dataIda, dataVolta, checkinHotel, checkoutHotel), use o formato AAAA-MM-DD.
 5. O campo "ciaAerea" deve conter o nome da companhia aérea (ex: LATAM Airlines Group, GOL, Azul).
 6. Identifique origem, destino e duração separadamente para o trecho de IDA e para o trecho de VOLTA.
@@ -870,8 +891,11 @@ Instruções:
 14. Localize a seção "Políticas de alteração e cancelamento" e copie todo o texto integralmente para "politicaAlteracoesCancelamentos", sem resumir.
 15. Extraia informações sobre traslado (tipo, data, horário, locais, veículo/empresa, observações).
 16. Extraia informações sobre ingressos (nome da atração, data, horário, quantidade, observações).
-17. IMPORTANTE: Se uma informação não for encontrada no conteúdo, retorne uma string vazia "" para o campo correspondente.
-18. Retorne APENAS o JSON, sem formatação adicional, sem blocos de código markdown.
+17. Extraia TODOS os dados do cliente (nome, email, telefone, CPF, etc.) e coloque no campo "dadosCliente".
+18. Extraia quaisquer informações adicionais ou observações gerais da página e coloque no campo "informacoesAdicionais".
+19. Copie TODO o conteúdo da página para o campo "conteudoCompleto" para garantir que nenhum dado seja perdido.
+20. CRÍTICO: Se uma informação não for encontrada no conteúdo, retorne uma string vazia "" para o campo correspondente. NUNCA INVENTE dados.
+21. Retorne APENAS o JSON, sem formatação adicional, sem blocos de código markdown.
 
 Retorne o JSON no seguinte formato:
 {
@@ -920,7 +944,10 @@ Retorne o JSON no seguinte formato:
   "ingressoData": "",
   "ingressoHorario": "",
   "ingressoQuantidade": "",
-  "ingressoObservacoes": ""
+  "ingressoObservacoes": "",
+  "dadosCliente": "",
+  "informacoesAdicionais": "",
+  "conteudoCompleto": ""
 }`;
 }
 
@@ -928,35 +955,35 @@ function montarRelatorioUrl(provedor: string, dados: DadosIAExtraidos): string {
   const campos: [string, string | undefined][] = [
     ["Operador", dados.operador],
     ["CIA Aérea", dados.ciaAerea],
-    ["Reserva", dados.reserva],
-    ["Destino", dados.destino],
+    ["Nº de Reserva/Localizador", dados.reserva],
+    ["Destino Principal", dados.destino],
     ["Passageiros", dados.passageiros],
-    ["Data Ida", dados.dataIda],
-    ["Data Volta", dados.dataVolta],
-    ["Origem Ida", dados.origemIda],
-    ["Destino Ida", dados.destinoIda],
-    ["Duração Ida", dados.duracaoIda],
-    ["Origem Volta", dados.origemVolta],
-    ["Destino Volta", dados.destinoVolta],
-    ["Duração Volta", dados.duracaoVolta],
-    ["Hora Saída Ida", dados.horaSaidaIda],
-    ["Hora Chegada Ida", dados.horaChegadaIda],
-    ["Hora Saída Volta", dados.horaSaidaVolta],
-    ["Hora Chegada Volta", dados.horaChegadaVolta],
+    ["Data de Ida", dados.dataIda],
+    ["Data de Volta", dados.dataVolta],
+    ["Origem (Ida)", dados.origemIda],
+    ["Destino (Ida)", dados.destinoIda],
+    ["Duração (Ida)", dados.duracaoIda],
+    ["Origem (Volta)", dados.origemVolta],
+    ["Destino (Volta)", dados.destinoVolta],
+    ["Duração (Volta)", dados.duracaoVolta],
+    ["Horário de Saída (Ida)", dados.horaSaidaIda],
+    ["Horário de Chegada (Ida)", dados.horaChegadaIda],
+    ["Horário de Saída (Volta)", dados.horaSaidaVolta],
+    ["Horário de Chegada (Volta)", dados.horaChegadaVolta],
     ["Valor", dados.valor],
     ["Link", dados.link],
-    ["Nome Hotel", dados.nomeHotel],
-    ["Endereço Hotel", dados.enderecoHotel],
-    ["Telefone Hotel", dados.telefoneHotel],
-    ["Email Hotel", dados.emailHotel],
-    ["Quarto", dados.quarto],
-    ["Regime Hotel", dados.regimeHotel],
-    ["Comodidades", dados.comodidades],
-    ["Check-in Hotel", dados.checkinHotel],
-    ["Check-out Hotel", dados.checkoutHotel],
-    ["Noites Hotel", dados.noitesHotel],
-    ["Link Hotel", dados.linkHotel],
-    ["Tipo Traslado", dados.trasladoTipo],
+    ["Nome do Hotel", dados.nomeHotel],
+    ["Endereço do Hotel", dados.enderecoHotel],
+    ["Telefone do Hotel", dados.telefoneHotel],
+    ["E-mail do Hotel", dados.emailHotel],
+    ["Tipo de Quarto", dados.quarto],
+    ["Regime / Pensão", dados.regimeHotel],
+    ["Comodidades do Estabelecimento", dados.comodidades],
+    ["Check-in", dados.checkinHotel],
+    ["Check-out", dados.checkoutHotel],
+    ["Noites", dados.noitesHotel],
+    ["Link do Hotel", dados.linkHotel],
+    ["Tipo de Traslado", dados.trasladoTipo],
     ["Data Traslado", dados.trasladoData],
     ["Horário Traslado", dados.trasladoHorario],
     ["Local Partida Traslado", dados.trasladoLocalPartida],
@@ -968,6 +995,8 @@ function montarRelatorioUrl(provedor: string, dados: DadosIAExtraidos): string {
     ["Horário Ingresso", dados.ingressoHorario],
     ["Quantidade Ingressos", dados.ingressoQuantidade],
     ["Observações Ingresso", dados.ingressoObservacoes],
+    ["Dados do Cliente", dados.dadosCliente],
+    ["Informações Adicionais", dados.informacoesAdicionais],
   ];
 
   // Filtrar apenas campos populados
@@ -985,6 +1014,11 @@ function montarRelatorioUrl(provedor: string, dados: DadosIAExtraidos): string {
   if (dados.politicaAlteracoesCancelamentos) {
     relatorio += "\n\n**Políticas de Alteração e Cancelamento:**\n";
     relatorio += dados.politicaAlteracoesCancelamentos;
+  }
+
+  if (dados.conteudoCompleto) {
+    relatorio += "\n\n**Conteúdo Completo da Página:**\n";
+    relatorio += dados.conteudoCompleto;
   }
 
   return relatorio;
@@ -1070,14 +1104,25 @@ function obterDadosIADocumento(doc: Documento) {
   return doc.dadosIA || extrairDadosIADeAnalise(doc.analise || "");
 }
 
-// Retorna o primeiro documento que possui resultado de IA, independente do nome do arquivo.
-function encontrarDocumentoVoo(documentos: Documento[]) {
-  return documentos.find((doc) => doc.dadosIA || doc.analise);
+// Funções auxiliares para identificar tipo de documento pelo nome
+function ehDocumentoVoo(nome: string): boolean {
+  const normalizado = nome.toLowerCase();
+  return normalizado.includes("voo") || normalizado.includes("flight") || normalizado.includes("passagem") || normalizado.includes("bilhete");
 }
 
-// Retorna o primeiro documento que possui resultado de IA, independente do nome do arquivo.
+function ehDocumentoHotel(nome: string): boolean {
+  const normalizado = nome.toLowerCase();
+  return normalizado.includes("hotel") || normalizado.includes("hospedagem") || normalizado.includes("voucher") || normalizado.includes("reserva");
+}
+
+// Retorna o primeiro documento de voo que possui resultado de IA.
+function encontrarDocumentoVoo(documentos: Documento[]) {
+  return documentos.find((doc) => ehDocumentoVoo(doc.nome) && (doc.dadosIA || doc.analise));
+}
+
+// Retorna o primeiro documento de hotel/hospedagem que possui resultado de IA.
 function encontrarDocumentoHotel(documentos: Documento[]) {
-  return documentos.find((doc) => doc.dadosIA || doc.analise);
+  return documentos.find((doc) => ehDocumentoHotel(doc.nome) && (doc.dadosIA || doc.analise));
 }
 
 function mapearDetalhesVoo<T extends Pick<
@@ -1096,6 +1141,10 @@ function mapearDetalhesVoo<T extends Pick<
     | "origemVolta"
     | "destinoVolta"
     | "duracaoVolta"
+    | "horaSaidaIda"
+    | "horaChegadaIda"
+    | "horaSaidaVolta"
+    | "horaChegadaVolta"
     | "politicaAlteracoesCancelamentos"
     | "link"
     | "foto"
@@ -1117,6 +1166,10 @@ function mapearDetalhesVoo<T extends Pick<
     origemVolta: dadosIAVoo.origemVolta || formAtual.origemVolta || "",
     destinoVolta: dadosIAVoo.destinoVolta || formAtual.destinoVolta || "",
     duracaoVolta: dadosIAVoo.duracaoVolta || formAtual.duracaoVolta || "",
+    horaSaidaIda: dadosIAVoo.horaSaidaIda || formAtual.horaSaidaIda || "",
+    horaChegadaIda: dadosIAVoo.horaChegadaIda || formAtual.horaChegadaIda || "",
+    horaSaidaVolta: dadosIAVoo.horaSaidaVolta || formAtual.horaSaidaVolta || "",
+    horaChegadaVolta: dadosIAVoo.horaChegadaVolta || formAtual.horaChegadaVolta || "",
     politicaAlteracoesCancelamentos: dadosIAVoo.politicaAlteracoesCancelamentos || formAtual.politicaAlteracoesCancelamentos || "",
     link: dadosIAVoo.link || formAtual.link || "",
     foto: dadosIAVoo.foto || formAtual.foto || null,
@@ -1250,7 +1303,29 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   const [analisandoIA, setAnalisandoIA] = useState(false);
   const [logAnaliseIA, setLogAnaliseIA] = useState<string[]>([]);
   const [provedorIA, setProvedorIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
+  const [novaUrlOperador, setNovaUrlOperador] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function adicionarUrlOperador() {
+    const url = novaUrlOperador.trim();
+    if (!url) return;
+    
+    const urlsAtuais = form.urlOperador || [];
+    if (urlsAtuais.includes(url)) {
+      setErro("Esta URL já foi adicionada.");
+      return;
+    }
+    
+    setForm({ ...form, urlOperador: [...urlsAtuais, url] });
+    setNovaUrlOperador("");
+    setErro("");
+  }
+
+  function removerUrlOperador(index: number) {
+    const urlsAtuais = form.urlOperador || [];
+    const novasUrls = urlsAtuais.filter((_, i) => i !== index);
+    setForm({ ...form, urlOperador: novasUrls });
+  }
 
   const operadores = useMemo(
       () => Array.from(new Set([...operadoresPadrao, ...pacotes.map((item) => item.operador.trim()).filter(Boolean)])),
@@ -1423,6 +1498,10 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       origemVolta: pacote.origemVolta || "",
       destinoVolta: pacote.destinoVolta || "",
       duracaoVolta: pacote.duracaoVolta || "",
+      horaSaidaIda: pacote.horaSaidaIda || "",
+      horaChegadaIda: pacote.horaChegadaIda || "",
+      horaSaidaVolta: pacote.horaSaidaVolta || "",
+      horaChegadaVolta: pacote.horaChegadaVolta || "",
       politicaAlteracoesCancelamentos: pacote.politicaAlteracoesCancelamentos || "",
       hospedagemNome: pacote.hospedagemNome || "",
       hospedagemEndereco: pacote.hospedagemEndereco || "",
@@ -1449,6 +1528,9 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       ingressoHorario: pacote.ingressoHorario || "",
       ingressoQuantidade: pacote.ingressoQuantidade || "",
       ingressoObservacoes: pacote.ingressoObservacoes || "",
+      dadosCliente: pacote.dadosCliente || "",
+      informacoesAdicionais: pacote.informacoesAdicionais || "",
+      conteudoCompleto: pacote.conteudoCompleto || "",
       descricao: pacote.descricao || "",
       logAnalise: pacote.logAnalise || "",
     });
@@ -1551,14 +1633,21 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     const documentoVoo = encontrarDocumentoVoo(form.documentos || []);
     const dadosIAVoo = documentoVoo ? obterDadosIADocumento(documentoVoo) : null;
 
-    if (!dadosIAVoo || !temDadosExtraidos(dadosIAVoo)) {
-      setErro('Nenhum documento com resultado de IA foi encontrado. Analise os documentos antes de atualizar.');
+    // Extrair dados de documentos do tipo URL se existirem
+    const documentoUrl = (form.documentos || []).find(doc => doc.tipo === "text/url" && doc.analise);
+    const dadosRelatorioUrl = documentoUrl ? extrairDadosIADeAnalise(documentoUrl.analise || "") : null;
+
+    // Mesclar dados: prioridade para relatório da URL, complementa com documentos
+    const dadosCompletos = mesclarDadosIA(dadosRelatorioUrl, dadosIAVoo);
+
+    if (!dadosCompletos || !temDadosExtraidos(dadosCompletos)) {
+      setErro('Nenhum dado de IA encontrado em documentos ou relatório da URL.');
       return;
     }
 
     setErro("");
     setForm((f) => {
-      const novo = mapearDetalhesVoo(f, dadosIAVoo);
+      const novo = mapearDetalhesVoo(f, dadosCompletos);
       if (novo.valor > 0) {
         setValorInput(formatarMoeda(novo.valor));
       }
@@ -1571,13 +1660,20 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     const documentoHospedagem = encontrarDocumentoHotel(form.documentos || []);
     const dadosIAHospedagem = documentoHospedagem ? obterDadosIADocumento(documentoHospedagem) : null;
 
-    if (!dadosIAHospedagem || !temDadosExtraidos(dadosIAHospedagem)) {
-      setErro('Nenhum documento com resultado de IA foi encontrado. Analise os documentos antes de atualizar.');
+    // Extrair dados de documentos do tipo URL se existirem
+    const documentoUrl = (form.documentos || []).find(doc => doc.tipo === "text/url" && doc.analise);
+    const dadosRelatorioUrl = documentoUrl ? extrairDadosIADeAnalise(documentoUrl.analise || "") : null;
+
+    // Mesclar dados: prioridade para relatório da URL, complementa com documentos
+    const dadosCompletos = mesclarDadosIA(dadosRelatorioUrl, dadosIAHospedagem);
+
+    if (!dadosCompletos || !temDadosExtraidos(dadosCompletos)) {
+      setErro('Nenhum dado de IA encontrado em documentos ou relatório da URL.');
       return;
     }
 
     setErro("");
-    setForm((f) => mapearDetalhesHospedagem(f, dadosIAHospedagem));
+    setForm((f) => mapearDetalhesHospedagem(f, dadosCompletos));
     setHospedagemMinimizado(false);
   }
 
@@ -1585,26 +1681,102 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     const documentoTraslado = encontrarDocumentoTraslado(form.documentos || []);
     const dadosIATraslado = documentoTraslado ? obterDadosIADocumento(documentoTraslado) : null;
 
-    if (!possuiDadosTraslado(dadosIATraslado)) {
-      setErro('Nenhum documento com dados de Traslado analisados pela IA foi encontrado.');
+    // Extrair dados de documentos do tipo URL se existirem
+    const documentoUrl = (form.documentos || []).find(doc => doc.tipo === "text/url" && doc.analise);
+    const dadosRelatorioUrl = documentoUrl ? extrairDadosIADeAnalise(documentoUrl.analise || "") : null;
+
+    // Mesclar dados: prioridade para relatório da URL, complementa com documentos
+    const dadosCompletos = mesclarDadosIA(dadosRelatorioUrl, dadosIATraslado);
+
+    if (!possuiDadosTraslado(dadosCompletos)) {
+      setErro('Nenhum dado de Traslado encontrado em documentos ou relatório da URL.');
       return;
     }
 
     setErro("");
-    setForm((f) => mapearDetalhesTraslado(f, dadosIATraslado!));
+    setForm((f) => mapearDetalhesTraslado(f, dadosCompletos!));
   }
 
   function atualizarDetalhesIngresso() {
     const documentoIngresso = encontrarDocumentoIngresso(form.documentos || []);
     const dadosIAIngresso = documentoIngresso ? obterDadosIADocumento(documentoIngresso) : null;
 
-    if (!possuiDadosIngresso(dadosIAIngresso)) {
-      setErro('Nenhum documento com dados de Ingresso analisados pela IA foi encontrado.');
+    // Extrair dados de documentos do tipo URL se existirem
+    const documentoUrl = (form.documentos || []).find(doc => doc.tipo === "text/url" && doc.analise);
+    const dadosRelatorioUrl = documentoUrl ? extrairDadosIADeAnalise(documentoUrl.analise || "") : null;
+
+    // Mesclar dados: prioridade para relatório da URL, complementa com documentos
+    const dadosCompletos = mesclarDadosIA(dadosRelatorioUrl, dadosIAIngresso);
+
+    if (!possuiDadosIngresso(dadosCompletos)) {
+      setErro('Nenhum dado de Ingresso encontrado em documentos ou relatório da URL.');
       return;
     }
 
     setErro("");
-    setForm((f) => mapearDetalhesIngresso(f, dadosIAIngresso!));
+    setForm((f) => mapearDetalhesIngresso(f, dadosCompletos!));
+  }
+
+  function atualizarResumoPacote() {
+    const documentos = form.documentos || [];
+    if (documentos.length === 0) {
+      setErro("Nenhum documento para atualizar os campos.");
+      return;
+    }
+
+    // Extrair dados de documentos do tipo URL se existirem
+    const documentoUrl = documentos.find(doc => doc.tipo === "text/url" && doc.analise);
+    const dadosRelatorioUrl = documentoUrl ? extrairDadosIADeAnalise(documentoUrl.analise || "") : null;
+
+    // Usa o primeiro documento com resultado de IA para preencher Detalhes do Voo.
+    const documentoVoo = encontrarDocumentoVoo(documentos);
+    const dadosIAVoo = documentoVoo ? obterDadosIADocumento(documentoVoo) : null;
+
+    // Usa o primeiro documento com resultado de IA para preencher Detalhes da Hospedagem.
+    const documentoHospedagem = encontrarDocumentoHotel(documentos);
+    const dadosIAHospedagem = documentoHospedagem ? obterDadosIADocumento(documentoHospedagem) : null;
+
+    // Mesclar dados: prioridade para relatório da URL, complementa com documentos
+    const dadosCompletosVoo = mesclarDadosIA(dadosRelatorioUrl, dadosIAVoo);
+    const dadosCompletosHospedagem = mesclarDadosIA(dadosRelatorioUrl, dadosIAHospedagem);
+
+    if (!dadosCompletosVoo && !dadosCompletosHospedagem) {
+      setErro('Nenhum documento com resultado de IA foi encontrado. Analise os documentos antes de atualizar.');
+      return;
+    }
+
+    if (dadosCompletosVoo && !temDadosExtraidos(dadosCompletosVoo)) {
+      setErro("Não foi possível extrair dados do voucher de voo para atualizar os campos.");
+      return;
+    }
+
+    const documentoTraslado = encontrarDocumentoTraslado(documentos);
+    const dadosIATraslado = documentoTraslado ? obterDadosIADocumento(documentoTraslado) : null;
+    const dadosCompletosTraslado = mesclarDadosIA(dadosRelatorioUrl, dadosIATraslado);
+
+    const documentoIngresso = encontrarDocumentoIngresso(documentos);
+    const dadosIAIngresso = documentoIngresso ? obterDadosIADocumento(documentoIngresso) : null;
+    const dadosCompletosIngresso = mesclarDadosIA(dadosRelatorioUrl, dadosIAIngresso);
+
+    setErro("");
+    setForm((f) => {
+      let proximo = { ...f };
+      if (dadosCompletosVoo && temDadosExtraidos(dadosCompletosVoo)) {
+        proximo = mapearDetalhesVoo(proximo, dadosCompletosVoo);
+      }
+      if (dadosCompletosHospedagem && temDadosExtraidos(dadosCompletosHospedagem)) {
+        proximo = mapearDetalhesHospedagem(proximo, dadosCompletosHospedagem);
+      }
+      if (dadosCompletosTraslado && possuiDadosTraslado(dadosCompletosTraslado)) {
+        proximo = mapearDetalhesTraslado(proximo, dadosCompletosTraslado);
+      }
+      if (dadosCompletosIngresso && possuiDadosIngresso(dadosCompletosIngresso)) {
+        proximo = mapearDetalhesIngresso(proximo, dadosCompletosIngresso);
+      }
+      // Após atualizar os campos, gera o resumo
+      return { ...proximo, descricao: gerarResumoPacote(proximo) };
+    });
+    setResumoMinimizado(false);
   }
 
   async function identificarOperadorNaImagem(imageUrl: string) {
@@ -1675,7 +1847,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
 
   async function analisarDocumentosComIA() {
     if (!form.documentos || form.documentos.length === 0) {
-      if (!form.urlOperador?.trim()) {
+      if (!form.urlOperador || form.urlOperador.length === 0) {
         setErro("Nenhum documento ou URL para analisar.");
         return;
       }
@@ -1694,19 +1866,35 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       setLogAnaliseIA([...logEntries]);
     };
 
-    // Analisar URL do operador se estiver preenchida
-    if (form.urlOperador?.trim()) {
+    // Analisar URLs do operador se estiverem preenchidas
+    for (const url of form.urlOperador || []) {
+      if (!url?.trim()) continue;
+      
       try {
-        adicionarLog(`Baixando conteúdo da URL: ${form.urlOperador}`);
+        adicionarLog(`Baixando conteúdo da URL: ${url}`);
 
-        // Fazer download do conteúdo da página
-        const response = await fetch(form.urlOperador);
+        // Fazer download do conteúdo da página usando o backend para evitar CORS
+        const response = await fetch(`${API_CONFIG.apiBase}/scrape-url`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url }),
+        });
+
         if (!response.ok) {
-          throw new Error(`Falha ao baixar página: ${response.status} ${response.statusText}`);
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Falha ao baixar página: ${response.status} ${response.statusText}`);
         }
 
-        const htmlContent = await response.text();
-        adicionarLog(`Conteúdo baixado com sucesso (${htmlContent.length} caracteres).`);
+        const data = await response.json();
+        const htmlContent = data.html;
+        
+        if (!htmlContent || typeof htmlContent !== 'string') {
+          throw new Error('Conteúdo HTML inválido ou vazio retornado pelo backend.');
+        }
+        
+        adicionarLog(`Conteúdo baixado com sucesso (${data.contentLength ?? htmlContent?.length ?? 0} caracteres de texto extraído, ${data.rawLength ?? '?'} bruto).`);
 
         const prompt = criarPromptAnaliseUrl(htmlContent);
 
@@ -1714,7 +1902,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
           return enviarMensagemIA([{ role: "user", content: prompt }], provedor);
         };
 
-        let data;
+        let dataUrl;
         let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare";
         const provedoresAutomatico: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
 
@@ -1731,9 +1919,9 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
             try {
               const nomeProvedor = mapaProvedorCapitalizado[provedor];
               adicionarLog(`Analisando URL com ${nomeProvedor}...`);
-              data = await tentarComProvedor(provedor);
+              dataUrl = await tentarComProvedor(provedor);
               provedorUsado = nomeProvedor;
-              if (data) break;
+              if (dataUrl) break;
             } catch (error) {
               const nomeProvedor = mapaProvedorCapitalizado[provedor];
               console.warn(`Falha no ${nomeProvedor}, tentando com o próximo...`, error);
@@ -1741,8 +1929,23 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
             }
           }
 
-          if (!data) {
+          if (!dataUrl) {
             adicionarLog(`Todos os provedores de IA falharam para a URL. Continuando com análise de documentos...`);
+            
+            // Criar documento com mensagem de erro para o usuário
+            const erroDocumento: Documento = {
+              id: Date.now() + Math.floor(Math.random() * 10000),
+              nome: `URL: ${url} (Erro)`,
+              tipo: "text/url",
+              arquivo: url,
+              analise: `**Relatório da Análise da URL**\n\nErro: Todos os provedores de IA falharam.\n\nDetalhes:\n- Groq: Limite de taxa excedido\n- OpenAI: Chave de API inválida\n- Gemini: Créditos esgotados\n\nPor favor, verifique as configurações das APIs e tente novamente.`,
+            };
+            setForm((f) => ({
+              ...f,
+              documentos: [...(f.documentos || []), erroDocumento],
+            }));
+            
+            setVouchersMinimizado(false);
           }
         } else {
           const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
@@ -1755,16 +1958,31 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
           const provedorCapitalizado = mapaProvedor[provedorIA] || "OpenAI";
           adicionarLog(`Analisando URL com ${provedorCapitalizado}...`);
           try {
-            data = await tentarComProvedor(provedorIA);
+            dataUrl = await tentarComProvedor(provedorIA);
             provedorUsado = provedorCapitalizado;
           } catch (error) {
             adicionarLog(`Falha ao analisar URL com ${provedorCapitalizado}. Continuando com análise de documentos...`);
+            
+            // Criar documento com mensagem de erro para o usuário
+            const erroDocumento: Documento = {
+              id: Date.now() + Math.floor(Math.random() * 10000),
+              nome: `URL: ${url} (Erro)`,
+              tipo: "text/url",
+              arquivo: url,
+              analise: `**Relatório da Análise da URL**\n\nErro: Falha ao analisar com ${provedorCapitalizado}.\n\nDetalhes: ${error instanceof Error ? error.message : 'Erro desconhecido'}\n\nPor favor, verifique as configurações da API e tente novamente.`,
+            };
+            setForm((f) => ({
+              ...f,
+              documentos: [...(f.documentos || []), erroDocumento],
+            }));
+            
+            setVouchersMinimizado(false);
           }
         }
 
-        if (data) {
+        if (dataUrl) {
           adicionarLog(`Resposta recebida da IA.`);
-          const respostaLimpa = data.reply.replace(/^```json\s*/, "").replace(/```$/, "").trim();
+          const respostaLimpa = dataUrl.reply.replace(/^```json\s*/, "").replace(/```$/, "").trim();
 
           // Verificar se a resposta parece ser JSON válido
           if (!respostaLimpa.startsWith('{') && !respostaLimpa.startsWith('[')) {
@@ -1786,22 +2004,30 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
           adicionarLog(`Análise da URL concluída com sucesso.`);
           adicionarLog(`Relatório gerado com ${relatorioCompleto.length} caracteres.`);
 
-          // Salvar o relatório no campo específico para URL
+          // Salvar a URL como um documento no array documentos
+          const novoDocumento: Documento = {
+            id: Date.now() + Math.floor(Math.random() * 10000),
+            nome: `URL: ${url}`,
+            tipo: "text/url",
+            arquivo: url,
+            analise: relatorioCompleto,
+          };
           setForm((f) => ({
             ...f,
-            relatorioUrl: relatorioCompleto,
+            documentos: [...(f.documentos || []), novoDocumento],
           }));
 
           // Expandir seção de vouchers para mostrar o relatório da URL
           setVouchersMinimizado(false);
         } else {
-          adicionarLog(`Nenhum dado recebido da IA para a URL.`);
-          throw new Error("Todos os provedores de IA falharam. Verifique suas configurações de API e tente novamente.");
+          adicionarLog(`Nenhum dado recebido da IA para a URL: ${url}`);
         }
       } catch (error) {
         const mensagemErro = error instanceof Error ? error.message : "Não foi possível analisar a URL.";
-        adicionarLog(`Falha ao analisar URL: ${mensagemErro}`);
+        adicionarLog(`Falha ao analisar URL ${url}: ${mensagemErro}`);
         console.error("Erro na análise da URL:", error);
+        // Continue with next URL instead of throwing
+        continue;
       }
     }
 
@@ -1967,10 +2193,15 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       const dadosIAIngresso = documentoIngresso ? obterDadosIADocumento(documentoIngresso) : null;
 
       // Apenas atualizar a lista de documentos sem preencher campos automaticamente
-      setForm((f) => ({
-        ...f,
-        documentos: novasAnalises,
-      }));
+      // Preservar documentos do tipo URL que foram adicionados durante a análise de URLs
+      setForm((f) => {
+        const documentosUrl = (f.documentos || []).filter(doc => doc.tipo === "text/url");
+        const documentosNaoUrl = novasAnalises.filter(doc => doc.tipo !== "text/url");
+        return {
+          ...f,
+          documentos: [...documentosUrl, ...documentosNaoUrl],
+        };
+      });
     } catch (error) {
       const mensagemErro = "Falha em ambos os provedores de IA. Verifique os logs e tente novamente.";
       adicionarLog(mensagemErro);
@@ -2025,37 +2256,50 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                   />
                   <div className="mt-4">
                     <Label htmlFor="url-operador" className="text-xs text-gray-500">URL do Operador</Label>
-                    <div className="relative mt-1">
+                    <div className="relative mt-1 flex gap-2">
                       <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                       <Input
                           id="url-operador"
-                          value={form.urlOperador || ""}
-                          onChange={(e) => setForm({ ...form, urlOperador: e.target.value })}
+                          value={novaUrlOperador}
+                          onChange={(e) => setNovaUrlOperador(e.target.value)}
                           placeholder="Cole a URL do operador aqui..."
                           className="pl-8"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              adicionarUrlOperador();
+                            }
+                          }}
                       />
+                      <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={adicionarUrlOperador}
+                          className="shrink-0"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
                     </div>
+                    {(form.urlOperador || []).length > 0 && (
+                        <div className="space-y-1.5 pr-2 mt-2">
+                          {(form.urlOperador || []).map((url, index) => (
+                              <div key={index} className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs">
+                                <div className="flex-1 min-w-0">
+                                  <a href={url} target="_blank" rel="noopener noreferrer" className="truncate text-indigo-600 hover:text-indigo-700 flex items-center gap-2">
+                                    <Link2 className="h-4 w-4 flex-shrink-0" />
+                                    <span className="truncate">{url}</span>
+                                  </a>
+                                </div>
+                                <button type="button" onClick={() => removerUrlOperador(index)} className="ml-2 rounded p-1 text-red-500 hover:bg-red-50" title="Remover URL">
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                          ))}
+                        </div>
+                    )}
                   </div>
-                  {form.relatorioUrl && (
-                      <div className="mt-3 rounded-md border border-indigo-200 bg-indigo-50 text-xs text-indigo-800">
-                        <div className="flex items-center justify-between gap-2 p-2">
-                          <span className="font-medium">Relatório da URL</span>
-                          <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setForm((f) => ({ ...f, relatorioUrl: "" }))}
-                              className="h-6 gap-1 px-2 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                        <div className="whitespace-pre-wrap border-t border-indigo-200 px-2 pb-2 pt-2">
-                          {form.relatorioUrl}
-                        </div>
-                      </div>
-                  )}
-                  {(form.documentos || []).length > 0 ? (
+                  {(form.documentos || []).length > 0 && (
                       <div className="space-y-1.5 pr-2">
                         {(form.documentos || []).map((doc) => (
                             <div key={doc.id} className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs">
@@ -2069,38 +2313,10 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                                     <X className="h-3.5 w-3.5" />
                                   </button>
                                 </div>
-                                {doc.analise && (
-                                    <div className="mt-2 rounded-md border border-indigo-200 bg-indigo-50 text-xs text-indigo-800">
-                                      <div className="flex items-center justify-between gap-2 p-2">
-                                        <span className="font-medium">Relatório do arquivo</span>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => setRelatoriosExpandidos((prev) => {
-                                              const proximos = new Set(prev);
-                                              proximos.has(doc.id) ? proximos.delete(doc.id) : proximos.add(doc.id);
-                                              return proximos;
-                                            })}
-                                            className="h-6 gap-1 px-2 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900"
-                                        >
-                                          {relatoriosExpandidos.has(doc.id) ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                                          {relatoriosExpandidos.has(doc.id) ? " " : " "}
-                                        </Button>
-                                      </div>
-                                      {relatoriosExpandidos.has(doc.id) && (
-                                          <div className="whitespace-pre-wrap border-t border-indigo-200 px-2 pb-2 pt-2">
-                                            {doc.analise}
-                                          </div>
-                                      )}
-                                    </div>
-                                )}
                               </div>
                             </div>
                         ))}
                       </div>
-                  ) : (
-                      <div className="text-center text-xs text-gray-400 border border-dashed rounded-lg p-4 flex items-center justify-center bg-white">Nenhum anexo adicionado.</div>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -2109,11 +2325,11 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       variant="outline"
                       size="sm"
                       onClick={analisarDocumentosComIA}
-                      disabled={analisandoIA || ((form.documentos || []).length === 0 && !form.urlOperador?.trim())}
+                      disabled={analisandoIA || ((form.documentos || []).length === 0 && (!form.urlOperador || form.urlOperador.length === 0))}
                       className="gap-2 text-indigo-600 border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
                   >
                     <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
-                    {analisandoIA ? "Analisando..." : ""}
+                    {analisandoIA ? "Analisando..." : "Analisar IA"}
                   </Button>
                   <select
                       value={provedorIA}
@@ -2142,6 +2358,105 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                   </select>
                 </div>
 
+                {logAnaliseIA.length > 0 && (
+                    <div className="mt-3 rounded-md border border-indigo-200 bg-indigo-50 text-xs text-indigo-800">
+                      <div className="flex items-center justify-between gap-2 p-2">
+                        <span className="font-medium">Log de Análise IA</span>
+                        <div className="flex items-center gap-1">
+                          <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setLogAnaliseMinimizado((prev) => !prev)}
+                              className="h-6 gap-1 px-2 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900"
+                          >
+                            {logAnaliseMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                          </Button>
+                          <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setLogAnaliseIA([])}
+                              className="h-6 gap-1 px-2 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                      {!logAnaliseMinimizado && (
+                          <div className="whitespace-pre-wrap border-t border-indigo-200 px-2 pb-2 pt-2 max-h-60 overflow-y-auto">
+                            {logAnaliseIA.join('\n')}
+                          </div>
+                      )}
+                    </div>
+                )}
+
+                {(form.documentos || []).filter(doc => doc.analise && doc.tipo === "text/url").length > 0 && (
+                    <div className="mt-3 rounded-md border border-indigo-200 bg-indigo-50 text-xs text-indigo-800">
+                      <div className="flex items-center justify-between gap-2 p-2">
+                        <span className="font-medium">Relatório da URL</span>
+                      </div>
+                      {(form.documentos || []).filter(doc => doc.analise && doc.tipo === "text/url").map((doc) => (
+                          <div key={doc.id} className="border-t border-indigo-200">
+                            <div className="flex items-center justify-between gap-2 p-2">
+                              <span className="truncate">{doc.nome}</span>
+                              <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setRelatoriosExpandidos((prev) => {
+                                    const proximos = new Set(prev);
+                                    proximos.has(doc.id) ? proximos.delete(doc.id) : proximos.add(doc.id);
+                                    return proximos;
+                                  })}
+                                  className="h-6 gap-1 px-2 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900"
+                              >
+                                {relatoriosExpandidos.has(doc.id) ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                              </Button>
+                            </div>
+                            {relatoriosExpandidos.has(doc.id) && (
+                                <div className="whitespace-pre-wrap border-t border-indigo-200 px-2 pb-2 pt-2 max-h-60 overflow-y-auto">
+                                  {doc.analise}
+                                </div>
+                            )}
+                          </div>
+                      ))}
+                    </div>
+                )}
+
+                {(form.documentos || []).filter(doc => doc.analise && doc.tipo !== "text/url").length > 0 && (
+                    <div className="mt-3 rounded-md border border-indigo-200 bg-indigo-50 text-xs text-indigo-800">
+                      <div className="flex items-center justify-between gap-2 p-2">
+                        <span className="font-medium">Relatórios dos Arquivos</span>
+                      </div>
+                      {(form.documentos || []).filter(doc => doc.analise && doc.tipo !== "text/url").map((doc) => (
+                          <div key={doc.id} className="border-t border-indigo-200">
+                            <div className="flex items-center justify-between gap-2 p-2">
+                              <span className="truncate">{doc.nome}</span>
+                              <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setRelatoriosExpandidos((prev) => {
+                                    const proximos = new Set(prev);
+                                    proximos.has(doc.id) ? proximos.delete(doc.id) : proximos.add(doc.id);
+                                    return proximos;
+                                  })}
+                                  className="h-6 gap-1 px-2 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900"
+                              >
+                                {relatoriosExpandidos.has(doc.id) ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                              </Button>
+                            </div>
+                            {relatoriosExpandidos.has(doc.id) && (
+                                <div className="whitespace-pre-wrap border-t border-indigo-200 px-2 pb-2 pt-2 max-h-60 overflow-y-auto">
+                                  {doc.analise}
+                                </div>
+                            )}
+                          </div>
+                      ))}
+                    </div>
+                )}
+
                 <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
                   <h4 className="flex items-center gap-2 font-semibold text-gray-900">
                     <Plus className="h-4 w-4 text-indigo-500" />
@@ -2153,7 +2468,6 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         variant="outline"
                         size="sm"
                         onClick={atualizarDetalhesVoo}
-                        disabled={analisandoIA || (form.documentos || []).length === 0}
                         className="gap-2"
                     >
                       <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
@@ -2254,6 +2568,26 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                               />
                             </div>
                           </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                            <div>
+                              <Label className="text-xs">Horário de Saída (Ida)</Label>
+                              <Input
+                                  className="mt-1"
+                                  placeholder="Ex: 14:30"
+                                  value={form.horaSaidaIda || ""}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, horaSaidaIda: e.target.value }))}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Horário de Chegada (Ida)</Label>
+                              <Input
+                                  className="mt-1"
+                                  placeholder="Ex: 05:30"
+                                  value={form.horaChegadaIda || ""}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, horaChegadaIda: e.target.value }))}
+                              />
+                            </div>
+                          </div>
                         </div>
 
                         <div className="sm:col-span-2">
@@ -2284,6 +2618,26 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                                   placeholder="Ex: 11h 30min"
                                   value={form.duracaoVolta || ""}
                                   onChange={(e) => setForm((prev) => ({ ...prev, duracaoVolta: e.target.value }))}
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                            <div>
+                              <Label className="text-xs">Horário de Saída (Volta)</Label>
+                              <Input
+                                  className="mt-1"
+                                  placeholder="Ex: 18:30"
+                                  value={form.horaSaidaVolta || ""}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, horaSaidaVolta: e.target.value }))}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Horário de Chegada (Volta)</Label>
+                              <Input
+                                  className="mt-1"
+                                  placeholder="Ex: 02:30"
+                                  value={form.horaChegadaVolta || ""}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, horaChegadaVolta: e.target.value }))}
                               />
                             </div>
                           </div>
@@ -2394,7 +2748,6 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         variant="outline"
                         size="sm"
                         onClick={atualizarDetalhesHospedagem}
-                        disabled={analisandoIA || (form.documentos || []).length === 0}
                         className="gap-2"
                     >
                       <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
@@ -2574,7 +2927,6 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         variant="outline"
                         size="sm"
                         onClick={atualizarDetalhesTraslado}
-                        disabled={analisandoIA || (form.documentos || []).length === 0}
                         className="gap-2"
                     >
                       <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
@@ -2677,7 +3029,6 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         variant="outline"
                         size="sm"
                         onClick={atualizarDetalhesIngresso}
-                        disabled={analisandoIA || (form.documentos || []).length === 0}
                         className="gap-2"
                     >
                       <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
@@ -2759,10 +3110,10 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setForm((prev) => ({ ...prev, descricao: gerarResumoPacote(prev) }))}
+                        onClick={atualizarResumoPacote}
                         className="gap-2"
                     >
-                      <Sparkles className="w-4 h-4" />
+                      <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
                     </Button>
                     <Button
                         type="button"

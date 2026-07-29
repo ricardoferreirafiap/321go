@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const puppeteer = require('puppeteer');
 function loadEnvFile(filePath) {
     if (!fs.existsSync(filePath)) {
         return;
@@ -1924,6 +1925,114 @@ app.get('/', (req, res) => {
 
 app.get('/api/health', (req, res) => {
     res.json({ ok: true });
+});
+
+// Extrai texto legível de um HTML removendo tags, scripts, estilos e espaços excessivos
+function extrairTextoDoHtml(html) {
+    return String(html || '')
+        // Remove scripts e estilos com conteúdo
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+        // Troca tags de bloco por quebras de linha para preservar separações
+        .replace(/<\/?(div|p|br|li|tr|td|th|h[1-6]|section|article|header|footer|main|table|ul|ol)[^>]*>/gi, '\n')
+        // Remove todas as outras tags HTML
+        .replace(/<[^>]+>/g, ' ')
+        // Decodifica entidades HTML comuns
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/&[a-z]+;/gi, ' ')
+        // Normaliza espaços e linhas em branco
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+// Endpoint para fazer scraping de URLs de operadores (evita CORS no frontend)
+app.post('/api/scrape-url', async (req, res) => {
+    let browser = null;
+    try {
+        const { url } = req.body;
+
+        if (!url) {
+            return res.status(400).json({ error: 'URL não fornecida.' });
+        }
+
+        let parsedUrl;
+        try {
+            parsedUrl = new URL(url);
+        } catch (_) {
+            return res.status(400).json({ error: 'URL inválida.' });
+        }
+
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+            return res.status(400).json({ error: 'Apenas URLs http e https são permitidas.' });
+        }
+
+        // Usar Puppeteer para capturar conteúdo completo (incluindo JavaScript dinâmico)
+        browser = await puppeteer.launch({
+            headless: 'new',
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process',
+                '--disable-gpu'
+            ]
+        });
+
+        const page = await browser.newPage();
+        
+        // Configurar User-Agent e headers
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        await page.setExtraHTTPHeaders({
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        });
+
+        // Navegar para a URL e esperar carregar
+        await page.goto(url, {
+            waitUntil: 'networkidle2',
+            timeout: 30000
+        });
+
+        // Esperar um pouco mais para garantir que JavaScript dinâmico carregou
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        // Capturar o HTML completo após execução do JavaScript
+        const rawHtml = await page.content();
+
+        await browser.close();
+        browser = null;
+
+        // Extrai texto limpo para a IA conseguir processar melhor
+        const textoLimpo = extrairTextoDoHtml(rawHtml);
+
+        // Limita a 60.000 caracteres para não exceder limites da IA
+        const textoFinal = textoLimpo.length > 60000
+            ? textoLimpo.substring(0, 60000) + '\n... (conteúdo truncado)'
+            : textoLimpo;
+
+        return res.json({
+            success: true,
+            html: textoFinal,
+            contentLength: textoFinal.length,
+            rawLength: rawHtml.length,
+        });
+    } catch (error) {
+        if (browser) {
+            await browser.close().catch(() => {});
+        }
+        logServerError('Erro ao fazer scraping da URL:', error);
+        const errorMessage = error.message || 'Não foi possível baixar o conteúdo da URL.';
+        return res.status(500).json({ error: errorMessage });
+    }
 });
 
 app.get('/api/place-photo', async (req, res) => {
