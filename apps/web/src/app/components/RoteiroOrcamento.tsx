@@ -2,7 +2,9 @@ import { useParams } from "react-router";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import {
-  Share2, X, Instagram, Mail, MessageCircle, Car, MapPin, Globe
+  Share2, X, Instagram, Mail, MessageCircle, Car, MapPin, Globe,
+  Phone, Mail as MailIcon, Calendar, Bed, Star, Coffee,
+  ExternalLink, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { JSX, useEffect, useMemo, useRef, useState } from "react";
 import { listarFuncionarios, type Funcionario } from "../data/funcionariosApi";
@@ -715,6 +717,8 @@ function Countdown({ targetDate }: { targetDate: string }) {
   );
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function RoteiroOrcamento() {
   const { numero } = useParams<{ numero: string }>();
   const [orc, setOrc] = useState<Orcamento | null>(null);
@@ -988,7 +992,7 @@ export default function RoteiroOrcamento() {
   const itensRoteiro = [
     { id: "pacotes", titulo: "Pacotes", icone: OrcamentoReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: Boolean(orc.pacotes?.length) },
     { id: "voos", titulo: "Voos", icone: VooReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: Boolean(orc.voos?.length) },
-    { id: "hospedagem", titulo: "Hospedagens", icone: HospedagemReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: Boolean(orc.hospedagem?.length) },
+    { id: "hospedagem", titulo: "Hospedagens", icone: HospedagemReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: possuiHospedagem },
     { id: "roteiro", titulo: "Roteiro", icone: RoteiroReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: Boolean(orc.roteiro) },
     { id: "dia-a-dia", titulo: "Day by Day", icone: DayByDayReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: true },
     { id: "transporte", titulo: "Transportes", icone: TransportesReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: Boolean(orc.transporte?.length) },
@@ -1227,105 +1231,321 @@ export default function RoteiroOrcamento() {
       )}
 
       {/* HOSPEDAGEM */}
-      {orc.hospedagem && orc.hospedagem.length > 0 && itemAtivo === "hospedagem" && (
+      {possuiHospedagem && itemAtivo === "hospedagem" && (
         <Card id="hospedagem" className="overflow-hidden mb-6 scroll-mt-4" style={{ fontFamily: "Montserrat, sans-serif" }}>
           <div className="p-3" style={{ backgroundColor: COR_PRINCIPAL }}>
             <TituloSecao titulo="Hospedagens" Icone={HospedagemReferenceIcon} />
           </div>
-          <div className="p-4 space-y-3">
-            {orc.hospedagem.map((h: any, idx: number) => (
-              <div key={idx} className="p-3 bg-gray-50 rounded-lg" style={{ fontFamily: "Montserrat, sans-serif" }}>
-                {normalizarFotosHospedagem(h).length > 0 && (
-                  <div className="mb-3">
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                        Fotos da hospedagem
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        {normalizarFotosHospedagem(h).length} foto{normalizarFotosHospedagem(h).length !== 1 ? "s" : ""}
-                      </p>
-                    </div>
-                    <div
-                      className="relative"
-                      ref={(element) => {
-                        carrosselHospedagemRefs.current[idx] = element;
-                      }}
-                    >
-                      {normalizarFotosHospedagem(h).length > 1 && (
+          <div className="bg-[#0b0635] p-4 space-y-6">
+            {/* ── Hospedagens da HospedagemForm ── */}
+            {(orc.hospedagem || []).map((h: any, idx: number) => {
+              const nome        = h.nome || "";
+              const local       = h.local || "";
+              const endereco    = h.endereco || "";
+              const telefone    = h.telefone || "";
+              const email       = h.email || "";
+              const checkin     = h.checkin || "";
+              const checkout    = h.checkout || "";
+              const tipoQuarto  = h.tipoQuarto || "";
+              const regime      = h.regime || "";
+              const comodidades = h.comodidades || (Array.isArray(h.amenidades) ? h.amenidades.join(", ") : "") || "";
+              const noites      = h.noites || "";
+              const classificacao = Number(h.classificacao) || 0;
+              const fotos = normalizarFotosHospedagem(h);
+              return (
+                <div key={`hf-${idx}`} className="overflow-hidden rounded-[22px] bg-[#1c1848] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  {fotos.length > 0 && (
+                    <div className="relative" ref={(el) => { carrosselHospedagemRefs.current[idx] = el; }}>
+                      {fotos.length > 1 && (
                         <>
-                          <button
-                            type="button"
-                            onClick={() => moverCarrosselHospedagem(idx, -1)}
-                            disabled={(carrosselHospedagemAtivo[idx] ?? 0) === 0}
-                            aria-label="Foto anterior"
-                            className="absolute left-3 top-1/2 z-10 flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white shadow-lg backdrop-blur-sm transition hover:bg-black/70 disabled:cursor-not-allowed disabled:opacity-40 sm:h-16 sm:w-16"
-                          >
-                            <span className="text-3xl leading-none sm:text-4xl">‹</span>
+                          <button type="button" onClick={() => moverCarrosselHospedagem(idx, -1)}
+                            disabled={(carrosselHospedagemAtivo[idx] ?? 0) === 0} aria-label="Foto anterior"
+                            className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm hover:bg-black/70 disabled:opacity-30 transition">
+                            <ChevronLeft className="h-5 w-5" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => moverCarrosselHospedagem(idx, 1)}
-                            disabled={(carrosselHospedagemAtivo[idx] ?? 0) >= normalizarFotosHospedagem(h).length - 1}
-                            aria-label="Próxima foto"
-                            className="absolute right-3 top-1/2 z-10 flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white shadow-lg backdrop-blur-sm transition hover:bg-black/70 disabled:cursor-not-allowed disabled:opacity-40 sm:h-16 sm:w-16"
-                          >
-                            <span className="text-3xl leading-none sm:text-4xl">›</span>
+                          <button type="button" onClick={() => moverCarrosselHospedagem(idx, 1)}
+                            disabled={(carrosselHospedagemAtivo[idx] ?? 0) >= fotos.length - 1} aria-label="Próxima foto"
+                            className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm hover:bg-black/70 disabled:opacity-30 transition">
+                            <ChevronRight className="h-5 w-5" />
                           </button>
                         </>
                       )}
-
-                    <div className="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                      {normalizarFotosHospedagem(h).map((foto: string, fotoIndex: number) => (
-                        <a
-                          key={foto}
-                          data-hospedagem-foto
-                          href={foto}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="group relative w-full flex-none snap-start snap-always overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
-                          title="Abrir foto da hospedagem"
-                        >
-                          <img
-                            src={foto}
-                            alt={`Foto ${fotoIndex + 1} da hospedagem ${h.nome || ""}`.trim() || "Foto da hospedagem"}
-                            className="h-56 w-full object-cover transition-transform duration-300 group-hover:scale-[1.02] sm:h-72"
-                            loading="lazy"
-                          />
-                          <div className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
-                            {fotoIndex + 1} / {normalizarFotosHospedagem(h).length}
+                      <div className="flex overflow-x-auto scroll-smooth snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        {fotos.map((foto: string, fi: number) => (
+                          <a key={foto} data-hospedagem-foto href={foto} target="_blank" rel="noreferrer"
+                            className="group relative w-full flex-none snap-start snap-always overflow-hidden bg-[#0b0635]">
+                            <img src={foto} alt={`Foto ${fi + 1} da hospedagem ${nome}`.trim() || "Foto da hospedagem"}
+                              className="h-56 w-full object-cover transition-transform duration-300 group-hover:scale-[1.02] sm:h-72" loading="lazy" />
+                            <div className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
+                              {fi + 1} / {fotos.length}
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="px-5 py-5 space-y-4">
+                    <div>
+                      <p className="text-[17px] font-bold leading-snug text-white">{nome}</p>
+                      {classificacao > 0 && (
+                        <div className="flex items-center gap-0.5 mt-1">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star key={i} className={`h-4 w-4 ${i < classificacao ? "fill-[#e07b20] text-[#e07b20]" : "text-white/20"}`} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {(checkin || checkout) && (
+                      <p className="text-[14px] font-semibold leading-6" style={{ color: COR_DESTAQUE }}>{formatarPeriodo(checkin, checkout)}</p>
+                    )}
+                    {(checkin || checkout || noites || tipoQuarto) && (
+                      <div className="grid grid-cols-2 gap-2">
+                        {checkin && (
+                          <div className="rounded-xl bg-white/8 px-3 py-2.5">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">Check-in</p>
+                            <div className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-white/60 shrink-0" /><p className="text-[13px] font-semibold text-white">{formatarDataCurta(checkin)}</p></div>
                           </div>
-                        </a>
-                      ))}
-                    </div>
+                        )}
+                        {checkout && (
+                          <div className="rounded-xl bg-white/8 px-3 py-2.5">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">Check-out</p>
+                            <div className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-white/60 shrink-0" /><p className="text-[13px] font-semibold text-white">{formatarDataCurta(checkout)}</p></div>
+                          </div>
+                        )}
+                        {noites && (
+                          <div className="rounded-xl bg-white/8 px-3 py-2.5">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">Noites</p>
+                            <div className="flex items-center gap-1.5"><Bed className="h-3.5 w-3.5 text-white/60 shrink-0" /><p className="text-[13px] font-semibold text-white">{noites} noite{Number(noites) !== 1 ? "s" : ""}</p></div>
+                          </div>
+                        )}
+                        {tipoQuarto && (
+                          <div className="rounded-xl bg-white/8 px-3 py-2.5">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">Tipo de quarto</p>
+                            <div className="flex items-center gap-1.5"><Bed className="h-3.5 w-3.5 text-white/60 shrink-0" /><p className="text-[13px] font-semibold text-white">{tipoQuarto}</p></div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {regime && (
+                      <div className="flex items-start gap-3 rounded-xl bg-white/8 px-4 py-3">
+                        <Coffee className="h-4 w-4 text-white/50 mt-0.5 shrink-0" />
+                        <div><p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-0.5">Regime</p><p className="text-[13px] font-medium text-white/85">{regime}</p></div>
+                      </div>
+                    )}
+                    {(local || endereco) && (
+                      <div className="flex items-start gap-3 rounded-xl bg-white/8 px-4 py-3">
+                        <MapPin className="h-4 w-4 text-white/50 mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-0.5">Endereço</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-[13px] text-white/85 flex-1">{local || endereco}</p>
+                            <a href={`https://maps.google.com/?q=${encodeURIComponent(local || endereco)}`}
+                              target="_blank" rel="noreferrer" aria-label="Abrir no Google Maps"
+                              className="shrink-0 flex items-center justify-center h-7 w-7 rounded-full bg-white/10 hover:bg-white/20 transition-colors" title="Ver no Google Maps">
+                              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#e07b20"/>
+                              </svg>
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {(telefone || email) && (
+                      <div className="space-y-2">
+                        {telefone && (
+                          <div className="flex items-center gap-3 rounded-xl bg-white/8 px-4 py-3">
+                            <Phone className="h-4 w-4 text-white/50 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-0.5">Telefone</p>
+                              <div className="flex items-center gap-2">
+                                <a href={`tel:${telefone}`} className="text-[13px] font-medium text-[#e07b20] hover:underline flex-1">{telefone}</a>
+                                <a href={`https://wa.me/${telefone.replace(/\D/g, "")}`}
+                                  target="_blank" rel="noreferrer" aria-label="Enviar mensagem no WhatsApp"
+                                  className="shrink-0 flex items-center justify-center h-7 w-7 rounded-full bg-white/10 hover:bg-white/20 transition-colors" title="WhatsApp">
+                                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="#25D366" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347"/>
+                                  </svg>
+                                </a>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {email && (
+                          <div className="flex items-center gap-3 rounded-xl bg-white/8 px-4 py-3">
+                            <MailIcon className="h-4 w-4 text-white/50 shrink-0" />
+                            <div><p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-0.5">E-mail</p><a href={`mailto:${email}`} className="text-[13px] font-medium text-[#e07b20] hover:underline break-all">{email}</a></div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {comodidades && (
+                      <div className="rounded-xl bg-white/8 px-4 py-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1.5">Comodidades</p>
+                        <p className="text-[13px] text-white/82 leading-relaxed">{comodidades}</p>
+                      </div>
+                    )}
+                    {h.politicasCondicoesInformacoesEspeciais && (
+                      <div className="rounded-xl bg-white/8 px-4 py-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1.5">Políticas e informações</p>
+                        <p className="text-[13px] text-white/82 leading-relaxed whitespace-pre-line">{h.politicasCondicoesInformacoesEspeciais}</p>
+                      </div>
+                    )}
+                    {h.voucher && (
+                      <button type="button" onClick={() => { const win = window.open(""); if (win && h.voucher) { win.document.write(h.voucherTipo === "pdf" ? `<iframe src="${h.voucher}" style="width:100%;height:100%;border:none;"></iframe>` : `<img src="${h.voucher}" style="max-width:100%;max-height:100vh;display:block;margin:auto;" />`); } }}
+                        className="w-full rounded-xl border border-white/15 bg-white/8 px-4 py-3 text-[13px] font-semibold text-white/90 hover:bg-white/15 transition-colors text-center">
+                        Abrir Voucher da Hospedagem
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* ── Hospedagens vindas de Pacotes ── */}
+            {(orc.pacotes || [])
+              .filter((p: any) => p?.hospedagemNome?.trim())
+              .map((p: any, idx: number) => {
+                const nome        = p.hospedagemNome        || "";
+                const endereco    = p.hospedagemEndereco    || "";
+                const telefone    = p.hospedagemTelefone    || "";
+                const email       = p.hospedagemEmail       || "";
+                const checkin     = p.hospedagemCheckin     || "";
+                const checkout    = p.hospedagemCheckout    || "";
+                const tipoQuarto  = p.hospedagemTipoQuarto  || "";
+                const regime      = p.hospedagemRegime      || "";
+                const comodidades = p.hospedagemComodidades || "";
+                const noites      = p.hospedagemNoites      || "";
+                const politicas   = p.hospedagemPoliticasCondicoesInformacoesEspeciais || "";
+                const links: string[] = (() => {
+                  const l: string[] = [];
+                  if (Array.isArray(p.hospedagemLinks)) l.push(...p.hospedagemLinks.filter(Boolean));
+                  if (p.hospedagemLink && !l.includes(p.hospedagemLink)) l.push(p.hospedagemLink);
+                  return l;
+                })();
+                const fotos: string[] = (() => {
+                  const f: string[] = [];
+                  if (Array.isArray(p.hospedagemFotos)) f.push(...p.hospedagemFotos.filter(Boolean));
+                  if (p.hospedagemFoto && !f.includes(p.hospedagemFoto)) f.push(p.hospedagemFoto);
+                  return f;
+                })();
+                return (
+                  <div key={`pp-${p.id ?? idx}`} className="overflow-hidden rounded-[22px] bg-[#1c1848] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                    {fotos.length > 0 && (
+                      <img src={fotos[0]} alt={`Foto da hospedagem ${nome}`}
+                        className="h-56 w-full object-cover sm:h-72" loading="lazy" />
+                    )}
+                    <div className="px-5 py-5 space-y-4">
+                      <p className="text-[17px] font-bold leading-snug text-white">{nome}</p>
+                      {(checkin || checkout) && (
+                        <p className="text-[14px] font-semibold leading-6" style={{ color: COR_DESTAQUE }}>{formatarPeriodo(checkin, checkout)}</p>
+                      )}
+                      {(checkin || checkout || noites || tipoQuarto) && (
+                        <div className="grid grid-cols-2 gap-2">
+                          {checkin && (
+                            <div className="rounded-xl bg-white/8 px-3 py-2.5">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">Check-in</p>
+                              <div className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-white/60 shrink-0" /><p className="text-[13px] font-semibold text-white">{formatarDataCurta(checkin)}</p></div>
+                            </div>
+                          )}
+                          {checkout && (
+                            <div className="rounded-xl bg-white/8 px-3 py-2.5">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">Check-out</p>
+                              <div className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-white/60 shrink-0" /><p className="text-[13px] font-semibold text-white">{formatarDataCurta(checkout)}</p></div>
+                            </div>
+                          )}
+                          {noites && (
+                            <div className="rounded-xl bg-white/8 px-3 py-2.5">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">Noites</p>
+                              <div className="flex items-center gap-1.5"><Bed className="h-3.5 w-3.5 text-white/60 shrink-0" /><p className="text-[13px] font-semibold text-white">{noites} noite{Number(noites) !== 1 ? "s" : ""}</p></div>
+                            </div>
+                          )}
+                          {tipoQuarto && (
+                            <div className="rounded-xl bg-white/8 px-3 py-2.5">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">Tipo de quarto</p>
+                              <div className="flex items-center gap-1.5"><Bed className="h-3.5 w-3.5 text-white/60 shrink-0" /><p className="text-[13px] font-semibold text-white">{tipoQuarto}</p></div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {regime && (
+                        <div className="flex items-start gap-3 rounded-xl bg-white/8 px-4 py-3">
+                          <Coffee className="h-4 w-4 text-white/50 mt-0.5 shrink-0" />
+                          <div><p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-0.5">Regime</p><p className="text-[13px] font-medium text-white/85">{regime}</p></div>
+                        </div>
+                      )}
+                      {endereco && (
+                        <div className="flex items-start gap-3 rounded-xl bg-white/8 px-4 py-3">
+                          <MapPin className="h-4 w-4 text-white/50 mt-0.5 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-0.5">Endereço</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-[13px] text-white/85 flex-1">{endereco}</p>
+                              <a href={`https://maps.google.com/?q=${encodeURIComponent(endereco)}`}
+                                target="_blank" rel="noreferrer" aria-label="Abrir no Google Maps"
+                                className="shrink-0 flex items-center justify-center h-7 w-7 rounded-full bg-white/10 hover:bg-white/20 transition-colors" title="Ver no Google Maps">
+                                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#e07b20"/>
+                                </svg>
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {(telefone || email) && (
+                        <div className="space-y-2">
+                          {telefone && (
+                            <div className="flex items-center gap-3 rounded-xl bg-white/8 px-4 py-3">
+                              <Phone className="h-4 w-4 text-white/50 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-0.5">Telefone</p>
+                                <div className="flex items-center gap-2">
+                                  <a href={`tel:${telefone}`} className="text-[13px] font-medium text-[#e07b20] hover:underline flex-1">{telefone}</a>
+                                  <a href={`https://wa.me/${telefone.replace(/\D/g, "")}`}
+                                    target="_blank" rel="noreferrer" aria-label="Enviar mensagem no WhatsApp"
+                                    className="shrink-0 flex items-center justify-center h-7 w-7 rounded-full bg-white/10 hover:bg-white/20 transition-colors" title="WhatsApp">
+                                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="#25D366" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347"/>
+                                    </svg>
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {email && (
+                            <div className="flex items-center gap-3 rounded-xl bg-white/8 px-4 py-3">
+                              <MailIcon className="h-4 w-4 text-white/50 shrink-0" />
+                              <div><p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-0.5">E-mail</p><a href={`mailto:${email}`} className="text-[13px] font-medium text-[#e07b20] hover:underline break-all">{email}</a></div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {comodidades && (
+                        <div className="rounded-xl bg-white/8 px-4 py-3">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1.5">Comodidades</p>
+                          <p className="text-[13px] text-white/82 leading-relaxed">{comodidades}</p>
+                        </div>
+                      )}
+                      {politicas && (
+                        <div className="rounded-xl bg-white/8 px-4 py-3">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1.5">Políticas e informações</p>
+                          <p className="text-[13px] text-white/82 leading-relaxed whitespace-pre-line">{politicas}</p>
+                        </div>
+                      )}
+                      {links.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Links da operadora</p>
+                          {links.map((link, i) => (
+                            <a key={i} href={link} target="_blank" rel="noreferrer"
+                              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/8 px-4 py-3 text-[13px] font-medium text-[#e07b20] hover:bg-white/15 transition-colors">
+                              <ExternalLink className="h-4 w-4 shrink-0" /><span className="truncate">{link}</span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
-                <p className="text-[16px] font-semibold leading-8 text-slate-700">{h.nome}</p>
-                <p className="text-[14px] leading-7 text-slate-600">{h.local}</p>
-                {h.endereco && <p className="text-[14px] leading-7 text-slate-500">{h.endereco}</p>}
-                <p className="mt-1 text-[14px] font-medium text-indigo-600 leading-7">{formatarPeriodo(h.checkin, h.checkout)}</p>
-                <p className="mt-1 text-[14px] leading-7 text-slate-700">{h.tipoQuarto} • {h.noites} noite{h.noites !== 1 ? "s" : ""}</p>
-                {h.voucher && (
-                  <div className="mt-2 flex justify-end">
-                    <button
-                      onClick={() => {
-                        const win = window.open("");
-                        if (win && h.voucher) {
-                          win.document.write(
-                            h.voucherTipo === "pdf"
-                              ? `<iframe src="${h.voucher}" style="width:100%;height:100%;border:none;"></iframe>`
-                              : `<img src="${h.voucher}" style="max-width:100%;max-height:100vh;display:block;margin:auto;" />`
-                          );
-                        }
-                      }}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 underline"
-                    >
-                      Clique aqui para abrir o Voucher
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+                );
+              })}
           </div>
         </Card>
       )}

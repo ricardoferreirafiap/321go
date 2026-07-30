@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
 import {
   Search, Plus, Edit2, X, Check, FileText, ChevronDown, ChevronUp, Upload,
-  User, Calendar, DollarSign, Send, Eye, Copy, MapPin, Sparkles, Link2, Star, Plane, Bed
+  User, Calendar, DollarSign, Send, Eye, Copy, MapPin, Sparkles, Link2, Star, Plane
 } from "lucide-react"; // Adicionado Sparkles
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
@@ -11,7 +11,6 @@ import { Badge } from "./ui/badge";
 import { Label } from "./ui/label";
 import PacotesForm from "./PacotesForm";
 import VoosForm from "./VoosForm";
-import HospedagemForm from "./HospedagemForm";
 import RoteiroForm from "./RoteiroForm";
 import DayByDayForm from "./DayByDayForm";
 import TransporteForm from "./TransporteForm";
@@ -464,7 +463,6 @@ export default function Orcamentos() {
   const [resumoMinimizado, setResumoMinimizado] = useState(true);
   const [voosMinimizados, setVoosMinimizados] = useState(true);
   const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
-  const [hospedagemMinimizada, setHospedagemMinimizada] = useState(true);
   const [mostrarVoosHospedagem, setMostrarVoosHospedagem] = useState(false);
   const [novaUrlOperadorItem, setNovaUrlOperadorItem] = useState("");
   
@@ -682,7 +680,6 @@ export default function Orcamentos() {
 
     // Garantir que Voos e Hospedagem estejam minimizados no carregamento inicial
     setVoosMinimizados(true);
-    setHospedagemMinimizada(true);
 
     return () => {
       mounted = false;
@@ -757,7 +754,6 @@ export default function Orcamentos() {
     setVendasMinimizadas(true);
     setResumoMinimizado(true);
     setVoosMinimizados(true);
-    setHospedagemMinimizada(true);
     setMostrarVoosHospedagem(false);
     setPassageiroSelecionado("");
     setStatusBloqueado(false);
@@ -796,7 +792,6 @@ export default function Orcamentos() {
     setVendasMinimizadas(true);
     setResumoMinimizado(true);
     setVoosMinimizados(true);
-    setHospedagemMinimizada(true);
     setMostrarVoosHospedagem(false);
     setPassageiroSelecionado("");
     setSection("Pacotes");
@@ -1658,21 +1653,19 @@ export default function Orcamentos() {
                                     if (!mostrarVoosHospedagem) {
                                       setMostrarVoosHospedagem(true);
                                       setVoosMinimizados(true);
-                                      setHospedagemMinimizada(true);
                                     } else {
                                       setMostrarVoosHospedagem(false);
                                       setVoosMinimizados(true);
-                                      setHospedagemMinimizada(true);
                                     }
                                   }}
                               >
                                 {!mostrarVoosHospedagem ? (
                                   <>
-                                    <Plus className="w-4 h-4" /> Incluir Manualmente Voo e Hospedagem
+                                    <Plus className="w-4 h-4" /> Incluir Manualmente Voo
                                   </>
                                 ) : (
                                   <>
-                                    <ChevronUp className="w-4 h-4" /> Ocultar Voos e Hospedagem
+                                    <ChevronUp className="w-4 h-4" /> Ocultar Voos
                                   </>
                                 )}
                               </Button>
@@ -1695,24 +1688,6 @@ export default function Orcamentos() {
                                       </Button>
                                     </div>
                                     {!voosMinimizados && <VoosForm voos={voos} onVoosChange={setVoos} />}
-                                  </Card>
-                                  <Card className="p-4">
-                                    <div className="mb-4 flex items-center justify-between gap-3">
-                                      <h4 className="font-semibold text-gray-900 flex items-center gap-2">
-                                        <Bed className="w-4 h-4 text-indigo-500" /> Hospedagem
-                                      </h4>
-                                      <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => setHospedagemMinimizada((prev) => !prev)}
-                                          className="gap-2 text-gray-600 hover:text-gray-900 h-8 px-2"
-                                      >
-                                        {hospedagemMinimizada ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                                        {hospedagemMinimizada ? " " : " "}
-                                      </Button>
-                                    </div>
-                                    {!hospedagemMinimizada && <HospedagemForm hospedagens={hospedagem} onHospedagensChange={setHospedagem} />}
                                   </Card>
                                 </>
                               )}
