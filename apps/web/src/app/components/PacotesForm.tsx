@@ -154,14 +154,15 @@ interface PacotesFormProps {
 }
 
 const operadoresPadrao = [
-  "HotelDO",
-  "Decolar",
-  "CVC",
-  "Flytour",
-  "Orinter",
   "Abreu",
-  "Visual Turismo",
+  "AgaxTur",
+  "CVC",
+  "Decolar",
   "Diversa Turismo",
+  "Flytour",
+  "HotelDO",
+  "Orinter",
+  "Visual Turismo",
 ];
 
 const pacoteVazio: Omit<Pacote, "id"> = {
@@ -656,12 +657,12 @@ function extrairDadosIADeAnalise(analise: string): DadosIAExtraidos {
     passageiros: extrair(/\*\*Passageiros:\*\*\s*(.+)/),
     dataIda: dataIdaBr ? dataBrParaIso(dataIdaBr) : "",
     dataVolta: dataVoltaBr ? dataBrParaIso(dataVoltaBr) : "",
-    origemIda: extrair(/\*\*Origem (?:\(Ida\))?:\*\*\s*(.+)/),
-    destinoIda: extrair(/\*\*Destino (?:\(Ida\))?:\*\*\s*(.+)/),
-    duracaoIda: extrair(/\*\*Duração (?:\(Ida\))?:\*\*\s*(.+)/i),
-    origemVolta: extrair(/\*\*Origem (?:\(Volta\))?:\*\*\s*(.+)/),
-    destinoVolta: extrair(/\*\*Destino (?:\(Volta\))?:\*\*\s*(.+)/),
-    duracaoVolta: extrair(/\*\*Duração (?:\(Volta\))?:\*\*\s*(.+)/i),
+    origemIda: extrair(/\*\*Origem \(Ida\):\*\*\s*(.+)/),
+    destinoIda: extrair(/\*\*Destino \(Ida\):\*\*\s*(.+)/),
+    duracaoIda: extrair(/\*\*Duração \(Ida\):\*\*\s*(.+)/i),
+    origemVolta: extrair(/\*\*Origem \(Volta\):\*\*\s*(.+)/),
+    destinoVolta: extrair(/\*\*Destino \(Volta\):\*\*\s*(.+)/),
+    duracaoVolta: extrair(/\*\*Duração \(Volta\):\*\*\s*(.+)/i),
     horaSaidaIda: extrair(/\*\*Horário (?:de )?Saída (?:\(Ida\))?:\*\*\s*(.+)/i),
     horaChegadaIda: extrair(/\*\*Horário (?:de )?Chegada (?:\(Ida\))?:\*\*\s*(.+)/i),
     horaSaidaVolta: extrair(/\*\*Horário (?:de )?Saída (?:\(Volta\))?:\*\*\s*(.+)/i),
@@ -758,7 +759,7 @@ function montarDadosIAFromJson(
   const politicaFinal = politicaExtraida || respostaJson.politicaAlteracoesCancelamentos || "";
 
   return {
-    operador: padronizarOperador(operadorDetectado),
+    operador: padronizarOperador(operadorDetectado || respostaJson.operador || ""),
     ciaAerea,
     reserva: respostaJson.reserva || "",
     destino: respostaJson.destino || respostaJson.destinoIda || "",
@@ -1052,25 +1053,27 @@ ${contextoArquivo}
 Instruções:
 1. Extraia todas as informações do conteúdo do arquivo (PDF, OCR ou imagem). Seja exaustivo e procure em todas as seções do documento.
 2. Se uma informação não for encontrada, retorne uma string vazia "" para o campo correspondente.
-3. Para datas (dataIda, dataVolta, checkinHotel, checkoutHotel), use o formato AAAA-MM-DD.
-4. O campo "ciaAerea" deve conter o nome da companhia aérea (ex: LATAM Airlines Group, GOL, Azul). Não confunda com operadora de turismo.
-5. Identifique origem, destino e duração separadamente para o trecho de IDA e para o trecho de VOLTA.
-6. A duração do voo deve estar no formato legível (ex: "2h 30min", "11h 45min", "1h 05min").
-7. Horários devem estar no formato HH:MM (ex: "08:35", "23:10").
-8. O campo "valor" deve conter o valor total do pacote/reserva como aparece no documento (ex: "R$ 5.432,10").
-9. O campo "valorHotel" deve conter o valor específico da hospedagem quando disponível (ex: "R$ 1.200,00").
-10. Os campos "link" e "foto" devem conter URLs completas quando existirem no documento.
-11. O campo "nomeHotel" deve conter o nome do estabelecimento de hospedagem.
-12. O campo "regimeHotel" deve conter o regime de pensão (ex: "Café da manhã", "Meia pensão", "All inclusive").
-13. O campo "noitesHotel" deve conter apenas o número de noites (ex: "7").
-14. Localize a seção "Política de alterações e cancelamentos" e copie todo o texto integralmente para "politicaAlteracoesCancelamentos", sem resumir.
-15. Localize seções de "Políticas", "Condições" ou "Informações Especiais" da hospedagem e copie integralmente para "politicasCondicoesInformacoesEspeciais".
-16. Identifique informações de TRASLADO (transfer), quando houver: tipo (ex: "Aeroporto-Hotel", "Hotel-Aeroporto", "Hotel-Passeio"), data, horário, local de partida, local de chegada, veículo/empresa responsável e observações relevantes (ex: regular, privativo, ponto de encontro).
-17. Identifique informações de INGRESSO (tickets/atrações), quando houver: nome da atração/local, data, horário, quantidade de ingressos e observações relevantes (ex: categoria do ingresso, se inclui guia).
-18. Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
-${!temConteudoArquivo ? "\n19. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise no nome do arquivo e na imagem anexada (se houver)." : ""}
+3. Para datas (dataIda, dataVolta, checkinHotel, checkoutHotel, trasladoData, ingressoData), use o formato AAAA-MM-DD.
+4. O campo "operador" deve conter o nome da operadora de turismo (ex: HotelDO, Decolar, CVC, Flytour, Orinter, Abreu, Visual Turismo, Diversa Turismo). Procure pelo nome no cabeçalho, rodapé ou logotipo do documento.
+5. O campo "ciaAerea" deve conter o nome da companhia aérea (ex: LATAM Airlines Group, GOL, Azul). Não confunda com operadora de turismo.
+6. Identifique origem, destino e duração separadamente para o trecho de IDA e para o trecho de VOLTA.
+7. A duração do voo deve estar no formato legível (ex: "2h 30min", "11h 45min", "1h 05min").
+8. Horários devem estar no formato HH:MM (ex: "08:35", "23:10").
+9. O campo "valor" deve conter o valor total do pacote/reserva como aparece no documento (ex: "R$ 5.432,10").
+10. O campo "valorHotel" deve conter o valor específico da hospedagem quando disponível (ex: "R$ 1.200,00").
+11. Os campos "link" e "foto" devem conter URLs completas quando existirem no documento.
+12. O campo "nomeHotel" deve conter o nome do estabelecimento de hospedagem.
+13. O campo "regimeHotel" deve conter o regime de pensão (ex: "Café da manhã", "Meia pensão", "All inclusive").
+14. O campo "noitesHotel" deve conter apenas o número de noites (ex: "7").
+15. Localize a seção "Política de alterações e cancelamentos" e copie todo o texto integralmente para "politicaAlteracoesCancelamentos", sem resumir.
+16. Localize seções de "Políticas", "Condições" ou "Informações Especiais" da hospedagem e copie integralmente para "politicasCondicoesInformacoesEspeciais".
+17. Identifique informações de TRASLADO (transfer), quando houver: tipo (ex: "Aeroporto-Hotel", "Hotel-Aeroporto", "Hotel-Passeio"), data, horário, local de partida, local de chegada, veículo/empresa responsável e observações relevantes (ex: regular, privativo, ponto de encontro).
+18. Identifique informações de INGRESSO (tickets/atrações), quando houver: nome da atração/local, data, horário, quantidade de ingressos e observações relevantes (ex: categoria do ingresso, se inclui guia).
+19. Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
+${!temConteudoArquivo ? "\n20. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise no nome do arquivo e na imagem anexada (se houver)." : ""}
 Formato JSON esperado:
 {
+  "operador": "string",
   "ciaAerea": "string",
   "reserva": "string",
   "destino": "string",
@@ -1369,10 +1372,29 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     setForm({ ...form, urlOperador: novasUrls });
   }
 
-  const operadores = useMemo(
-      () => Array.from(new Set([...operadoresPadrao, ...pacotes.map((item) => item.operador.trim()).filter(Boolean)])),
-      [pacotes],
-  );
+  const operadores = useMemo(() => {
+    // Operadores já salvos nos pacotes existentes
+    const dosPacotes = pacotes.map((item) => item.operador.trim()).filter(Boolean);
+
+    // Operadores extraídos dos documentos analisados no formulário atual (dadosIA ou analise)
+    const dosDocumentos = (form.documentos || [])
+      .flatMap((doc) => {
+        const lista: string[] = [];
+        // Via dadosIA (campo estruturado)
+        if (doc.dadosIA?.operador?.trim()) lista.push(doc.dadosIA.operador.trim());
+        // Via texto do relatório — regex alinhada com montarRelatorioCompleto
+        if (doc.analise) {
+          const match = doc.analise.match(/\*\*Operador:\*\*\s*(.+)/);
+          const valor = match?.[1]?.trim();
+          if (valor && valor.toLowerCase() !== "não informado") lista.push(valor);
+        }
+        return lista;
+      })
+      .map((op) => padronizarOperador(op))
+      .filter(Boolean);
+
+    return Array.from(new Set([...operadoresPadrao, ...dosPacotes, ...dosDocumentos]));
+  }, [pacotes, form.documentos]);
 
 
   function salvarPacote() {
@@ -2299,7 +2321,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex justify-end">
                   <Button
                       type="button"
                       variant="outline"
@@ -2311,31 +2333,6 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                     <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
                     {analisandoIA ? "Analisando..." : "Analisar IA"}
                   </Button>
-                  <select
-                      value={provedorIA}
-                      onChange={(e) => {
-                        const valor = e.target.value;
-                        if (
-                            valor === "automático" ||
-                            valor === "openai" ||
-                            valor === "groq" ||
-                            valor === "gemini" ||
-                            valor === "openrouter" ||
-                            valor === "cloudflare"
-                        ) {
-                          setProvedorIA(valor);
-                        }
-                      }}
-                      className="h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring"
-                      disabled={analisandoIA}
-                  >
-                    <option value="automático">Automático</option>
-                    <option value="openai">OpenAI</option>
-                    <option value="groq">Groq</option>
-                    <option value="gemini">Gemini</option>
-                    <option value="openrouter">OpenRouter</option>
-                    <option value="cloudflare">Cloudflare</option>
-                  </select>
                 </div>
 
                 {logAnaliseIA.length > 0 && (
@@ -2470,18 +2467,19 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mt-4">
                         <div className="sm:col-span-2">
                           <Label className="text-xs">Operador *</Label>
-                          <Input
-                              className={`mt-1 ${!form.operador ? 'bg-yellow-50' : 'bg-white'}`}
-                              placeholder="Selecione da lista ou digite"
+                          <select
+                              className={`mt-1 flex h-9 w-full rounded-md border border-input px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 ${!form.operador ? 'bg-yellow-50' : 'bg-input-background'}`}
                               value={form.operador}
                               onChange={(e) => setForm((prev) => ({ ...prev, operador: e.target.value }))}
-                              list="lista-operadores-pacotes"
-                          />
-                          <datalist id="lista-operadores-pacotes">
-                            {operadores.map((operador) => (
-                                <option key={operador} value={operador} />
+                          >
+                            <option value="">Selecione um operador</option>
+                            {Array.from(new Set([
+                              ...operadores,
+                              ...(form.operador && !operadores.includes(form.operador) ? [form.operador] : [])
+                            ])).map((operador) => (
+                              <option key={operador} value={operador}>{operador}</option>
                             ))}
-                          </datalist>
+                          </select>
                         </div>
 
                         <div className="sm:col-span-2">

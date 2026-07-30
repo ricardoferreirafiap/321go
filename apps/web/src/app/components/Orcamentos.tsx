@@ -1631,43 +1631,16 @@ export default function Orcamentos() {
                               </div>
                               <div className="flex justify-between items-center mb-2">
                                 <Label htmlFor="roteiro-texto">Descrição do Roteiro</Label>
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={gerarRoteiroComIA}
-                                      disabled={gerandoRoteiro}
-                                      className="flex items-center gap-2 text-indigo-600 border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
-                                  >
-                                    <Sparkles className={`w-4 h-4 ${gerandoRoteiro ? 'animate-spin' : ''}`} /> {gerandoRoteiro ? 'Gerando...' : 'Sugestão de Roteiro com IA'}
-                                  </Button>
-                                  <select
-                                      value={provedorRoteiroIA}
-                                      onChange={(e) => {
-                                        const valor = e.target.value;
-                                        if (
-                                            valor === "automático" ||
-                                            valor === "openai" ||
-                                            valor === "groq" ||
-                                            valor === "gemini" ||
-                                            valor === "openrouter" ||
-                                            valor === "cloudflare"
-                                        ) {
-                                          setProvedorRoteiroIA(valor as any);
-                                        }
-                                      }}
-                                      className="h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring"
-                                      disabled={gerandoRoteiro}
-                                  >
-                                    <option value="automático">Automático</option>
-                                    <option value="openai">OpenAI</option>
-                                    <option value="groq">Groq</option>
-                                    <option value="gemini">Gemini</option>
-                                    <option value="openrouter">OpenRouter</option>
-                                    <option value="cloudflare">Cloudflare</option>
-                                  </select>
-                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={gerarRoteiroComIA}
+                                    disabled={gerandoRoteiro}
+                                    className="flex items-center gap-2 text-indigo-600 border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                                >
+                                  <Sparkles className={`w-4 h-4 ${gerandoRoteiro ? 'animate-spin' : ''}`} /> {gerandoRoteiro ? 'Gerando...' : 'Analisar IA'}
+                                </Button>
                               </div>
                               <RoteiroForm roteiro={roteiro} onRoteiroChange={setRoteiro} />
                             </div>

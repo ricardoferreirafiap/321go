@@ -1098,23 +1098,28 @@ export default function RoteiroOrcamento() {
             <TituloSecao titulo="Pacotes" Icone={OrcamentoReferenceIcon} />
           </div>
           <div className="bg-[#0b0635] p-4 sm:p-5 space-y-4">
-            {orc.pacotes.map((pacote: any, idx: number) => (
-              <div key={pacote.id || idx} className="rounded-[22px] bg-[#1c1848] px-4 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-5 sm:py-5">
-                <p className="text-[14px] leading-7 text-white/82">
-                  {(pacote.descricao || gerarResumoPacote(pacote as any)).replace(/AgaxTur\s*/gi, '')}
-                </p>
-                {pacote.reserva && (
-                  <p className="mt-2 text-[13px] text-white/60">
-                    Reserva: <span className="font-semibold text-white/90">{pacote.reserva}</span>
-                  </p>
-                )}
-                {pacote.valor > 0 && (
-                  <p className="mt-2 text-[14px] font-semibold text-[#ff8b1f]">
-                    {formatarMoeda(pacote.valor)}
-                  </p>
-                )}
-              </div>
-            ))}
+            {orc.pacotes.map((pacote: any, idx: number) => {
+              const textoDescricao = (pacote.descricao || gerarResumoPacote(pacote as any)).replace(/AgaxTur\s*/gi, '');
+              const paragrafos = textoDescricao
+                .split('\n')
+                .flatMap((linha: string) =>
+                  linha.split(/(?<=\.)\s+/)
+                )
+                .map((p: string) => p.trim())
+                .filter((p: string) => p.length > 0);
+              return (
+                <div key={pacote.id || idx} className="rounded-[22px] bg-[#1c1848] px-4 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-5 sm:py-5">
+                  <div className="mt-1 space-y-2 text-[14px] leading-7 text-white/82">
+                    {paragrafos.map((paragrafo: string, pIdx: number) => (
+                      <div key={pIdx} className="flex items-start gap-2">
+                        <span className="mt-2 inline-flex h-2 w-2 shrink-0 rounded-full bg-[#ff8b1f]" aria-hidden="true" />
+                        <span>{paragrafo}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </Card>
       )}
