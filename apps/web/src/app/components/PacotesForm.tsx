@@ -35,6 +35,15 @@ interface Documento {
   dadosIA?: DadosIAExtraidos;
 }
 
+// Representa uma única atração/ingresso extraída do documento
+interface IngressoItem {
+  nomeAtracao: string;
+  data: string;
+  horario: string;
+  quantidade: string;
+  observacoes: string;
+}
+
 type DadosIAExtraidos = {
   operador?: string;
   ciaAerea?: string;
@@ -78,11 +87,14 @@ type DadosIAExtraidos = {
   trasladoLocalChegada?: string;
   trasladoVeiculoEmpresa?: string;
   trasladoObservacoes?: string;
+  // Campos legados (single ingresso) - mantidos para retrocompatibilidade com relatórios antigos
   ingressoNomeAtracao?: string;
   ingressoData?: string;
   ingressoHorario?: string;
   ingressoQuantidade?: string;
   ingressoObservacoes?: string;
+  // Array com todas as atrações/ingressos extraídas
+  ingressos?: IngressoItem[];
   dadosCliente?: string;
   informacoesAdicionais?: string;
   conteudoCompleto?: string;
@@ -135,11 +147,14 @@ interface Pacote {
   trasladoLocalChegada?: string;
   trasladoVeiculoEmpresa?: string;
   trasladoObservacoes?: string;
+  // Campos legados (single ingresso) - mantidos para retrocompatibilidade
   ingressoNomeAtracao?: string;
   ingressoData?: string;
   ingressoHorario?: string;
   ingressoQuantidade?: string;
   ingressoObservacoes?: string;
+  // Array com todas as atrações/ingressos
+  ingressos?: IngressoItem[];
   dadosCliente?: string;
   informacoesAdicionais?: string;
   conteudoCompleto?: string;
@@ -216,6 +231,7 @@ const pacoteVazio: Omit<Pacote, "id"> = {
   ingressoHorario: "",
   ingressoQuantidade: "",
   ingressoObservacoes: "",
+  ingressos: [],
   dadosCliente: "",
   informacoesAdicionais: "",
   conteudoCompleto: "",
@@ -292,10 +308,19 @@ export function gerarResumoPacote(dados: Omit<Pacote, "id" | "documentos">): str
     partes.push(`${traslado}.`);
   }
 
-  if (dados.ingressoNomeAtracao?.trim()) {
-    let ingresso = `Ingresso para ${dados.ingressoNomeAtracao.trim()}`;
-    if (dados.ingressoQuantidade?.trim()) ingresso += ` (${dados.ingressoQuantidade.trim()})`;
-    partes.push(`${ingresso}.`);
+  // Todos os ingressos (array novo ou campo legado)
+  const todosIngressos: IngressoItem[] = dados.ingressos && dados.ingressos.length > 0
+    ? dados.ingressos
+    : dados.ingressoNomeAtracao?.trim()
+      ? [{ nomeAtracao: dados.ingressoNomeAtracao, data: dados.ingressoData || "", horario: dados.ingressoHorario || "", quantidade: dados.ingressoQuantidade || "", observacoes: dados.ingressoObservacoes || "" }]
+      : [];
+
+  for (const ing of todosIngressos) {
+    if (ing.nomeAtracao?.trim()) {
+      let ingresso = `Ingresso para ${ing.nomeAtracao.trim()}`;
+      if (ing.quantidade?.trim()) ingresso += ` (${ing.quantidade.trim()})`;
+      partes.push(`${ingresso}.`);
+    }
   }
 
   return partes.join(" ");
@@ -718,21 +743,82 @@ function extrairDadosIADeAnalise(analise: string): DadosIAExtraidos {
       const valor = match?.[2]?.trim();
       return valor && valor.toLowerCase() !== "não informado" ? valor : "";
     })(),
+    // Extrai TODAS as atrações/ingressos do relatório (blocos numerados ou não)
+    ingressos: (() => {
+      const itens: IngressoItem[] = [];
+
+      // Divide o relatório em blocos de ingresso.
+      // Novo formato: "**Atração 1 — Nome da Atração/Ingresso:**" ou "**Nome da Atração/Ingresso (1):**"
+      // Formato legado: um único "**Nome da Atração/Ingresso:**"
+      // Estratégia: percorre todas as ocorrências de "Nome da Atração/Ingresso" e extrai
+      // os campos que vêm logo depois (Data, Horário, Quantidade, Observações).
+      const reNome = /\*\*(?:Atra[cç][aã]o\s+\d+\s*[—-]\s*)?Nome (da )?Atra[cç][aã]o\/Ingresso(?:\s*\(\d+\))?:\*\*\s*(.+)/gi;
+      let matchNome: RegExpExecArray | null;
+
+      while ((matchNome = reNome.exec(analise)) !== null) {
+        const nomeAtracao = normalizarValorIA(matchNome[2]);
+        if (!nomeAtracao) continue;
+
+        // Pega o trecho do relatório a partir desta linha até a próxima ocorrência de "Nome da Atração" ou fim
+        const inicio = matchNome.index + matchNome[0].length;
+        const proximoNome = reNome.lastIndex > 0
+          ? analise.indexOf("**", reNome.lastIndex) // início do próximo campo **
+          : analise.length;
+        // Avança até o próximo bloco "Nome da Atração" ou usa um trecho fixo de ~500 chars
+        const bloco = analise.slice(inicio, inicio + 600);
+
+        const extrairDoBloco = (re: RegExp): string => {
+          const m = bloco.match(re);
+          if (!m) return "";
+          const val = [...m].slice(1).filter((v) => v !== undefined).pop();
+          return normalizarValorIA(val);
+        };
+
+        const dataBr = extrairDoBloco(/\*\*Data (do )?Ingresso:\*\*\s*(.+)/i);
+        const data = dataBr ? dataBrParaIso(dataBr) : "";
+        const horario = extrairDoBloco(/\*\*Horário (do )?Ingresso:\*\*\s*(.+)/i);
+        const quantidade = extrairDoBloco(/\*\*Quantidade (de )?Ingressos:\*\*\s*(.+)/i);
+
+        const obsMatch = bloco.match(/\*\*Observações( do)? Ingresso:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
+        const obsValor = obsMatch?.[2]?.trim();
+        const observacoes = obsValor && obsValor.toLowerCase() !== "não informado" ? obsValor : "";
+
+        itens.push({ nomeAtracao, data, horario, quantidade, observacoes });
+      }
+
+      return itens;
+    })(),
   };
 }
 
 function temDadosExtraidos(dados?: DadosIAExtraidos | null) {
   if (!dados) return false;
-  return Object.values(dados).some((valor) => Boolean(valor?.trim()));
+  if (dados.ingressos && dados.ingressos.length > 0) return true;
+  return Object.entries(dados).some(([chave, valor]) => {
+    if (chave === "ingressos") return false;
+    return Boolean((valor as string | undefined)?.trim());
+  });
 }
 
 function mesclarDadosIA(...fontes: (DadosIAExtraidos | null | undefined)[]): DadosIAExtraidos {
   const resultado: DadosIAExtraidos = {};
   for (const fonte of fontes) {
     if (!fonte) continue;
-    for (const [chave, valor] of Object.entries(fonte) as [keyof DadosIAExtraidos, string | undefined][]) {
-      if (valor?.trim() && !resultado[chave]?.trim()) {
-        resultado[chave] = valor.trim();
+    for (const [chave, valor] of Object.entries(fonte) as [keyof DadosIAExtraidos, unknown][]) {
+      if (chave === "ingressos") {
+        // Mescla arrays de ingressos sem duplicar por nome de atração
+        const arrayAtual: IngressoItem[] = (resultado.ingressos as IngressoItem[] | undefined) || [];
+        const arrayNovo: IngressoItem[] = Array.isArray(valor) ? (valor as IngressoItem[]) : [];
+        const nomesAtuais = new Set(arrayAtual.map((i) => i.nomeAtracao.trim().toLowerCase()).filter(Boolean));
+        const novosUnicos = arrayNovo.filter((i) => !nomesAtuais.has(i.nomeAtracao.trim().toLowerCase()));
+        if (novosUnicos.length > 0) {
+          resultado.ingressos = [...arrayAtual, ...novosUnicos];
+        }
+      } else {
+        const valorStr = valor as string | undefined;
+        if (valorStr?.trim() && !(resultado[chave] as string | undefined)?.trim()) {
+          (resultado as Record<string, unknown>)[chave] = valorStr.trim();
+        }
       }
     }
   }
@@ -809,6 +895,31 @@ function montarDadosIAFromJson(
     dadosCliente: respostaJson.dadosCliente || "",
     informacoesAdicionais: respostaJson.informacoesAdicionais || "",
     conteudoCompleto: respostaJson.conteudoCompleto || "",
+    // Array de ingressos — a IA pode retornar um array "ingressos" ou usamos o campo singular como fallback
+    ingressos: (() => {
+      // Se a IA retornou um array tipado (novo formato)
+      const raw = (respostaJson as Record<string, unknown>).ingressos;
+      if (Array.isArray(raw) && raw.length > 0) {
+        return (raw as Array<Record<string, string>>).map((item) => ({
+          nomeAtracao: item.nomeAtracao || item.ingressoNomeAtracao || "",
+          data: item.data || item.ingressoData || "",
+          horario: item.horario || item.ingressoHorario || "",
+          quantidade: item.quantidade || item.ingressoQuantidade || "",
+          observacoes: item.observacoes || item.ingressoObservacoes || "",
+        })).filter((i) => i.nomeAtracao.trim());
+      }
+      // Fallback: constrói a partir do campo singular legado
+      if (respostaJson.ingressoNomeAtracao?.trim()) {
+        return [{
+          nomeAtracao: respostaJson.ingressoNomeAtracao,
+          data: respostaJson.ingressoData || "",
+          horario: respostaJson.ingressoHorario || "",
+          quantidade: respostaJson.ingressoQuantidade || "",
+          observacoes: respostaJson.ingressoObservacoes || "",
+        }];
+      }
+      return [];
+    })(),
   };
 }
 
@@ -867,12 +978,37 @@ function montarRelatorioCompleto(
     `**Veículo/Empresa (Traslado):** ${fmtCampo(dados.trasladoVeiculoEmpresa)}`,
     "**Observações do Traslado:**",
     dados.trasladoObservacoes || "Não informado",
-    `**Nome da Atração/Ingresso:** ${fmtCampo(dados.ingressoNomeAtracao)}`,
-    `**Data do Ingresso:** ${fmtData(dados.ingressoData)}`,
-    `**Horário do Ingresso:** ${fmtCampo(dados.ingressoHorario)}`,
-    `**Quantidade de Ingressos:** ${fmtCampo(dados.ingressoQuantidade)}`,
-    "**Observações do Ingresso:**",
-    dados.ingressoObservacoes || "Não informado",
+    // Emite um bloco numerado por atração/ingresso
+    ...(() => {
+      const lista: IngressoItem[] = dados.ingressos && dados.ingressos.length > 0
+        ? dados.ingressos
+        : dados.ingressoNomeAtracao?.trim()
+          ? [{ nomeAtracao: dados.ingressoNomeAtracao, data: dados.ingressoData || "", horario: dados.ingressoHorario || "", quantidade: dados.ingressoQuantidade || "", observacoes: dados.ingressoObservacoes || "" }]
+          : [];
+
+      if (lista.length === 0) {
+        return [
+          `**Nome da Atração/Ingresso:** Não informado`,
+          `**Data do Ingresso:** Não informado`,
+          `**Horário do Ingresso:** Não informado`,
+          `**Quantidade de Ingressos:** Não informado`,
+          "**Observações do Ingresso:**",
+          "Não informado",
+        ];
+      }
+
+      return lista.flatMap((item, idx) => {
+        const sufixo = lista.length > 1 ? ` (${idx + 1})` : "";
+        return [
+          `**Nome da Atração/Ingresso${sufixo}:** ${fmtCampo(item.nomeAtracao)}`,
+          `**Data do Ingresso${sufixo}:** ${fmtData(item.data)}`,
+          `**Horário do Ingresso${sufixo}:** ${fmtCampo(item.horario)}`,
+          `**Quantidade de Ingressos${sufixo}:** ${fmtCampo(item.quantidade)}`,
+          `**Observações do Ingresso${sufixo}:**`,
+          item.observacoes || "Não informado",
+        ];
+      });
+    })(),
   ].join("\n");
 }
 
@@ -910,7 +1046,7 @@ Instruções:
 13. O campo "noitesHotel" deve conter apenas o número de noites (ex: "7").
 14. Localize a seção "Políticas de alteração e cancelamento" e copie todo o texto integralmente para "politicaAlteracoesCancelamentos", sem resumir.
 15. Extraia informações sobre traslado (tipo, data, horário, locais, veículo/empresa, observações).
-16. Extraia informações sobre ingressos (nome da atração, data, horário, quantidade, observações).
+16. Extraia informações sobre ingressos (nome da atração, data, horário, quantidade, observações). Se houver MAIS DE UM ingresso/atração, preencha o array "ingressos" com um objeto por atração. Também preencha "ingressoNomeAtracao", "ingressoData", "ingressoHorario", "ingressoQuantidade" e "ingressoObservacoes" com os dados da primeira atração (retrocompatibilidade).
 17. Extraia TODOS os dados do cliente (nome, email, telefone, CPF, etc.) e coloque no campo "dadosCliente".
 18. Extraia quaisquer informações adicionais ou observações gerais da página e coloque no campo "informacoesAdicionais".
 19. Copie TODO o conteúdo da página para o campo "conteudoCompleto" para garantir que nenhum dado seja perdido.
@@ -965,6 +1101,15 @@ Retorne o JSON no seguinte formato:
   "ingressoHorario": "",
   "ingressoQuantidade": "",
   "ingressoObservacoes": "",
+  "ingressos": [
+    {
+      "nomeAtracao": "",
+      "data": "",
+      "horario": "",
+      "quantidade": "",
+      "observacoes": ""
+    }
+  ],
   "dadosCliente": "",
   "informacoesAdicionais": "",
   "conteudoCompleto": ""
@@ -1068,7 +1213,7 @@ Instruções:
 15. Localize a seção "Política de alterações e cancelamentos" e copie todo o texto integralmente para "politicaAlteracoesCancelamentos", sem resumir.
 16. Localize seções de "Políticas", "Condições" ou "Informações Especiais" da hospedagem e copie integralmente para "politicasCondicoesInformacoesEspeciais".
 17. Identifique informações de TRASLADO (transfer), quando houver: tipo (ex: "Aeroporto-Hotel", "Hotel-Aeroporto", "Hotel-Passeio"), data, horário, local de partida, local de chegada, veículo/empresa responsável e observações relevantes (ex: regular, privativo, ponto de encontro).
-18. Identifique informações de INGRESSO (tickets/atrações), quando houver: nome da atração/local, data, horário, quantidade de ingressos e observações relevantes (ex: categoria do ingresso, se inclui guia).
+18. Identifique informações de INGRESSO (tickets/atrações), quando houver: nome da atração/local, data, horário, quantidade de ingressos e observações relevantes (ex: categoria do ingresso, se inclui guia). Se houver MAIS DE UMA atração/ingresso, preencha o array "ingressos" com um objeto por atração. Também preencha os campos "ingressoNomeAtracao", "ingressoData", "ingressoHorario", "ingressoQuantidade" e "ingressoObservacoes" com os dados da primeira atração (retrocompatibilidade).
 19. Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
 ${!temConteudoArquivo ? "\n20. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise no nome do arquivo e na imagem anexada (se houver)." : ""}
 Formato JSON esperado:
@@ -1119,7 +1264,16 @@ Formato JSON esperado:
   "ingressoData": "string",
   "ingressoHorario": "string",
   "ingressoQuantidade": "string",
-  "ingressoObservacoes": "string"
+  "ingressoObservacoes": "string",
+  "ingressos": [
+    {
+      "nomeAtracao": "string",
+      "data": "string",
+      "horario": "string",
+      "quantidade": "string",
+      "observacoes": "string"
+    }
+  ]
 }`;
 }
 
@@ -1283,14 +1437,41 @@ function mapearDetalhesIngresso<T extends Pick<
     | "ingressoHorario"
     | "ingressoQuantidade"
     | "ingressoObservacoes"
+    | "ingressos"
 >>(formAtual: T, dadosIA: NonNullable<Documento["dadosIA"]>): T {
+  // Usa o array ingressos quando disponível; caso contrário, converte campos legados
+  let ingressosNovos: IngressoItem[] = [];
+
+  if (dadosIA.ingressos && dadosIA.ingressos.length > 0) {
+    ingressosNovos = dadosIA.ingressos;
+  } else if (dadosIA.ingressoNomeAtracao?.trim()) {
+    ingressosNovos = [{
+      nomeAtracao: dadosIA.ingressoNomeAtracao || "",
+      data: dadosIA.ingressoData || "",
+      horario: dadosIA.ingressoHorario || "",
+      quantidade: dadosIA.ingressoQuantidade || "",
+      observacoes: dadosIA.ingressoObservacoes || "",
+    }];
+  }
+
+  // Mescla com os ingressos já existentes no form (sem duplicar pelo nome)
+  const ingressosExistentes: IngressoItem[] = (formAtual.ingressos as IngressoItem[] | undefined) || [];
+  const nomesNovos = new Set(ingressosNovos.map((i) => i.nomeAtracao.trim().toLowerCase()).filter(Boolean));
+  const ingressosMesclados = [
+    ...ingressosNovos,
+    ...ingressosExistentes.filter((i) => !nomesNovos.has(i.nomeAtracao.trim().toLowerCase())),
+  ];
+
+  // Retrocompatibilidade: mantém os campos legados apontando para o primeiro ingresso
+  const primeiro = ingressosMesclados[0];
   return {
     ...formAtual,
-    ingressoNomeAtracao: dadosIA.ingressoNomeAtracao || formAtual.ingressoNomeAtracao || "",
-    ingressoData: dadosIA.ingressoData || formAtual.ingressoData || "",
-    ingressoHorario: dadosIA.ingressoHorario || formAtual.ingressoHorario || "",
-    ingressoQuantidade: dadosIA.ingressoQuantidade || formAtual.ingressoQuantidade || "",
-    ingressoObservacoes: dadosIA.ingressoObservacoes || formAtual.ingressoObservacoes || "",
+    ingressos: ingressosMesclados,
+    ingressoNomeAtracao: primeiro?.nomeAtracao || formAtual.ingressoNomeAtracao || "",
+    ingressoData: primeiro?.data || formAtual.ingressoData || "",
+    ingressoHorario: primeiro?.horario || formAtual.ingressoHorario || "",
+    ingressoQuantidade: primeiro?.quantidade || formAtual.ingressoQuantidade || "",
+    ingressoObservacoes: primeiro?.observacoes || formAtual.ingressoObservacoes || "",
   };
 }
 
@@ -1309,6 +1490,7 @@ function possuiDadosTraslado(dados?: DadosIAExtraidos | null) {
 
 function possuiDadosIngresso(dados?: DadosIAExtraidos | null) {
   if (!dados) return false;
+  if (dados.ingressos && dados.ingressos.length > 0) return true;
   return Boolean(
       dados.ingressoNomeAtracao?.trim() ||
       dados.ingressoData?.trim() ||
@@ -1334,6 +1516,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   const [erro, setErro] = useState("");
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [voucherParaExcluir, setVoucherParaExcluir] = useState<number | null>(null);
+  const [ingressoParaExcluir, setIngressoParaExcluir] = useState<number | null>(null);
   const [formMinimizado, setFormMinimizado] = useState(true);
   const [hospedagemMinimizado, setHospedagemMinimizado] = useState(true);
   const [trasladoMinimizado, setTrasladoMinimizado] = useState(true);
@@ -1453,6 +1636,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                     ingressoHorario: form.ingressoHorario,
                     ingressoQuantidade: form.ingressoQuantidade?.trim(),
                     ingressoObservacoes: form.ingressoObservacoes?.trim(),
+                    ingressos: form.ingressos || [],
                     descricao: (form.descricao?.trim() || gerarResumoPacote(form)),
                     documentos: form.documentos || [],
                     logAnalise: logAnaliseIA.join("\n"),
@@ -1518,6 +1702,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
         ingressoHorario: form.ingressoHorario,
         ingressoQuantidade: form.ingressoQuantidade?.trim(),
         ingressoObservacoes: form.ingressoObservacoes?.trim(),
+        ingressos: form.ingressos || [],
         descricao: (form.descricao?.trim() || gerarResumoPacote(form)),
         logAnalise: logAnaliseIA.join("\n"),
         documentos: form.documentos,
@@ -1594,6 +1779,11 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       ingressoHorario: pacote.ingressoHorario || "",
       ingressoQuantidade: pacote.ingressoQuantidade || "",
       ingressoObservacoes: pacote.ingressoObservacoes || "",
+      ingressos: Array.isArray(pacote.ingressos) && pacote.ingressos.length > 0
+        ? pacote.ingressos
+        : pacote.ingressoNomeAtracao?.trim()
+          ? [{ nomeAtracao: pacote.ingressoNomeAtracao, data: pacote.ingressoData || "", horario: pacote.ingressoHorario || "", quantidade: pacote.ingressoQuantidade || "", observacoes: pacote.ingressoObservacoes || "" }]
+          : [],
       dadosCliente: pacote.dadosCliente || "",
       informacoesAdicionais: pacote.informacoesAdicionais || "",
       conteudoCompleto: pacote.conteudoCompleto || "",
@@ -3035,57 +3225,180 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                 </div>
 
                 {!ingressoMinimizado && (
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mt-4">
-                      <div className="sm:col-span-2">
-                        <Label className="text-xs">Nome da Atração/Ingresso</Label>
-                        <Input
-                            className={`mt-1 ${!form.ingressoNomeAtracao ? 'bg-yellow-50' : 'bg-white'}`}
-                            placeholder="Ex: Torre Eiffel - Acesso ao topo"
-                            value={form.ingressoNomeAtracao || ""}
-                            onChange={(e) => setForm((prev) => ({ ...prev, ingressoNomeAtracao: e.target.value }))}
-                        />
-                      </div>
+                  <div className="mt-4 space-y-4">
+                    {/* Lista de atrações/ingressos */}
+                    {(form.ingressos && form.ingressos.length > 0 ? form.ingressos : []).map((item, idx) => (
+                      <div key={idx} className="border rounded-lg p-3 bg-gray-50 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-indigo-700">
+                            Atração / Ingresso {form.ingressos!.length > 1 ? `#${idx + 1}` : ""}
+                          </span>
+                          <AlertDialog
+                            open={ingressoParaExcluir === idx}
+                            onOpenChange={(open) => !open && setIngressoParaExcluir(null)}
+                          >
+                            <AlertDialogTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() => setIngressoParaExcluir(idx)}
+                                className="rounded p-1 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                title="Remover atração"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Remover atração/ingresso</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  {item.nomeAtracao
+                                    ? `Tem certeza que deseja remover "${item.nomeAtracao}"?`
+                                    : "Tem certeza que deseja remover esta atração/ingresso?"}
+                                  {" "}Esta ação não pode ser desfeita.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel onClick={() => setIngressoParaExcluir(null)}>
+                                  Cancelar
+                                </AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-red-600 hover:bg-red-700 text-white"
+                                  onClick={() => {
+                                    const nova = (form.ingressos || []).filter((_, i) => i !== idx);
+                                    const primeiro = nova[0];
+                                    setForm((prev) => ({
+                                      ...prev,
+                                      ingressos: nova,
+                                      ingressoNomeAtracao: primeiro?.nomeAtracao ?? "",
+                                      ingressoData: primeiro?.data ?? "",
+                                      ingressoHorario: primeiro?.horario ?? "",
+                                      ingressoQuantidade: primeiro?.quantidade ?? "",
+                                      ingressoObservacoes: primeiro?.observacoes ?? "",
+                                    }));
+                                    setIngressoParaExcluir(null);
+                                  }}
+                                >
+                                  Remover
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
 
-                      <div>
-                        <Label className="text-xs">Data do Ingresso</Label>
-                        <Input
-                            type="date"
-                            className={`mt-1 ${!form.ingressoData ? 'bg-yellow-50' : 'bg-white'}`}
-                            value={form.ingressoData || ""}
-                            onChange={(e) => setForm((prev) => ({ ...prev, ingressoData: e.target.value }))}
-                        />
-                      </div>
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <div className="sm:col-span-2">
+                            <Label className="text-xs">Nome da Atração/Ingresso</Label>
+                            <Input
+                              className={`mt-1 ${!item.nomeAtracao ? "bg-yellow-50" : "bg-white"}`}
+                              placeholder="Ex: Torre Eiffel - Acesso ao topo"
+                              value={item.nomeAtracao}
+                              onChange={(e) => {
+                                const nova = (form.ingressos || []).map((it, i) =>
+                                  i === idx ? { ...it, nomeAtracao: e.target.value } : it
+                                );
+                                setForm((prev) => ({
+                                  ...prev,
+                                  ingressos: nova,
+                                  ...(idx === 0 ? { ingressoNomeAtracao: e.target.value } : {}),
+                                }));
+                              }}
+                            />
+                          </div>
 
-                      <div>
-                        <Label className="text-xs">Horário do Ingresso</Label>
-                        <Input
-                            type="time"
-                            className={`mt-1 ${!form.ingressoHorario ? 'bg-yellow-50' : 'bg-white'}`}
-                            value={form.ingressoHorario || ""}
-                            onChange={(e) => setForm((prev) => ({ ...prev, ingressoHorario: e.target.value }))}
-                        />
-                      </div>
+                          <div>
+                            <Label className="text-xs">Data do Ingresso</Label>
+                            <Input
+                              type="date"
+                              className={`mt-1 ${!item.data ? "bg-yellow-50" : "bg-white"}`}
+                              value={item.data}
+                              onChange={(e) => {
+                                const nova = (form.ingressos || []).map((it, i) =>
+                                  i === idx ? { ...it, data: e.target.value } : it
+                                );
+                                setForm((prev) => ({
+                                  ...prev,
+                                  ingressos: nova,
+                                  ...(idx === 0 ? { ingressoData: e.target.value } : {}),
+                                }));
+                              }}
+                            />
+                          </div>
 
-                      <div>
-                        <Label className="text-xs">Quantidade de Ingressos</Label>
-                        <Input
-                            className={`mt-1 ${!form.ingressoQuantidade ? 'bg-yellow-50' : 'bg-white'}`}
-                            placeholder="Ex: 2"
-                            value={form.ingressoQuantidade || ""}
-                            onChange={(e) => setForm((prev) => ({ ...prev, ingressoQuantidade: e.target.value }))}
-                        />
-                      </div>
+                          <div>
+                            <Label className="text-xs">Horário do Ingresso</Label>
+                            <Input
+                              type="time"
+                              className={`mt-1 ${!item.horario ? "bg-yellow-50" : "bg-white"}`}
+                              value={item.horario}
+                              onChange={(e) => {
+                                const nova = (form.ingressos || []).map((it, i) =>
+                                  i === idx ? { ...it, horario: e.target.value } : it
+                                );
+                                setForm((prev) => ({
+                                  ...prev,
+                                  ingressos: nova,
+                                  ...(idx === 0 ? { ingressoHorario: e.target.value } : {}),
+                                }));
+                              }}
+                            />
+                          </div>
 
-                      <div className="sm:col-span-2">
-                        <Label className="text-xs">Observações do Ingresso</Label>
-                        <Textarea
-                            className={`mt-1 min-h-20 ${!form.ingressoObservacoes ? 'bg-yellow-50' : 'bg-white'}`}
-                            placeholder="Ex: categoria do ingresso, se inclui guia"
-                            value={form.ingressoObservacoes || ""}
-                            onChange={(e) => setForm((prev) => ({ ...prev, ingressoObservacoes: e.target.value }))}
-                        />
+                          <div>
+                            <Label className="text-xs">Quantidade de Ingressos</Label>
+                            <Input
+                              className={`mt-1 ${!item.quantidade ? "bg-yellow-50" : "bg-white"}`}
+                              placeholder="Ex: 2"
+                              value={item.quantidade}
+                              onChange={(e) => {
+                                const nova = (form.ingressos || []).map((it, i) =>
+                                  i === idx ? { ...it, quantidade: e.target.value } : it
+                                );
+                                setForm((prev) => ({
+                                  ...prev,
+                                  ingressos: nova,
+                                  ...(idx === 0 ? { ingressoQuantidade: e.target.value } : {}),
+                                }));
+                              }}
+                            />
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <Label className="text-xs">Observações do Ingresso</Label>
+                            <Textarea
+                              className={`mt-1 min-h-16 ${!item.observacoes ? "bg-yellow-50" : "bg-white"}`}
+                              placeholder="Ex: categoria do ingresso, se inclui guia"
+                              value={item.observacoes}
+                              onChange={(e) => {
+                                const nova = (form.ingressos || []).map((it, i) =>
+                                  i === idx ? { ...it, observacoes: e.target.value } : it
+                                );
+                                setForm((prev) => ({
+                                  ...prev,
+                                  ingressos: nova,
+                                  ...(idx === 0 ? { ingressoObservacoes: e.target.value } : {}),
+                                }));
+                              }}
+                            />
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ))}
+
+                    {/* Botão para adicionar nova atração manualmente */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-2 border-dashed text-indigo-600 hover:text-indigo-800 hover:border-indigo-400"
+                      onClick={() => {
+                        const novoItem: IngressoItem = { nomeAtracao: "", data: "", horario: "", quantidade: "", observacoes: "" };
+                        setForm((prev) => ({ ...prev, ingressos: [...(prev.ingressos || []), novoItem] }));
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Adicionar Atração / Ingresso
+                    </Button>
+                  </div>
                 )}
 
                 <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
@@ -3192,12 +3505,20 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                           Obs. Traslado: {pacote.trasladoObservacoes}
                         </p>
                     )}
-                    {pacote.ingressoNomeAtracao && (
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          Ingresso: {pacote.ingressoNomeAtracao}
-                          {pacote.ingressoQuantidade ? ` (${pacote.ingressoQuantidade})` : ""}
-                        </p>
-                    )}
+                    {/* Exibe todos os ingressos do array; fallback para campo legado */}
+                    {((pacote.ingressos && pacote.ingressos.length > 0)
+                      ? pacote.ingressos
+                      : pacote.ingressoNomeAtracao
+                        ? [{ nomeAtracao: pacote.ingressoNomeAtracao, quantidade: pacote.ingressoQuantidade || "", data: pacote.ingressoData || "", horario: pacote.ingressoHorario || "", observacoes: "" }]
+                        : []
+                    ).map((ing, i) => (
+                      <p key={i} className="text-xs text-gray-500 mt-0.5">
+                        🎟 {ing.nomeAtracao}
+                        {ing.quantidade ? ` (${ing.quantidade})` : ""}
+                        {ing.data ? ` — ${ing.data}` : ""}
+                        {ing.horario ? ` ${ing.horario}` : ""}
+                      </p>
+                    ))}
                     {pacote.descricao && (
                         <p className="text-xs text-gray-600 mt-2 italic">
                           "{pacote.descricao}"
