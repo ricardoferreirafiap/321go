@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
 import {
   Search, Plus, Edit2, X, Check, FileText, ChevronDown, ChevronUp, Upload,
-  User, Calendar, DollarSign, Send, Eye, Copy, MapPin, Sparkles, Link2, Star, Plane
+  User, Calendar, DollarSign, Send, Eye, Copy, MapPin, Sparkles, Link2, Star
 } from "lucide-react"; // Adicionado Sparkles
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
@@ -10,7 +10,6 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Label } from "./ui/label";
 import PacotesForm from "./PacotesForm";
-import VoosForm from "./VoosForm";
 import RoteiroForm from "./RoteiroForm";
 import DayByDayForm from "./DayByDayForm";
 import TransporteForm from "./TransporteForm";
@@ -461,9 +460,7 @@ export default function Orcamentos() {
   const [secoesOrcamentoMinimizadas, setSecoesOrcamentoMinimizadas] = useState(true);
   const [vendasMinimizadas, setVendasMinimizadas] = useState(true);
   const [resumoMinimizado, setResumoMinimizado] = useState(true);
-  const [voosMinimizados, setVoosMinimizados] = useState(true);
   const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
-  const [mostrarVoosHospedagem, setMostrarVoosHospedagem] = useState(false);
   const [novaUrlOperadorItem, setNovaUrlOperadorItem] = useState("");
   
   function adicionarUrlOperadorItem(itemId: number) {
@@ -679,7 +676,6 @@ export default function Orcamentos() {
     carregarOrcamentos();
 
     // Garantir que Voos e Hospedagem estejam minimizados no carregamento inicial
-    setVoosMinimizados(true);
 
     return () => {
       mounted = false;
@@ -753,8 +749,6 @@ export default function Orcamentos() {
     setSecoesOrcamentoMinimizadas(true);
     setVendasMinimizadas(true);
     setResumoMinimizado(true);
-    setVoosMinimizados(true);
-    setMostrarVoosHospedagem(false);
     setPassageiroSelecionado("");
     setStatusBloqueado(false);
     setSection("Pacotes");
@@ -791,8 +785,6 @@ export default function Orcamentos() {
     setSecoesOrcamentoMinimizadas(true);
     setVendasMinimizadas(true);
     setResumoMinimizado(true);
-    setVoosMinimizados(true);
-    setMostrarVoosHospedagem(false);
     setPassageiroSelecionado("");
     setSection("Pacotes");
     await verificarReceitaLancada(o.id);
@@ -1645,52 +1637,6 @@ export default function Orcamentos() {
                         {section === 'Pacotes' && (
                             <div className="space-y-6">
                               <PacotesForm pacotes={pacotes} onPacotesChange={setPacotes} />
-                              <Button
-                                  type="button"
-                                  variant="outline"
-                                  className="w-full flex items-center justify-center gap-2 text-indigo-600 border-indigo-300 hover:bg-indigo-50"
-                                  onClick={() => {
-                                    if (!mostrarVoosHospedagem) {
-                                      setMostrarVoosHospedagem(true);
-                                      setVoosMinimizados(true);
-                                    } else {
-                                      setMostrarVoosHospedagem(false);
-                                      setVoosMinimizados(true);
-                                    }
-                                  }}
-                              >
-                                {!mostrarVoosHospedagem ? (
-                                  <>
-                                    <Plus className="w-4 h-4" /> Incluir Manualmente Voo
-                                  </>
-                                ) : (
-                                  <>
-                                    <ChevronUp className="w-4 h-4" /> Ocultar Voos
-                                  </>
-                                )}
-                              </Button>
-                              {mostrarVoosHospedagem && (
-                                <>
-                                  <Card className="p-4">
-                                    <div className="mb-4 flex items-center justify-between gap-3">
-                                      <h4 className="font-semibold text-gray-900 flex items-center gap-2">
-                                        <Plane className="w-4 h-4 text-indigo-500" /> Voos
-                                      </h4>
-                                      <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => setVoosMinimizados((prev) => !prev)}
-                                          className="gap-2 text-gray-600 hover:text-gray-900 h-8 px-2"
-                                      >
-                                        {voosMinimizados ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                                        {voosMinimizados ? " " : " "}
-                                      </Button>
-                                    </div>
-                                    {!voosMinimizados && <VoosForm voos={voos} onVoosChange={setVoos} />}
-                                  </Card>
-                                </>
-                              )}
                             </div>
                         )}
 

@@ -6,7 +6,7 @@ import {
   Phone, Mail as MailIcon, Calendar, Bed, Star, Coffee,
   ExternalLink, ChevronLeft, ChevronRight
 } from "lucide-react";
-import { JSX, useEffect, useMemo, useRef, useState } from "react";
+import { JSX, useEffect, useRef, useState } from "react";
 import { listarFuncionarios, type Funcionario } from "../data/funcionariosApi";
 import { buscarOrcamentoPublico } from "../data/orcamentosApi";
 import { gerarResumoPacote } from "./PacotesForm";
@@ -730,13 +730,6 @@ export default function RoteiroOrcamento() {
   const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
   const carrosselHospedagemRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
-  const voosAgrupados = useMemo(() => {
-    const ida = orc?.voos?.filter(v => String(v.tipoTrecho || 'IDA').toUpperCase() === 'IDA') || [];
-    const volta = orc?.voos?.filter(v => String(v.tipoTrecho || '').toUpperCase() === 'VOLTA') || [];
-    const outros = orc?.voos?.filter(v => !['IDA', 'VOLTA'].includes(String(v.tipoTrecho || 'IDA').toUpperCase())) || [];
-    return { ida, volta, outros };
-  }, [orc?.voos]);
-
   useEffect(() => {
     let active = true;
 
@@ -904,7 +897,7 @@ export default function RoteiroOrcamento() {
     (p: any) => p?.hospedagemNome?.trim() || p?.hospedagemCheckin?.trim() || p?.hospedagemCheckout?.trim()
   );
 
-  const possuiVoo = Boolean(orc.voos?.length) || Boolean(pacoteComVoo);
+  const possuiVoo = Boolean(pacoteComVoo);
   const possuiHospedagem = Boolean(orc.hospedagem?.length) || Boolean(pacoteComHospedagem);
   const possuiPlanejamentoBase = possuiVoo || possuiHospedagem;
 
@@ -991,7 +984,7 @@ export default function RoteiroOrcamento() {
   const diaSelecionado = diasRoteiroExibicao.find((dia) => dia.id === diaAtivoId) || diasRoteiroExibicao[0] || null;
   const itensRoteiro = [
     { id: "pacotes", titulo: "Pacotes", icone: OrcamentoReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: Boolean(orc.pacotes?.length) },
-    { id: "voos", titulo: "Voos", icone: VooReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: Boolean(orc.voos?.length) },
+    { id: "voos", titulo: "Voos", icone: VooReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: Boolean(pacoteComVoo) },
     { id: "hospedagem", titulo: "Hospedagens", icone: HospedagemReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: possuiHospedagem },
     { id: "roteiro", titulo: "Roteiro", icone: RoteiroReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: Boolean(orc.roteiro) },
     { id: "dia-a-dia", titulo: "Day by Day", icone: DayByDayReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: true },
@@ -1129,103 +1122,159 @@ export default function RoteiroOrcamento() {
       )}
 
       {/* VOOS */}
-      {orc.voos && orc.voos.length > 0 && itemAtivo === "voos" && (
+      {possuiVoo && itemAtivo === "voos" && (
         <Card id="voos" className="overflow-hidden mb-6 scroll-mt-4">
           <div className="p-3" style={{ backgroundColor: COR_PRINCIPAL }}>
             <TituloSecao titulo="Voos" Icone={VooReferenceIcon} />
           </div>
           <div className="p-4 space-y-4">
-            <div className="overflow-hidden rounded-[26px] bg-white shadow-[0_10px_30px_rgba(10,5,52,0.12)]">
-              <div className="px-4 py-4 sm:px-5 sm:py-5">
-                {voosAgrupados.ida.length > 0 && (
-                  <div className="mb-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <VooReferenceIcon className="h-5 w-5 text-[#e07b20]" />
-                      <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-[#e07b20]">IDA</span>
-                    </div>
-                    {voosAgrupados.ida.map((voo: any) => (
-                      <div key={voo.id} className="grid grid-cols-3 gap-3 border-t border-slate-100 pt-3 mt-3">
+            {(orc.pacotes || [])
+              .filter((p: any) => p?.origemIda?.trim() || p?.destinoIda?.trim() || p?.dataIda?.trim() || p?.origemVolta?.trim() || p?.destinoVolta?.trim() || p?.dataVolta?.trim())
+              .map((p: any, idx: number) => (
+              <div key={idx} className="overflow-hidden rounded-[26px] bg-white shadow-[0_10px_30px_rgba(10,5,52,0.12)]">
+                <div className="px-4 py-4 sm:px-5 sm:py-5">
+                  {/* Operador / CIA / Reserva */}
+                  {(p.operador || p.ciaAerea || p.reserva) && (
+                    <div className="flex flex-wrap gap-4 mb-4 pb-3 border-b border-slate-100">
+                      {p.operador && (
+                        <div>
+                          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Operador</p>
+                          <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.operador}</p>
+                        </div>
+                      )}
+                      {p.ciaAerea && (
+                        <div>
+                          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">CIA Aérea</p>
+                          <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.ciaAerea}</p>
+                        </div>
+                      )}
+                      {p.reserva && (
                         <div>
                           <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Nº Reserva</p>
-                          <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{voo.numero || 'N/A'}</p>
+                          <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.reserva}</p>
                         </div>
+                      )}
+                      {p.passageiros && (
                         <div>
-                          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Destino</p>
-                          <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{voo.destino}</p>
+                          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Passageiros</p>
+                          <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.passageiros}</p>
                         </div>
-                        <div/>
-                        <div>
-                          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Ida Sai</p>
-                          <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{formatarDataVooCurta(voo.data)} {voo.partida}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Chega</p>
-                          <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{formatarDataVooCurta(voo.data)} {voo.chegada}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {voosAgrupados.volta.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-slate-200">
-                    <div className="flex items-center gap-2 mb-3">
-                      <VooReferenceIcon className="h-5 w-5 text-[#e07b20] -rotate-180" />
-                      <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-[#e07b20]">VOLTA</span>
+                      )}
                     </div>
-                    {voosAgrupados.volta.map((voo: any) => (
-                      <div key={voo.id} className="grid grid-cols-3 gap-3 border-t border-slate-100 pt-3 mt-3">
-                        <div>
-                          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Volta Sai</p>
-                          <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{formatarDataVooCurta(voo.data)} {voo.partida}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Chega</p>
-                          <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{formatarDataVooCurta(voo.data)} {voo.chegada}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                  )}
 
-                {voosAgrupados.outros.map((voo: any) => (
-                  <div key={voo.id} className="mt-4 pt-4 border-t border-dashed border-slate-300">
-                    <div className="flex items-center gap-2 mb-3">
-                      <VooReferenceIcon className="h-5 w-5 text-slate-400" />
-                      <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-slate-500">
-                        {voo.tipoTrecho || "TRECHO ADICIONAL"}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 pt-3">
-                      <div>
-                        <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Partida</p>
-                        <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{formatarDataVooCurta(voo.data)} {voo.partida}</p>
+                  {/* Trecho de Ida */}
+                  {(p.origemIda || p.destinoIda || p.dataIda) && (
+                    <div className="mb-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <VooReferenceIcon className="h-5 w-5 text-[#e07b20]" />
+                        <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-[#e07b20]">IDA</span>
                       </div>
-                      <div>
-                        <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Chegada</p>
-                        <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{formatarDataVooCurta(voo.data)} {voo.chegada}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Nº Reserva</p>
-                        <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{voo.numero || 'N/A'}</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 border-t border-slate-100 pt-3">
+                        {p.origemIda && (
+                          <div>
+                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Origem</p>
+                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.origemIda}</p>
+                          </div>
+                        )}
+                        {p.destinoIda && (
+                          <div>
+                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Destino</p>
+                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.destinoIda}</p>
+                          </div>
+                        )}
+                        {p.dataIda && (
+                          <div>
+                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Data</p>
+                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{formatarDataVooCurta(p.dataIda)}</p>
+                          </div>
+                        )}
+                        {p.horaSaidaIda && (
+                          <div>
+                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Saída</p>
+                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.horaSaidaIda}</p>
+                          </div>
+                        )}
+                        {p.horaChegadaIda && (
+                          <div>
+                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Chegada</p>
+                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.horaChegadaIda}</p>
+                          </div>
+                        )}
+                        {p.duracaoIda && (
+                          <div>
+                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Duração</p>
+                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.duracaoIda}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )}
 
-                {orc.voos.some(v => v.documento && v.documentoTipo === 'pdf') && (
-                  <div className="mt-4 border-t border-gray-200 pt-3 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => orc.voos?.filter(v => v.documento).forEach(v => abrirVoucherPdf(String(v.documento)))}
-                      className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
-                    >
-                      Clique aqui para abrir o Voucher de voo
-                    </button>
-                  </div>
-                )}
+                  {/* Trecho de Volta */}
+                  {(p.origemVolta || p.destinoVolta || p.dataVolta) && (
+                    <div className="mt-4 pt-4 border-t border-slate-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <VooReferenceIcon className="h-5 w-5 text-[#e07b20] -rotate-180" />
+                        <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-[#e07b20]">VOLTA</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 border-t border-slate-100 pt-3">
+                        {p.origemVolta && (
+                          <div>
+                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Origem</p>
+                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.origemVolta}</p>
+                          </div>
+                        )}
+                        {p.destinoVolta && (
+                          <div>
+                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Destino</p>
+                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.destinoVolta}</p>
+                          </div>
+                        )}
+                        {p.dataVolta && (
+                          <div>
+                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Data</p>
+                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{formatarDataVooCurta(p.dataVolta)}</p>
+                          </div>
+                        )}
+                        {p.horaSaidaVolta && (
+                          <div>
+                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Saída</p>
+                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.horaSaidaVolta}</p>
+                          </div>
+                        )}
+                        {p.horaChegadaVolta && (
+                          <div>
+                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Chegada</p>
+                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.horaChegadaVolta}</p>
+                          </div>
+                        )}
+                        {p.duracaoVolta && (
+                          <div>
+                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Duração</p>
+                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.duracaoVolta}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Link do voucher */}
+                  {p.link && (
+                    <div className="mt-4 border-t border-gray-200 pt-3 flex justify-end">
+                      <a
+                        href={p.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                      >
+                        Abrir voucher do voo
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            ))}
           </div>
         </Card>
       )}
