@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef } from "react";
-import { ChevronDown, ChevronUp, Pencil, Plus, Trash2, Link2, Package2, Image, Upload, FileText, X, Sparkles, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Plus, Trash2, Link2, Package2, Image, Upload, FileText, X, Sparkles, RefreshCw, ExternalLink } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
@@ -18,6 +18,7 @@ import {
 } from "./ui/alert-dialog";
 import { enviarMensagemIA } from "../data/aiChatApi";
 import { API_CONFIG } from "../data/apiConfig";
+import { buscarFotoDestino } from "../data/placePhotoApi";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
 import { createWorker, type Worker } from "tesseract.js";
 
@@ -139,7 +140,9 @@ interface Pacote {
   hospedagemNoites?: string;
   hospedagemValor?: string;
   hospedagemLink?: string;
+  hospedagemLinks?: string[];
   hospedagemFoto?: string | null;
+  hospedagemFotos?: string[];
   trasladoTipo?: string;
   trasladoData?: string;
   trasladoHorario?: string;
@@ -218,7 +221,9 @@ const pacoteVazio: Omit<Pacote, "id"> = {
   hospedagemNoites: "",
   hospedagemValor: "",
   hospedagemLink: "",
+  hospedagemLinks: [],
   hospedagemFoto: null,
+  hospedagemFotos: [],
   trasladoTipo: "",
   trasladoData: "",
   trasladoHorario: "",
@@ -1529,6 +1534,11 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   const [urlOperadorMinimizado, setUrlOperadorMinimizado] = useState(true);
   const [relatoriosExpandidos, setRelatoriosExpandidos] = useState<Set<number>>(new Set());
   const [analisandoIA, setAnalisandoIA] = useState(false);
+  const [buscandoLinkHotelIA, setBuscandoLinkHotelIA] = useState(false);
+  const [buscandoFotoHotelIA, setBuscandoFotoHotelIA] = useState(false);
+  const [erroFotoHotelIA, setErroFotoHotelIA] = useState("");
+  const [hospedagemFotoInput, setHospedagemFotoInput] = useState("");
+  const [hospedagemLinkInput, setHospedagemLinkInput] = useState("");
   const [atualizando, setAtualizando] = useState<string | null>(null);
   const [logAnaliseIA, setLogAnaliseIA] = useState<string[]>([]);
   const [provedorIA, setProvedorIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
@@ -1548,6 +1558,171 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     setForm({ ...form, urlOperador: [...urlsAtuais, url] });
     setNovaUrlOperador("");
     setErro("");
+  }
+
+  async function buscarLinkHotelIA() {
+    const nome = (form.hospedagemNome || "").trim();
+    if (!nome) {
+      setErro("Informe o Nome do Hotel antes de buscar o link.");
+      return;
+    }
+    const endereco = (form.hospedagemEndereco || "").trim();
+    setBuscandoLinkHotelIA(true);
+    setErro("");
+
+    const prompt = `Você é um assistente de viagens especializado. Preciso do site oficial (URL) do seguinte hotel:\n\nNome: ${nome}${endereco ? `\nEndereço: ${endereco}` : ""}\n\nResponda SOMENTE com a URL completa do site oficial do hotel (ex: https://www.nomehotel.com). Se não encontrar o site oficial, responda com a URL do Booking.com ou Google Maps para este hotel. Não adicione explicações, apenas a URL.`;
+
+    const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
+    let urlEncontrada: string | null = null;
+    const erros: string[] = [];
+
+    for (const provedor of provedores) {
+      try {
+        const resposta = await enviarMensagemIA([{ role: "user", content: prompt }], provedor);
+        const conteudo = resposta?.choices?.[0]?.message?.content?.trim() ?? "";
+        // Aceita qualquer URL na resposta
+        const urlMatch = conteudo.match(/https?:\/\/[^\s"'<>\]]+/);
+        if (urlMatch) {
+          urlEncontrada = urlMatch[0];
+          break;
+        }
+        // A IA respondeu mas sem URL — tenta o próximo
+        erros.push(`${provedor}: resposta sem URL ("${conteudo.slice(0, 60)}")`);
+      } catch (err: any) {
+        // 401/403 = chave inválida, continua para o próximo
+        erros.push(`${provedor}: ${err?.message ?? String(err)}`);
+      }
+    }
+
+    if (urlEncontrada) {
+      setForm((prev) => ({ ...prev, hospedagemLink: urlEncontrada! }));
+    } else {
+      const msgErro = `Nenhum provedor encontrou o link. Detalhes: ${erros.join(" | ")}`;
+      setForm((prev) => ({ ...prev, hospedagemLink: msgErro }));
+    }
+
+    setBuscandoLinkHotelIA(false);
+  }
+
+  async function buscarFotoHotelIA() {
+    const nome = (form.hospedagemNome || "").trim();
+    const link = (form.hospedagemLink || "").trim();
+
+    if (!nome && !link) {
+      setErroFotoHotelIA("Informe o Nome do Hotel ou o Link do Hotel antes de buscar a foto.");
+      return;
+    }
+
+    setBuscandoFotoHotelIA(true);
+    setErroFotoHotelIA("");
+
+    try {
+      let termoBusca = nome;
+
+      // Se não tem nome, tenta extrair do link via IA
+      if (!termoBusca && link) {
+        const prompt = `Dado este link de hotel: ${link}\n\nResponda SOMENTE com o nome completo do hotel (ex: "Hotel Ibis Lisboa"). Sem explicações, apenas o nome.`;
+        const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
+        for (const provedor of provedores) {
+          try {
+            const resposta = await enviarMensagemIA([{ role: "user", content: prompt }], provedor);
+            const conteudo = resposta?.choices?.[0]?.message?.content?.trim() ?? "";
+            if (conteudo) {
+              termoBusca = conteudo.replace(/["*_]/g, "").trim();
+              break;
+            }
+          } catch {
+            // tenta próximo provedor
+          }
+        }
+
+        // Fallback: extrai o domínio da URL como termo de busca
+        if (!termoBusca) {
+          try {
+            const url = new URL(link);
+            termoBusca = url.hostname.replace(/^www\./, "").split(".")[0];
+          } catch {
+            // URL inválida, ignora
+          }
+        }
+      }
+
+      if (!termoBusca) {
+        setErroFotoHotelIA("Não foi possível identificar o hotel. Preencha o Nome do Hotel e tente novamente.");
+        return;
+      }
+
+      // Inclui endereço no termo para aumentar precisão no Google Places
+      const endereco = (form.hospedagemEndereco || "").trim();
+      const termoBuscaCompleto = endereco ? `${termoBusca}, ${endereco}` : termoBusca;
+
+      const fotoUrl = await buscarFotoDestino(termoBuscaCompleto);
+
+      if (fotoUrl) {
+        // Adiciona ao array e preenche o input para o usuário confirmar ou ajustar
+        const fotosAtuais = form.hospedagemFotos || [];
+        if (!fotosAtuais.includes(fotoUrl)) {
+          setForm((prev) => ({
+            ...prev,
+            hospedagemFotos: [...(prev.hospedagemFotos || []), fotoUrl],
+            hospedagemFoto: prev.hospedagemFoto || fotoUrl,
+          }));
+        }
+        setHospedagemFotoInput("");
+      } else {
+        setErroFotoHotelIA("Nenhuma foto encontrada para este hotel. Tente preencher o Nome do Hotel e tente novamente, ou insira o link manualmente.");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setErroFotoHotelIA(`Erro ao buscar foto: ${msg}`);
+    } finally {
+      setBuscandoFotoHotelIA(false);
+    }
+  }
+
+  function adicionarLinkHospedagem() {
+    const url = hospedagemLinkInput.trim();
+    if (!url) return;
+    const linksAtuais = form.hospedagemLinks || [];
+    if (linksAtuais.includes(url)) return;
+    setForm((prev) => ({
+      ...prev,
+      hospedagemLinks: [...linksAtuais, url],
+      hospedagemLink: prev.hospedagemLink || url,
+    }));
+    setHospedagemLinkInput("");
+  }
+
+  function removerLinkHospedagem(url: string) {
+    const novaLista = (form.hospedagemLinks || []).filter((l) => l !== url);
+    setForm((prev) => ({
+      ...prev,
+      hospedagemLinks: novaLista,
+      hospedagemLink: prev.hospedagemLink === url ? (novaLista[0] ?? "") : prev.hospedagemLink,
+    }));
+  }
+
+  function adicionarFotoHospedagem() {
+    const url = hospedagemFotoInput.trim();
+    if (!url) return;
+    const fotosAtuais = form.hospedagemFotos || [];
+    if (fotosAtuais.includes(url)) {
+      setErroFotoHotelIA("Essa foto já foi adicionada.");
+      return;
+    }
+    setForm((prev) => ({ ...prev, hospedagemFotos: [...fotosAtuais, url], hospedagemFoto: prev.hospedagemFoto || url }));
+    setHospedagemFotoInput("");
+    setErroFotoHotelIA("");
+  }
+
+  function removerFotoHospedagem(url: string) {
+    const novaLista = (form.hospedagemFotos || []).filter((f) => f !== url);
+    setForm((prev) => ({
+      ...prev,
+      hospedagemFotos: novaLista,
+      // Se a foto principal removida for a que estava no campo legado, limpa
+      hospedagemFoto: prev.hospedagemFoto === url ? (novaLista[0] ?? null) : prev.hospedagemFoto,
+    }));
   }
 
   function removerUrlOperador(index: number) {
@@ -1624,7 +1799,9 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                     hospedagemPoliticasCondicoesInformacoesEspeciais: form.hospedagemPoliticasCondicoesInformacoesEspeciais?.trim(),
                     hospedagemNoites: form.hospedagemNoites?.trim(),
                     hospedagemLink: form.hospedagemLink?.trim(),
+                    hospedagemLinks: form.hospedagemLinks || [],
                     hospedagemFoto: form.hospedagemFoto,
+                    hospedagemFotos: form.hospedagemFotos || [],
                     trasladoTipo: form.trasladoTipo?.trim(),
                     trasladoData: form.trasladoData,
                     trasladoHorario: form.trasladoHorario,
@@ -1690,7 +1867,9 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
         hospedagemPoliticasCondicoesInformacoesEspeciais: form.hospedagemPoliticasCondicoesInformacoesEspeciais?.trim(),
         hospedagemNoites: form.hospedagemNoites?.trim(),
         hospedagemLink: form.hospedagemLink?.trim(),
+        hospedagemLinks: form.hospedagemLinks || [],
         hospedagemFoto: form.hospedagemFoto,
+        hospedagemFotos: form.hospedagemFotos || [],
         trasladoTipo: form.trasladoTipo?.trim(),
         trasladoData: form.trasladoData,
         trasladoHorario: form.trasladoHorario,
@@ -1724,6 +1903,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     setHospedagemMinimizado(true);
     setPoliticaCancelamentoMinimizado(true); // Manter minimizado ao abrir edição
     setComodidadesMinimizado(true); // Manter minimizado ao abrir edição
+    setHospedagemLinkInput(""); // Limpar input de link ao abrir edição
     setEditandoId(pacote.id);
     const logPacote = (pacote.logAnalise || "")
         .split("\n")
@@ -1767,6 +1947,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       hospedagemPoliticasCondicoesInformacoesEspeciais: pacote.hospedagemPoliticasCondicoesInformacoesEspeciais || "",
       hospedagemNoites: pacote.hospedagemNoites || "",
       hospedagemLink: pacote.hospedagemLink || "",
+      hospedagemLinks: Array.isArray(pacote.hospedagemLinks) ? pacote.hospedagemLinks : (pacote.hospedagemLink ? [pacote.hospedagemLink] : []),
       hospedagemFoto: pacote.hospedagemFoto || null,
       trasladoTipo: pacote.trasladoTipo || "",
       trasladoData: pacote.trasladoData || "",
@@ -3074,31 +3255,212 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                         />
                       </div>
 
-                      <div>
+                      <div className="sm:col-span-2">
                         <Label className="text-xs">Link do Hotel</Label>
-                        <div className="relative mt-1">
-                          <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                          <Input
-                              placeholder="https://..."
-                              className={`pl-8 ${!form.hospedagemLink ? 'bg-yellow-50' : 'bg-white'}`}
-                              value={form.hospedagemLink || ""}
-                              onChange={(e) => setForm((prev) => ({ ...prev, hospedagemLink: e.target.value }))}
-                          />
+                        <div className="relative mt-1 flex gap-2">
+                          <div className="relative flex-1">
+                            <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                            <Input
+                                placeholder="https://..."
+                                className="pl-8"
+                                value={hospedagemLinkInput}
+                                onChange={(e) => setHospedagemLinkInput(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), adicionarLinkHospedagem())}
+                            />
+                          </div>
+                          {hospedagemLinkInput && (
+                              <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => window.open(hospedagemLinkInput, "_blank", "noopener,noreferrer")}
+                                  title="Abrir link"
+                                  className="shrink-0 border-gray-300 text-gray-600 hover:bg-gray-50"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                          )}
+                          <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={adicionarLinkHospedagem}
+                              title="Adicionar link"
+                              className="shrink-0 border-green-300 text-green-600 hover:bg-green-50"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                          <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              disabled={buscandoLinkHotelIA}
+                              onClick={buscarLinkHotelIA}
+                              title="Buscar link do hotel com IA"
+                              className="shrink-0 border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+                          >
+                            {buscandoLinkHotelIA ? (
+                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+                            ) : (
+                                <Sparkles className="h-4 w-4" />
+                            )}
+                          </Button>
                         </div>
+                        {/* Lista de links adicionados */}
+                        {(form.hospedagemLinks || []).length > 0 && (
+                            <div className="mt-2 space-y-1.5">
+                              {(form.hospedagemLinks || []).map((url, idx) => (
+                                  <div key={idx} className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs">
+                                    <Link2 className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+                                    <a
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex-1 min-w-0 truncate text-indigo-600 hover:text-indigo-700"
+                                    >
+                                      {url}
+                                    </a>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+                                        title="Abrir link"
+                                        className="h-6 w-6 shrink-0 text-gray-400 hover:text-gray-600"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                    </Button>
+                                    <button
+                                        type="button"
+                                        onClick={() => removerLinkHospedagem(url)}
+                                        className="shrink-0 rounded p-1 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                        title="Remover link"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                              ))}
+                            </div>
+                        )}
+                        {/* Fallback: quando não há links na lista mas há um link direto salvo */}
+                        {!(form.hospedagemLinks || []).length && form.hospedagemLink && (
+                            <div className="mt-2 flex items-center gap-2 rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs">
+                              <Link2 className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+                              <a
+                                  href={form.hospedagemLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex-1 min-w-0 truncate text-indigo-600 hover:text-indigo-700"
+                              >
+                                {form.hospedagemLink}
+                              </a>
+                              <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => window.open(form.hospedagemLink!, "_blank", "noopener,noreferrer")}
+                                  title="Abrir link"
+                                  className="h-6 w-6 shrink-0 text-gray-400 hover:text-gray-600"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </Button>
+                            </div>
+                        )}
                       </div>
 
                       <div className="sm:col-span-2">
-                        <Label className="text-xs">Foto da Hospedagem (Link)</Label>
-                        <div className="relative mt-1">
-                          <Image className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                          <Input
-                              placeholder="https://..."
-                              className={`pl-8 ${!form.hospedagemFoto ? 'bg-yellow-50' : 'bg-white'}`}
-                              value={form.hospedagemFoto || ""}
-                              onChange={(e) => setForm((prev) => ({ ...prev, hospedagemFoto: e.target.value.trim() || null }))}
-                          />
+                        <Label className="text-xs">Fotos da Hospedagem</Label>
+                        <div className="relative mt-1 flex gap-2">
+                          <div className="relative flex-1">
+                            <Image className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                            <Input
+                                placeholder="https://..."
+                                className="pl-8"
+                                value={hospedagemFotoInput}
+                                onChange={(e) => {
+                                  setErroFotoHotelIA("");
+                                  setHospedagemFotoInput(e.target.value);
+                                }}
+                                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), adicionarFotoHospedagem())}
+                            />
+                          </div>
+                          {hospedagemFotoInput && (
+                              <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => window.open(hospedagemFotoInput, "_blank", "noopener,noreferrer")}
+                                  title="Abrir foto"
+                                  className="shrink-0 border-gray-300 text-gray-600 hover:bg-gray-50"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                          )}
+                          <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={adicionarFotoHospedagem}
+                              title="Adicionar foto"
+                              className="shrink-0 border-green-300 text-green-600 hover:bg-green-50"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                          <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              disabled={buscandoFotoHotelIA}
+                              onClick={async () => {
+                                await buscarFotoHotelIA();
+                                // após busca bem-sucedida, adiciona automaticamente à lista
+                              }}
+                              title="Buscar foto do hotel com IA"
+                              className="shrink-0 border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+                          >
+                            {buscandoFotoHotelIA ? (
+                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+                            ) : (
+                                <Sparkles className="h-4 w-4" />
+                            )}
+                          </Button>
                         </div>
-                        {form.hospedagemFoto && (
+                        {erroFotoHotelIA && (
+                            <p className="mt-1 text-xs text-red-500">{erroFotoHotelIA}</p>
+                        )}
+                        {/* Lista de fotos adicionadas */}
+                        {(form.hospedagemFotos || []).length > 0 && (
+                            <div className="mt-2 space-y-2">
+                              {(form.hospedagemFotos || []).map((url, idx) => (
+                                  <div key={idx} className="flex items-center gap-2 rounded-md border border-gray-200 overflow-hidden">
+                                    <img src={url} alt={`Foto ${idx + 1}`} className="h-16 w-24 object-cover flex-shrink-0" />
+                                    <span className="flex-1 min-w-0 px-2 text-xs text-gray-500 truncate">{url}</span>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+                                        title="Abrir foto"
+                                        className="shrink-0 text-gray-400 hover:text-gray-600"
+                                    >
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => removerFotoHospedagem(url)}
+                                        title="Remover foto"
+                                        className="shrink-0 text-red-400 hover:text-red-600 mr-1"
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                              ))}
+                            </div>
+                        )}
+                        {/* Prévia da foto principal para compatibilidade quando não tem array */}
+                        {!(form.hospedagemFotos || []).length && form.hospedagemFoto && (
                             <div className="mt-2 overflow-hidden rounded-md border border-gray-200">
                               <img src={form.hospedagemFoto} alt="Prévia da foto da hospedagem" className="h-28 w-full object-cover" />
                             </div>

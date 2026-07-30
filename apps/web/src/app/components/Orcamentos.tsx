@@ -20,6 +20,7 @@ import ExperienciasForm from "./ExperienciasForm";
 import SeguroForm from "./SeguroForm";
 import { listarClientes, type Cliente } from "../data/clientesApi";
 import { listarFuncionarios, type Funcionario } from "../data/funcionariosApi";
+import { listarFornecedores, type Fornecedor } from "../data/fornecedoresApi";
 import { listarProdutos, type Produto } from "../data/produtosApi";
 import {
   atualizarOrcamento,
@@ -436,6 +437,7 @@ export default function Orcamentos() {
   const [seguro, setSeguro] = useState<any[]>([]);
   const [funcionariosAtivos, setFuncionariosAtivos] = useState<Funcionario[]>([]);
   const [clientesAtivos, setClientesAtivos] = useState<Cliente[]>([]);
+  const [fornecedoresAtivos, setFornecedoresAtivos] = useState<Fornecedor[]>([]);
   const [produtosAtivos, setProdutosAtivos] = useState<Produto[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -657,18 +659,20 @@ export default function Orcamentos() {
 
     async function carregarDadosCadastros() {
       try {
-        const [clientes, funcionarios, produtos] = await Promise.all([listarClientes(), listarFuncionarios(), listarProdutos()]);
+        const [clientes, funcionarios, produtos, fornecedores] = await Promise.all([listarClientes(), listarFuncionarios(), listarProdutos(), listarFornecedores()]);
 
         if (mounted) {
           setClientesAtivos(clientes.filter((cliente) => cliente.status === "Ativo"));
           setFuncionariosAtivos(funcionarios.filter((funcionario) => funcionario.status === "Ativo"));
           setProdutosAtivos(produtos.filter((produto) => produto.status === "Ativo"));
+          setFornecedoresAtivos(fornecedores.filter((fornecedor) => fornecedor.status === "Ativo"));
         }
       } catch {
         if (mounted) {
           setClientesAtivos([]);
           setFuncionariosAtivos([]);
           setProdutosAtivos([]);
+          setFornecedoresAtivos([]);
         }
       }
     }
@@ -1348,15 +1352,30 @@ export default function Orcamentos() {
                             id="cliente"
                             value={form.cliente}
                             onChange={(e) => {
-                              const cliente = clientesAtivos.find((item) => item.nome === e.target.value);
-                              setForm({ ...form, cliente: cliente?.nome ?? "", email: cliente?.email ?? "" });
+                              const nome = e.target.value;
+                              const cliente = clientesAtivos.find((item) => item.nome === nome);
+                              const funcionario = funcionariosAtivos.find((item) => item.name === nome);
+                              const fornecedor = fornecedoresAtivos.find((item) => (item.nomeFantasia || item.razaoSocial) === nome);
+                              setForm({
+                                ...form,
+                                cliente: nome,
+                                email: cliente?.email ?? funcionario?.email ?? fornecedor?.email ?? "",
+                              });
                             }}
                             className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                         >
                           <option value="">Selecione um cliente</option>
-                          {clientesAtivos.map((cliente) => (
-                              <option key={cliente.id} value={cliente.nome}>{cliente.nome}</option>
-                          ))}
+                          {[
+                            ...clientesAtivos.map((c) => ({ nome: c.nome, tipo: "Cliente" as const })),
+                            ...funcionariosAtivos.map((f) => ({ nome: f.name, tipo: "Funcionário" as const })),
+                            ...fornecedoresAtivos.map((f) => ({ nome: f.nomeFantasia || f.razaoSocial, tipo: "Fornecedor" as const })),
+                          ]
+                            .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+                            .map((item) => (
+                              <option key={`${item.tipo}-${item.nome}`} value={item.nome}>
+                                {item.nome}
+                              </option>
+                            ))}
                         </select>
                         {form.cliente && (
                             <div className="mt-2 flex flex-wrap gap-2">
@@ -1387,11 +1406,18 @@ export default function Orcamentos() {
                             className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                         >
                           <option value="">Selecione e adicione passageiros</option>
-                          {clientesAtivos
-                              .filter((cliente) => !(form.passageiros || []).includes(cliente.nome))
-                              .map((cliente) => (
-                                  <option key={cliente.id} value={cliente.nome}>{cliente.nome}</option>
-                              ))}
+                          {[
+                            ...clientesAtivos.map((c) => ({ nome: c.nome, tipo: "Cliente" as const })),
+                            ...funcionariosAtivos.map((f) => ({ nome: f.name, tipo: "Funcionário" as const })),
+                            ...fornecedoresAtivos.map((f) => ({ nome: f.nomeFantasia || f.razaoSocial, tipo: "Fornecedor" as const })),
+                          ]
+                            .filter((item) => !(form.passageiros || []).includes(item.nome))
+                            .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+                            .map((item) => (
+                              <option key={`${item.tipo}-${item.nome}`} value={item.nome}>
+                                {item.nome}
+                              </option>
+                            ))}
                         </select>
 
                         {(form.passageiros || []).length > 0 && (

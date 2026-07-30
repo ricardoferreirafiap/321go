@@ -18,8 +18,10 @@ import {
   ChevronDown,
   ChevronUp,
   Globe,
+  Sparkles,
 } from "lucide-react";
 import { buscarHospedagensDestino } from "../data/destinationsApi";
+import { enviarMensagemIA } from "../data/aiChatApi";
 
 interface Hospedagem {
   id: number;
@@ -118,6 +120,36 @@ export default function HospedagemForm({
   const [fotoHospedagemLink, setFotoHospedagemLink] = useState("");
   const [fotosHospedagem, setFotosHospedagem] = useState<string[]>([]);
   const [hospedagemEditandoId, setHospedagemEditandoId] = useState<number | null>(null);
+  const [buscandoLinkIA, setBuscandoLinkIA] = useState(false);
+
+  const buscarLinkHotelIA = async (nome: string, endereco: string, onSuccess: (url: string) => void) => {
+    const nomeTrimmed = nome.trim();
+    if (!nomeTrimmed) {
+      setErro("Informe o nome do hotel antes de buscar o link.");
+      return;
+    }
+
+    setBuscandoLinkIA(true);
+    setErro("");
+
+    try {
+      const prompt = `Você é um assistente de viagens especializado. Preciso do site oficial (URL) do seguinte hotel:\n\nNome: ${nomeTrimmed}${endereco.trim() ? `\nEndereço: ${endereco.trim()}` : ""}\n\nResponda SOMENTE com a URL completa do site oficial do hotel (ex: https://www.nomehotel.com). Se não encontrar o site oficial, responda com a URL do Google Maps ou Booking.com para este hotel. Não adicione explicações, apenas a URL.`;
+
+      const resposta = await enviarMensagemIA([{ role: "user", content: prompt }]);
+      const conteudo = resposta?.choices?.[0]?.message?.content?.trim() ?? "";
+      const urlMatch = conteudo.match(/https?:\/\/[^\s"'<>]+/);
+
+      if (urlMatch) {
+        onSuccess(urlMatch[0]);
+      } else {
+        setErro("A IA não conseguiu encontrar o link. Tente preencher manualmente.");
+      }
+    } catch {
+      setErro("Erro ao consultar a IA. Tente novamente.");
+    } finally {
+      setBuscandoLinkIA(false);
+    }
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const formManualRef = useRef<HTMLDivElement>(null);
@@ -735,18 +767,39 @@ export default function HospedagemForm({
 
           <div className="mb-3">
             <Label className="text-xs">Link do Hotel</Label>
-            <Input
-              type="url"
-              placeholder="https://..."
-              value={selecionado.linkOperadora || ""}
-              onChange={(e) =>
-                setSelecionado({
-                  ...selecionado,
-                  linkOperadora: e.target.value,
-                })
-              }
-              className="mt-1"
-            />
+            <div className="mt-1 flex gap-2">
+              <Input
+                type="url"
+                placeholder="https://..."
+                value={selecionado.linkOperadora || ""}
+                onChange={(e) =>
+                  setSelecionado({
+                    ...selecionado,
+                    linkOperadora: e.target.value,
+                  })
+                }
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={buscandoLinkIA}
+                onClick={() =>
+                  buscarLinkHotelIA(selecionado.nome, selecionado.endereco || "", (url) =>
+                    setSelecionado({ ...selecionado, linkOperadora: url })
+                  )
+                }
+                title="Buscar link do hotel com IA"
+                className="shrink-0 border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+              >
+                {buscandoLinkIA ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
           </div>
 
           <div className="mb-3">
@@ -1014,15 +1067,36 @@ export default function HospedagemForm({
 
           <div className="mb-3">
             <Label className="text-xs">Site do Hotel</Label>
-            <Input
-              type="url"
-              placeholder="https://..."
-              value={formManual.linkOperadora}
-              onChange={(e) =>
-                setFormManual({ ...formManual, linkOperadora: e.target.value })
-              }
-              className="mt-1"
-            />
+            <div className="mt-1 flex gap-2">
+              <Input
+                type="url"
+                placeholder="https://..."
+                value={formManual.linkOperadora}
+                onChange={(e) =>
+                  setFormManual({ ...formManual, linkOperadora: e.target.value })
+                }
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={buscandoLinkIA}
+                onClick={() =>
+                  buscarLinkHotelIA(formManual.nome, formManual.endereco, (url) =>
+                    setFormManual({ ...formManual, linkOperadora: url })
+                  )
+                }
+                title="Buscar link do hotel com IA"
+                className="shrink-0 border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+              >
+                {buscandoLinkIA ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
           </div>
 
           <div className="mb-3">
