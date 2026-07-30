@@ -2821,7 +2821,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                 <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
                   <h4 className="flex items-center gap-2 font-semibold text-gray-900">
                     <Plus className="h-4 w-4 text-indigo-500" />
-                    Detalhes do Voo
+                    Voo
                   </h4>
                   <div className="flex items-center gap-2">
                     <Button
@@ -3102,7 +3102,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                 <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
                   <h4 className="flex items-center gap-2 font-semibold text-gray-900">
                     <Plus className="h-4 w-4 text-indigo-500" />
-                    Detalhes da Hospedagem
+                    Hospedagem
                   </h4>
                   <div className="flex items-center gap-2">
                     <Button
@@ -3472,7 +3472,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                 <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
                   <h4 className="flex items-center gap-2 font-semibold text-gray-900">
                     <Plus className="h-4 w-4 text-indigo-500" />
-                    Detalhes do Traslado
+                    Traslado
                   </h4>
                   <div className="flex items-center gap-2">
                     <Button
@@ -3574,7 +3574,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                 <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
                   <h4 className="flex items-center gap-2 font-semibold text-gray-900">
                     <Plus className="h-4 w-4 text-indigo-500" />
-                    Detalhes do Ingresso
+                    Ingresso
                   </h4>
                   <div className="flex items-center gap-2">
                     <Button
@@ -3779,7 +3779,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                 <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
                   <h4 className="flex items-center gap-2 font-semibold text-gray-900">
                     <FileText className="h-4 w-4 text-indigo-500" />
-                    Resumo do Pacote
+                    Resumo
                   </h4>
                   <div className="flex items-center gap-2">
                     <Button
