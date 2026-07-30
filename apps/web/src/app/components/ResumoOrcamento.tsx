@@ -514,7 +514,15 @@ export default function ResumoOrcamento() {
 
                     {/* Descrição livre */}
                     {p.descricao?.trim() && (
-                      <p className="text-sm text-gray-600 whitespace-pre-wrap border-t pt-3 mt-1">{p.descricao}</p>
+                      <ul className="text-sm text-gray-600 border-t pt-3 mt-1 space-y-1 list-disc list-inside">
+                        {p.descricao
+                          .split(".")
+                          .map((trecho) => trecho.trim())
+                          .filter(Boolean)
+                          .map((trecho, i) => (
+                            <li key={i}>{trecho}.</li>
+                          ))}
+                      </ul>
                     )}
 
                     {/* Políticas gerais de alteração/cancelamento */}

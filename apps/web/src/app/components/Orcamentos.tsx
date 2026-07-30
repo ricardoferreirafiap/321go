@@ -252,6 +252,10 @@ const categoriasPerfilViagem: CategoriaPerfilViagem[] = [
   },
 ];
 
+const todasCategoriasMinimizadas: Record<string, boolean> = Object.fromEntries(
+  categoriasPerfilViagem.map((c) => [c.titulo, true])
+);
+
 function chavePerfilViagem(tituloCategoria: string, opcao: string) {
   return `${tituloCategoria}::${opcao}`;
 }
@@ -448,6 +452,7 @@ export default function Orcamentos() {
   const [orcamentoDuplicacaoPendente, setOrcamentoDuplicacaoPendente] = useState<Orcamento | null>(null);
   const [dadosClienteMinimizados, setDadosClienteMinimizados] = useState(true);
   const [perfilViagemMinimizado, setPerfilViagemMinimizado] = useState(true);
+  const [categoriasPerfilMinimizadas, setCategoriasPerfilMinimizadas] = useState<Record<string, boolean>>(() => ({ ...todasCategoriasMinimizadas }));
   const [perfilViagemSelecionado, setPerfilViagemSelecionado] = useState<string[]>([]);
   const [promptPerfilViagemIA, setPromptPerfilViagemIA] = useState("");
   const [passageiroSelecionado, setPassageiroSelecionado] = useState("");
@@ -742,6 +747,7 @@ export default function Orcamentos() {
     setPerfilViagemSelecionado([]);
     setPromptPerfilViagemIA("");
     setPerfilViagemMinimizado(true);
+    setCategoriasPerfilMinimizadas(todasCategoriasMinimizadas);
     setDetalhesMinimizados(true);
     setSecoesOrcamentoMinimizadas(true);
     setVendasMinimizadas(true);
@@ -780,6 +786,7 @@ export default function Orcamentos() {
     setPerfilViagemSelecionado(Array.isArray(o.perfilViagem) ? o.perfilViagem.filter((item) => typeof item === "string") : []);
     setPromptPerfilViagemIA(typeof o.promptPerfilViagemIA === "string" ? o.promptPerfilViagemIA : "");
     setPerfilViagemMinimizado(true);
+    setCategoriasPerfilMinimizadas({});
     setDetalhesMinimizados(true);
     setSecoesOrcamentoMinimizadas(true);
     setVendasMinimizadas(true);
@@ -820,6 +827,13 @@ export default function Orcamentos() {
     setPerfilViagemSelecionado((prev) => (
         prev.includes(chave) ? prev.filter((item) => item !== chave) : [...prev, chave]
     ));
+  }
+
+  function toggleCategoriaPerfilViagem(titulo: string) {
+    setCategoriasPerfilMinimizadas((prev) => ({
+      ...prev,
+      [titulo]: !prev[titulo],
+    }));
   }
 
   function voltar() { setTela("lista"); setEditando(null); }
@@ -1439,7 +1453,15 @@ export default function Orcamentos() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => setPerfilViagemMinimizado((prev) => !prev)}
+                      onClick={() => {
+                        setPerfilViagemMinimizado((prev) => {
+                          if (prev) {
+                            // expandindo — reseta todas categorias para minimizado
+                            setCategoriasPerfilMinimizadas({ ...todasCategoriasMinimizadas });
+                          }
+                          return !prev;
+                        });
+                      }}
                       className="h-8 px-2 text-gray-600"
                   >
                     {perfilViagemMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -1465,30 +1487,87 @@ export default function Orcamentos() {
                         </p>
                       </div>
 
-                      {categoriasPerfilViagem.map((categoria) => (
-                          <div key={categoria.titulo}>
-                            <h4 className="mb-2 text-sm font-semibold text-gray-700">{categoria.titulo}</h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-                              {categoria.opcoes.map((opcao) => {
-                                const chave = chavePerfilViagem(categoria.titulo, opcao);
-                                const selecionado = perfilViagemSelecionado.includes(chave);
+                      {/* Controles expandir/minimizar todos */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">
+                          {(() => {
+                            const total = perfilViagemSelecionado.length;
+                            return total > 0 ? `${total} opção${total !== 1 ? "ões" : ""} selecionada${total !== 1 ? "s" : ""}` : "Nenhuma opção selecionada";
+                          })()}
+                        </span>
+                        <div className="flex gap-1">
+                          <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setCategoriasPerfilMinimizadas(Object.fromEntries(categoriasPerfilViagem.map((c) => [c.titulo, false])))}
+                              className="h-7 w-7 p-0 text-gray-500 hover:text-gray-800"
+                              title="Expandir todos"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                          <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setCategoriasPerfilMinimizadas(Object.fromEntries(categoriasPerfilViagem.map((c) => [c.titulo, true])))}
+                              className="h-7 w-7 p-0 text-gray-500 hover:text-gray-800"
+                              title="Minimizar todos"
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
 
-                                return (
-                                    <label
-                                        key={chave}
-                                        className="flex items-center gap-2 rounded-md border border-gray-200 px-2.5 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                    >
-                                      <input
-                                          type="checkbox"
-                                          checked={selecionado}
-                                          onChange={() => toggleOpcaoPerfilViagem(chave)}
-                                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                      />
-                                      <span>{opcao}</span>
-                                    </label>
-                                );
-                              })}
-                            </div>
+                      {categoriasPerfilViagem.map((categoria) => (
+                          <div key={categoria.titulo} className="border border-gray-200 rounded-lg overflow-hidden">
+                            <button
+                                type="button"
+                                onClick={() => toggleCategoriaPerfilViagem(categoria.titulo)}
+                                className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                            >
+                              <span className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                {categoria.titulo}
+                                {(() => {
+                                  const selecionadosNaCategoria = categoria.opcoes.filter(
+                                    (opcao) => perfilViagemSelecionado.includes(chavePerfilViagem(categoria.titulo, opcao))
+                                  ).length;
+                                  return selecionadosNaCategoria > 0 ? (
+                                    <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">
+                                      {selecionadosNaCategoria}
+                                    </span>
+                                  ) : null;
+                                })()}
+                              </span>
+                              {categoriasPerfilMinimizadas[categoria.titulo] ? (
+                                <ChevronDown className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                              ) : (
+                                <ChevronUp className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                              )}
+                            </button>
+                            {!categoriasPerfilMinimizadas[categoria.titulo] && (
+                              <div className="px-3 py-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                                {categoria.opcoes.map((opcao) => {
+                                  const chave = chavePerfilViagem(categoria.titulo, opcao);
+                                  const selecionado = perfilViagemSelecionado.includes(chave);
+
+                                  return (
+                                      <label
+                                          key={chave}
+                                          className="flex items-center gap-2 rounded-md border border-gray-200 px-2.5 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                      >
+                                        <input
+                                            type="checkbox"
+                                            checked={selecionado}
+                                            onChange={() => toggleOpcaoPerfilViagem(chave)}
+                                            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span>{opcao}</span>
+                                      </label>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                       ))}
 

@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef } from "react";
-import { ChevronDown, ChevronUp, Pencil, Plus, Trash2, Link2, Package2, Image, Upload, FileText, X, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Plus, Trash2, Link2, Package2, Image, Upload, FileText, X, Sparkles, RefreshCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
@@ -1529,6 +1529,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   const [urlOperadorMinimizado, setUrlOperadorMinimizado] = useState(true);
   const [relatoriosExpandidos, setRelatoriosExpandidos] = useState<Set<number>>(new Set());
   const [analisandoIA, setAnalisandoIA] = useState(false);
+  const [atualizando, setAtualizando] = useState<string | null>(null);
   const [logAnaliseIA, setLogAnaliseIA] = useState<string[]>([]);
   const [provedorIA, setProvedorIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
   const [novaUrlOperador, setNovaUrlOperador] = useState("");
@@ -1868,6 +1869,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       return;
     }
     setErro("");
+    setAtualizando("todos");
     let novoForm = { ...form };
     novoForm = mapearDetalhesVoo(novoForm, dados);
     novoForm = mapearDetalhesHospedagem(novoForm, dados);
@@ -1876,6 +1878,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     if (novoForm.valor > 0) setValorInput(formatarMoeda(novoForm.valor));
     setForm((f) => ({ ...novoForm, documentos: f.documentos }));
     propagarAoPai({ ...novoForm, documentos: form.documentos });
+    setTimeout(() => setAtualizando(null), 800);
   }
 
   function atualizarDetalhesVoo() {
@@ -1885,11 +1888,13 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       return;
     }
     setErro("");
+    setAtualizando("voo");
     const novoForm = mapearDetalhesVoo(form, dados);
     if (novoForm.valor > 0) setValorInput(formatarMoeda(novoForm.valor));
     setForm((f) => ({ ...novoForm, documentos: f.documentos }));
     propagarAoPai({ ...novoForm, documentos: form.documentos });
     setFormMinimizado(false);
+    setTimeout(() => setAtualizando(null), 800);
   }
 
   function atualizarDetalhesHospedagem() {
@@ -1899,12 +1904,14 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       return;
     }
     setErro("");
+    setAtualizando("hospedagem");
     let novoForm = mapearDetalhesVoo(form, dados);
     novoForm = mapearDetalhesHospedagem(novoForm, dados);
     if (novoForm.valor > 0) setValorInput(formatarMoeda(novoForm.valor));
     setForm((f) => ({ ...novoForm, documentos: f.documentos }));
     propagarAoPai({ ...novoForm, documentos: form.documentos });
     setHospedagemMinimizado(false);
+    setTimeout(() => setAtualizando(null), 800);
   }
 
   function atualizarDetalhesTraslado() {
@@ -1914,9 +1921,11 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       return;
     }
     setErro("");
+    setAtualizando("traslado");
     const novoForm = mapearDetalhesTraslado(form, dados);
     setForm((f) => ({ ...novoForm, documentos: f.documentos }));
     propagarAoPai({ ...novoForm, documentos: form.documentos });
+    setTimeout(() => setAtualizando(null), 800);
   }
 
   function atualizarDetalhesIngresso() {
@@ -1926,9 +1935,11 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       return;
     }
     setErro("");
+    setAtualizando("ingresso");
     const novoForm = mapearDetalhesIngresso(form, dados);
     setForm((f) => ({ ...novoForm, documentos: f.documentos }));
     propagarAoPai({ ...novoForm, documentos: form.documentos });
+    setTimeout(() => setAtualizando(null), 800);
   }
 
   function atualizarResumoPacote() {
@@ -1938,6 +1949,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       return;
     }
     setErro("");
+    setAtualizando("resumo");
     let novoForm = { ...form };
     novoForm = mapearDetalhesVoo(novoForm, dados);
     novoForm = mapearDetalhesHospedagem(novoForm, dados);
@@ -1948,6 +1960,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     setForm((f) => ({ ...novoForm, documentos: f.documentos }));
     propagarAoPai({ ...novoForm, documentos: form.documentos });
     setResumoMinimizado(false);
+    setTimeout(() => setAtualizando(null), 800);
   }
 
   async function identificarOperadorNaImagem(imageUrl: string) {
