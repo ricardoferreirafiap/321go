@@ -2604,7 +2604,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       <div className="space-y-4">
         {/* Seção de Anexos e Análise com IA */}
         <Card className="p-4">
-          <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="mb-4 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => setVouchersMinimizado((prev) => !prev)}>
             <h4 className="flex items-center gap-2 font-semibold text-gray-900">
               <Package2 className="h-4 w-4 text-indigo-500" />
               Vouchers
@@ -2612,7 +2612,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setVouchersMinimizado((prev) => !prev)}
+              onClick={(e) => { e.stopPropagation(); setVouchersMinimizado((prev) => !prev); }}
               className="gap-2 text-gray-600 hover:text-gray-900"
           >
             {vouchersMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -2830,7 +2830,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                     </div>
                 )}
 
-                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
+                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t cursor-pointer select-none" onClick={() => setFormMinimizado((prev) => !prev)}>
                   <h4 className="flex items-center gap-2 font-semibold text-gray-900">
                     <Plus className="h-4 w-4 text-indigo-500" />
                     Voo
@@ -2840,7 +2840,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={atualizarDetalhesVoo}
+                        onClick={(e) => { e.stopPropagation(); atualizarDetalhesVoo(); }}
                         className="gap-2"
                     >
                       <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
@@ -2849,7 +2849,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => setFormMinimizado((prev) => !prev)}
+                        onClick={(e) => { e.stopPropagation(); setFormMinimizado((prev) => !prev); }}
                         className="gap-2 text-gray-600 hover:text-gray-900"
                     >
                       {formMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -3114,7 +3114,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                     </>
                 )}
 
-                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
+                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t cursor-pointer select-none" onClick={() => setHospedagemMinimizado((prev) => !prev)}>
                   <h4 className="flex items-center gap-2 font-semibold text-gray-900">
                     <Plus className="h-4 w-4 text-indigo-500" />
                     Hospedagem
@@ -3124,7 +3124,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={atualizarDetalhesHospedagem}
+                        onClick={(e) => { e.stopPropagation(); atualizarDetalhesHospedagem(); }}
                         className="gap-2"
                     >
                       <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
@@ -3133,7 +3133,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => setHospedagemMinimizado((prev) => !prev)}
+                        onClick={(e) => { e.stopPropagation(); setHospedagemMinimizado((prev) => !prev); }}
                         className="gap-2 text-gray-600 hover:text-gray-900"
                     >
                       {hospedagemMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -3495,7 +3495,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                     </div>
                 )}
 
-                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
+                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t cursor-pointer select-none" onClick={() => setTrasladoMinimizado((prev) => !prev)}>
                   <h4 className="flex items-center gap-2 font-semibold text-gray-900">
                     <Plus className="h-4 w-4 text-indigo-500" />
                     Traslado
@@ -3505,7 +3505,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={atualizarDetalhesTraslado}
+                        onClick={(e) => { e.stopPropagation(); atualizarDetalhesTraslado(); }}
                         className="gap-2"
                     >
                       <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
@@ -3514,7 +3514,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => setTrasladoMinimizado((prev) => !prev)}
+                        onClick={(e) => { e.stopPropagation(); setTrasladoMinimizado((prev) => !prev); }}
                         className="gap-2 text-gray-600 hover:text-gray-900"
                     >
                       {trasladoMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -3597,7 +3597,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                     </div>
                 )}
 
-                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
+                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t cursor-pointer select-none" onClick={() => setIngressoMinimizado((prev) => !prev)}>
                   <h4 className="flex items-center gap-2 font-semibold text-gray-900">
                     <Plus className="h-4 w-4 text-indigo-500" />
                     Ingresso
@@ -3607,7 +3607,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={atualizarDetalhesIngresso}
+                        onClick={(e) => { e.stopPropagation(); atualizarDetalhesIngresso(); }}
                         className="gap-2"
                     >
                       <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
@@ -3616,7 +3616,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => setIngressoMinimizado((prev) => !prev)}
+                        onClick={(e) => { e.stopPropagation(); setIngressoMinimizado((prev) => !prev); }}
                         className="gap-2 text-gray-600 hover:text-gray-900"
                     >
                       {ingressoMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -3802,7 +3802,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                   </div>
                 )}
 
-                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
+                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t cursor-pointer select-none" onClick={() => setResumoMinimizado((prev) => !prev)}>
                   <h4 className="flex items-center gap-2 font-semibold text-gray-900">
                     <FileText className="h-4 w-4 text-indigo-500" />
                     Resumo
@@ -3812,7 +3812,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={atualizarResumoPacote}
+                        onClick={(e) => { e.stopPropagation(); atualizarResumoPacote(); }}
                         className="gap-2"
                     >
                       <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
@@ -3821,7 +3821,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => setResumoMinimizado((prev) => !prev)}
+                        onClick={(e) => { e.stopPropagation(); setResumoMinimizado((prev) => !prev); }}
                         className="h-8 px-2 text-gray-600"
                     >
                       {resumoMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}

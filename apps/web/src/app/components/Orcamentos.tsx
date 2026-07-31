@@ -1400,13 +1400,13 @@ export default function Orcamentos() {
           <div className="space-y-6">
               {/* Dados do cliente */}
               <Card className="p-3 sm:p-6">
-                <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="mb-4 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => setDadosClienteMinimizados((prev) => !prev)}>
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2"><User className="w-4 h-4 text-indigo-500" /> Dados do Cliente</h3>
                   <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => setDadosClienteMinimizados((prev) => !prev)}
+                      onClick={(e) => { e.stopPropagation(); setDadosClienteMinimizados((prev) => !prev); }}
                       className="h-8 px-2 text-gray-600"
                   >
                     {dadosClienteMinimizados ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -1552,13 +1552,13 @@ export default function Orcamentos() {
 
               {/* Detalhes */}
               <Card className="p-3 sm:p-6">
-                <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="mb-4 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => setDetalhesMinimizados((prev) => !prev)}>
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-500" /> Detalhes</h3>
                   <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => setDetalhesMinimizados((prev) => !prev)}
+                      onClick={(e) => { e.stopPropagation(); setDetalhesMinimizados((prev) => !prev); }}
                       className="h-8 px-2 text-gray-600"
                   >
                     {detalhesMinimizados ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -1666,15 +1666,14 @@ export default function Orcamentos() {
 
               {/* Perfil da viagem */}
               <Card className="p-3 sm:p-6">
-                <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="mb-4 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => { setPerfilViagemMinimizado((prev) => { if (prev) { setCategoriasPerfilMinimizadas({ ...todasCategoriasMinimizadas }); } return !prev; }); }}>
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2"><MapPin className="w-4 h-4 text-indigo-500" /> Perfil da Viagem</h3>
                   <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
-                        setPerfilViagemMinimizado((prev) => {
-                          if (prev) {
+                      onClick={(e) => { e.stopPropagation(); setPerfilViagemMinimizado((prev) => {
+                        if (prev) {
                             // expandindo — reseta todas categorias para minimizado
                             setCategoriasPerfilMinimizadas({ ...todasCategoriasMinimizadas });
                           }
@@ -2064,13 +2063,13 @@ export default function Orcamentos() {
 
               {/* Resumo de valores */}
               <Card className="p-3 sm:p-6">
-                <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="mb-3 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => setResumoMinimizado((prev) => !prev)}>
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2"><DollarSign className="w-4 h-4 text-indigo-500" /> Resumo</h3>
                   <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => setResumoMinimizado((prev) => !prev)}
+                      onClick={(e) => { e.stopPropagation(); setResumoMinimizado((prev) => !prev); }}
                       className="h-8 px-2 text-gray-600"
                   >
                     {resumoMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -2123,13 +2122,13 @@ export default function Orcamentos() {
 
               {/* Orçamento - Resumo */}
               <Card className="p-3 sm:p-6">
-                <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="mb-4 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => setOrcamentoResumoMinimizado((prev) => !prev)}>
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-500" /> Orçamento</h3>
                   <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => setOrcamentoResumoMinimizado((prev) => !prev)}
+                      onClick={(e) => { e.stopPropagation(); setOrcamentoResumoMinimizado((prev) => !prev); }}
                       className="h-8 px-2 text-gray-600"
                   >
                     {orcamentoResumoMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
