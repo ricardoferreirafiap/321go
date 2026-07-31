@@ -557,7 +557,7 @@ export default function ResumoOrcamento() {
             </div>
           )}
           {/* Voos */}
-          {orcamento.voos && orcamento.voos.length > 0 && (
+          {orcamento.voos && orcamento.voos.length > 0 && orcamento.voos.some(v => (v.valor ?? 0) > 0) && (
           <Card>
             <CardHeader
               className="cursor-pointer hover:bg-gray-50 transition-colors rounded-t-lg"
@@ -600,7 +600,7 @@ export default function ResumoOrcamento() {
           )}
 
           {/* Hospedagem */}
-          {orcamento.hospedagem && orcamento.hospedagem.length > 0 && (
+          {orcamento.hospedagem && orcamento.hospedagem.length > 0 && orcamento.hospedagem.some(h => h.preco > 0) && (
           <Card>
             <CardHeader
               className="cursor-pointer hover:bg-gray-50 transition-colors rounded-t-lg"
@@ -659,7 +659,7 @@ export default function ResumoOrcamento() {
           )}
 
           {/* Seguro */}
-          {orcamento.seguro && orcamento.seguro.length > 0 && (
+          {orcamento.seguro && orcamento.seguro.length > 0 && orcamento.seguro.some(s => s.valor > 0) && (
           <Card>
             <CardHeader
               className="cursor-pointer hover:bg-gray-50 transition-colors rounded-t-lg"
@@ -708,7 +708,7 @@ export default function ResumoOrcamento() {
           )}
 
           {/* Transporte */}
-          {orcamento.transporte && orcamento.transporte.length > 0 && (
+          {orcamento.transporte && orcamento.transporte.length > 0 && orcamento.transporte.some(t => t.valor > 0) && (
           <Card>
             <CardHeader
               className="cursor-pointer hover:bg-gray-50 transition-colors rounded-t-lg"
@@ -738,7 +738,7 @@ export default function ResumoOrcamento() {
           )}
 
           {/* Restaurantes */}
-          {orcamento.restaurante && orcamento.restaurante.length > 0 && (
+          {orcamento.restaurante && orcamento.restaurante.length > 0 && orcamento.restaurante.some(r => r.preco > 0) && (
           <Card>
             <CardHeader
               className="cursor-pointer hover:bg-gray-50 transition-colors rounded-t-lg"
@@ -768,7 +768,7 @@ export default function ResumoOrcamento() {
           )}
 
           {/* Experiências */}
-          {orcamento.experiencias && orcamento.experiencias.length > 0 && (
+          {orcamento.experiencias && orcamento.experiencias.length > 0 && orcamento.experiencias.some(e => e.preco > 0) && (
           <Card>
             <CardHeader
               className="cursor-pointer hover:bg-gray-50 transition-colors rounded-t-lg"
