@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router";
 import {
   Search, Plus, Edit2, X, Check, FileText, ChevronDown, ChevronUp, Upload,
@@ -16,6 +16,7 @@ import TransporteForm from "./TransporteForm";
 import RestauranteForm from "./RestauranteForm";
 import ExperienciasForm from "./ExperienciasForm";
 import SeguroForm from "./SeguroForm";
+import ResumoOrcamentoInline from "./ResumoOrcamentoInline";
 import { listarClientes, type Cliente } from "../data/clientesApi";
 import { listarFuncionarios, type Funcionario } from "../data/funcionariosApi";
 import { listarFornecedores, type Fornecedor } from "../data/fornecedoresApi";
@@ -489,10 +490,14 @@ export default function Orcamentos() {
   const [perfilViagemSelecionado, setPerfilViagemSelecionado] = useState<string[]>([]);
   const [promptPerfilViagemIA, setPromptPerfilViagemIA] = useState("");
   const [passageiroSelecionado, setPassageiroSelecionado] = useState("");
-  const [detalhesMinimizados, setDetalhesMinimizados] = useState(true);
   const [secoesOrcamentoMinimizadas, setSecoesOrcamentoMinimizadas] = useState(true);
   const [vendasMinimizadas, setVendasMinimizadas] = useState(true);
+  const [detalhesMinimizados, setDetalhesMinimizados] = useState(true);
   const [resumoMinimizado, setResumoMinimizado] = useState(true);
+  const [orcamentoResumoMinimizado, setOrcamentoResumoMinimizado] = useState(true);
+  const [roteiroMinimizado, setRoteiroMinimizado] = useState(true);
+  const [houveAlteracoes, setHouveAlteracoes] = useState(false);
+  const formularioCarregadoRef = useRef(false);
   const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
   const [novaUrlOperadorItem, setNovaUrlOperadorItem] = useState("");
   
@@ -727,7 +732,19 @@ export default function Orcamentos() {
     }
   }, [location.state, lista, location.pathname, navigate]);
 
-  // --- lista helpers ---
+  // Detect form changes - only set to true after initial load
+  useEffect(() => {
+    if (tela === "form") {
+      if (!formularioCarregadoRef.current) {
+        // First time loading form - mark as loaded but don't mark as changed
+        formularioCarregadoRef.current = true;
+        return;
+      }
+      // After initial load, any change marks as changed
+      setHouveAlteracoes(true);
+    }
+  }, [form, pacotes, voos, hospedagem, roteiro, dayByDay, transporte, restaurante, experiencias, seguro, perfilViagemSelecionado, tela]);
+
   const filtrados = lista.filter((o) => {
     const q = busca.toLowerCase();
     const match = o.numero.toLowerCase().includes(q) || o.cliente.toLowerCase().includes(q) || o.email.toLowerCase().includes(q);
@@ -778,10 +795,14 @@ export default function Orcamentos() {
     setPromptPerfilViagemIA("");
     setPerfilViagemMinimizado(true);
     setCategoriasPerfilMinimizadas(todasCategoriasMinimizadas);
-    setDetalhesMinimizados(true);
     setSecoesOrcamentoMinimizadas(true);
     setVendasMinimizadas(true);
+    setDetalhesMinimizados(true);
     setResumoMinimizado(true);
+    setOrcamentoResumoMinimizado(true);
+    setRoteiroMinimizado(true);
+    setHouveAlteracoes(false);
+    formularioCarregadoRef.current = false;
     setPassageiroSelecionado("");
     setStatusBloqueado(false);
     setSection("Pacotes");
@@ -814,10 +835,14 @@ export default function Orcamentos() {
     setPromptPerfilViagemIA(typeof o.promptPerfilViagemIA === "string" ? o.promptPerfilViagemIA : "");
     setPerfilViagemMinimizado(true);
     setCategoriasPerfilMinimizadas({});
-    setDetalhesMinimizados(true);
     setSecoesOrcamentoMinimizadas(true);
     setVendasMinimizadas(true);
+    setDetalhesMinimizados(true);
     setResumoMinimizado(true);
+    setOrcamentoResumoMinimizado(true);
+    setRoteiroMinimizado(true);
+    setHouveAlteracoes(false);
+    formularioCarregadoRef.current = false;
     setPassageiroSelecionado("");
     setSection("Pacotes");
     await verificarReceitaLancada(o.id);
@@ -1343,20 +1368,38 @@ export default function Orcamentos() {
       { nome: "Seguro" as const, quantidade: seguro.length, valor: moeda(totalSeguroResumo) },
     ].filter((secao) => secao.quantidade > 0) as { nome: SecaoOrcamento; quantidade: number; valor: string }[];
     return (
-        <div>
-          <div className="flex items-center gap-3 mb-6 flex-wrap">
-            <Button variant="outline" onClick={voltar} className="flex items-center gap-2"><X className="w-4 h-4" /> Cancelar</Button>
+        <div className="px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
+          <div className="flex items-center gap-3 mb-6 flex-wrap relative">
             {form.cliente && (
               <span className="text-2xl font-bold text-indigo-700">{form.cliente}</span>
             )}
             {!editando && <h2 className="text-xl font-bold text-gray-900">Novo Orçamento</h2>}
+
+            {/* Save/Exit button - shows Salvar if changes, Sair otherwise */}
+            <div className="ml-auto">
+              <Button
+                onClick={houveAlteracoes ? salvar : voltar}
+                disabled={salvando || (houveAlteracoes && !form.cliente.trim())}
+                className={houveAlteracoes ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-gray-600 hover:bg-gray-700 text-white"}
+              >
+                {houveAlteracoes ? (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    {salvando ? "Salvando..." : editando ? "Salvar" : "Criar orçamento"}
+                  </>
+                ) : (
+                  <>
+                    <X className="w-4 h-4 mr-2" />
+                    Sair
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Coluna principal */}
-            <div className="lg:col-span-2 space-y-6">
+          <div className="space-y-6">
               {/* Dados do cliente */}
-              <Card className="p-4">
+              <Card className="p-3 sm:p-6">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2"><User className="w-4 h-4 text-indigo-500" /> Dados do Cliente</h3>
                   <Button
@@ -1371,7 +1414,8 @@ export default function Orcamentos() {
                   </Button>
                 </div>
                 {!dadosClienteMinimizados && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 relative">
                       <div className="flex flex-col">
                         <Label htmlFor="cliente">Cliente *</Label>
                         <select
@@ -1494,11 +1538,134 @@ export default function Orcamentos() {
                         )}
                       </div>
                     </div>
+                    <button
+                        type="button"
+                        onClick={() => setDadosClienteMinimizados(true)}
+                        className="absolute bottom-2 right-2 p-2 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+                        title="Minimizar"
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </button>
+                    </>
+                )}
+              </Card>
+
+              {/* Detalhes */}
+              <Card className="p-3 sm:p-6">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-500" /> Detalhes</h3>
+                  <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDetalhesMinimizados((prev) => !prev)}
+                      className="h-8 px-2 text-gray-600"
+                  >
+                    {detalhesMinimizados ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                    <span className="ml-1">{detalhesMinimizados ? " " : " "}</span>
+                  </Button>
+                </div>
+                {!detalhesMinimizados && (
+                <>
+                <div className="space-y-4 relative">
+                  <div>
+                    <Label>Número</Label>
+                    <Input value={form.numero} readOnly disabled className="mt-1 font-mono bg-gray-100 cursor-not-allowed" />
+                  </div>
+                  <div>
+                    <Label htmlFor="dataCriacao">Data de emissão</Label>
+                    <Input id="dataCriacao" type="date" value={form.dataCriacao} onChange={(e) => setForm({ ...form, dataCriacao: e.target.value })} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label htmlFor="dataValidade">Válido até</Label>
+                    <Input id="dataValidade" type="date" value={form.dataValidade} onChange={(e) => setForm({ ...form, dataValidade: e.target.value })} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label htmlFor="formaPagamento">Forma de pagamento</Label>
+                    <select
+                        id="formaPagamento"
+                        value={form.formaPagamento || ""}
+                        onChange={(e) => setForm({ ...form, formaPagamento: e.target.value })}
+                        className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    >
+                      <option value="">Selecione</option>
+                      <option value="pix">PIX</option>
+                      <option value="cartao_credito">Cartão de crédito</option>
+                      <option value="cartao_debito">Cartão de débito</option>
+                      <option value="boleto">Boleto</option>
+                      <option value="transferencia">Transferência</option>
+                      <option value="dinheiro">Dinheiro</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="orcamento-parcelado">Parcelado?</Label>
+                    <select
+                        id="orcamento-parcelado"
+                        value={(form.parcelas || 1) > 1 ? "sim" : "nao"}
+                        onChange={(e) => {
+                          const parcelado = e.target.value === "sim";
+                          setForm({ ...form, parcelas: parcelado ? Math.max(2, Number(form.parcelas) || 2) : 1 });
+                        }}
+                        className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    >
+                      <option value="nao">Não</option>
+                      <option value="sim">Sim</option>
+                    </select>
+                  </div>
+                  {(form.parcelas || 1) > 1 && (
+                      <div>
+                        <Label htmlFor="orcamento-parcelas">Qtd. de parcelas</Label>
+                        <Input
+                            id="orcamento-parcelas"
+                            type="number"
+                            min="2"
+                            step="1"
+                            value={form.parcelas || 2}
+                            onChange={(e) => setForm({ ...form, parcelas: Math.max(2, Number(e.target.value) || 2) })}
+                            className="mt-1"
+                        />
+                      </div>
+                  )}
+                  <div>
+                    <Label>Status do Orçamento</Label>
+                    <select
+                        value={form.status}
+                        onChange={(e) => void onChangeStatusOrcamento(e.target.value as StatusOrc)}
+                        className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                        disabled={statusBloqueado}
+                    >
+                      {allStatus.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                    {statusBloqueado && (
+                        <p className="mt-1 text-xs text-gray-500">
+                          Status bloqueado após lançamento financeiro vinculado.
+                        </p>
+                    )}
+                  </div>
+                  {form.status === "Aprovado" && (
+                      <div>
+                        <Label>Status da Viagem</Label>
+                        <select
+                            value={form.statusViagem || ""}
+                            onChange={(e) => setForm({ ...form, statusViagem: e.target.value as StatusViagem | undefined })}
+                            className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                        >
+                          <option value="">Selecione...</option>
+                          <option value="Não Iniciada">Não Iniciada</option>
+                          <option value="Em Andamento">Em Andamento</option>
+                          <option value="Finalizada">Finalizada</option>
+                        </select>
+                      </div>
+                  )}
+                </div>
+                </>
                 )}
               </Card>
 
               {/* Perfil da viagem */}
-              <Card className="p-5">
+              <Card className="p-3 sm:p-6">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2"><MapPin className="w-4 h-4 text-indigo-500" /> Perfil da Viagem</h3>
                   <Button
@@ -1640,7 +1807,7 @@ export default function Orcamentos() {
               </Card>
 
               {/* Seções do orçamento (sub-páginas) */}
-              <Card className="p-5">
+              <Card className="p-3 sm:p-6">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-500" /> Seções do Orçamento</h3>
                   <Button
@@ -1895,124 +2062,8 @@ export default function Orcamentos() {
                 )}
               </Card>
 
-
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-6">
-              <Card className="p-5">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-500" /> Detalhes</h3>
-                  <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDetalhesMinimizados((prev) => !prev)}
-                      className="h-8 px-2 text-gray-600"
-                  >
-                    {detalhesMinimizados ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                    <span className="ml-1">{detalhesMinimizados ? " " : " "}</span>
-                  </Button>
-                </div>
-                {!detalhesMinimizados && (
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Número</Label>
-                        <Input value={form.numero} readOnly disabled className="mt-1 font-mono bg-gray-100 cursor-not-allowed" />
-                      </div>
-                      <div>
-                        <Label htmlFor="dataCriacao">Data de emissão</Label>
-                        <Input id="dataCriacao" type="date" value={form.dataCriacao} onChange={(e) => setForm({ ...form, dataCriacao: e.target.value })} className="mt-1" />
-                      </div>
-                      <div>
-                        <Label htmlFor="dataValidade">Válido até</Label>
-                        <Input id="dataValidade" type="date" value={form.dataValidade} onChange={(e) => setForm({ ...form, dataValidade: e.target.value })} className="mt-1" />
-                      </div>
-                      <div>
-                        <Label htmlFor="formaPagamento">Forma de pagamento</Label>
-                        <select
-                            id="formaPagamento"
-                            value={form.formaPagamento || ""}
-                            onChange={(e) => setForm({ ...form, formaPagamento: e.target.value })}
-                            className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                        >
-                          <option value="">Selecione</option>
-                          <option value="pix">PIX</option>
-                          <option value="cartao_credito">Cartão de crédito</option>
-                          <option value="cartao_debito">Cartão de débito</option>
-                          <option value="boleto">Boleto</option>
-                          <option value="transferencia">Transferência</option>
-                          <option value="dinheiro">Dinheiro</option>
-                        </select>
-                      </div>
-                      <div>
-                        <Label htmlFor="orcamento-parcelado">Parcelado?</Label>
-                        <select
-                            id="orcamento-parcelado"
-                            value={(form.parcelas || 1) > 1 ? "sim" : "nao"}
-                            onChange={(e) => {
-                              const parcelado = e.target.value === "sim";
-                              setForm({ ...form, parcelas: parcelado ? Math.max(2, Number(form.parcelas) || 2) : 1 });
-                            }}
-                            className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                        >
-                          <option value="nao">Não</option>
-                          <option value="sim">Sim</option>
-                        </select>
-                      </div>
-                      {(form.parcelas || 1) > 1 && (
-                          <div>
-                            <Label htmlFor="orcamento-parcelas">Qtd. de parcelas</Label>
-                            <Input
-                                id="orcamento-parcelas"
-                                type="number"
-                                min="2"
-                                step="1"
-                                value={form.parcelas || 2}
-                                onChange={(e) => setForm({ ...form, parcelas: Math.max(2, Number(e.target.value) || 2) })}
-                                className="mt-1"
-                            />
-                          </div>
-                      )}
-                      <div>
-                        <Label>Status do Orçamento</Label>
-                        <select
-                            value={form.status}
-                            onChange={(e) => void onChangeStatusOrcamento(e.target.value as StatusOrc)}
-                            className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
-                            disabled={statusBloqueado}
-                        >
-                          {allStatus.map((s) => (
-                              <option key={s} value={s}>{s}</option>
-                          ))}
-                        </select>
-                        {statusBloqueado && (
-                            <p className="mt-1 text-xs text-gray-500">
-                              Status bloqueado após lançamento financeiro vinculado.
-                            </p>
-                        )}
-                      </div>
-                      {form.status === "Aprovado" && (
-                          <div>
-                            <Label>Status da Viagem</Label>
-                            <select
-                                value={form.statusViagem || ""}
-                                onChange={(e) => setForm({ ...form, statusViagem: e.target.value as StatusViagem | undefined })}
-                                className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
-                            >
-                              <option value="">Selecione...</option>
-                              <option value="Não Iniciada">Não Iniciada</option>
-                              <option value="Em Andamento">Em Andamento</option>
-                              <option value="Finalizada">Finalizada</option>
-                            </select>
-                          </div>
-                      )}
-                    </div>
-                )}
-              </Card>
-
               {/* Resumo de valores */}
-              <Card className="p-5">
+              <Card className="p-3 sm:p-6">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2"><DollarSign className="w-4 h-4 text-indigo-500" /> Resumo</h3>
                   <Button
@@ -2027,66 +2078,111 @@ export default function Orcamentos() {
                   </Button>
                 </div>
                 {!resumoMinimizado && (
-                    <div className="space-y-2 text-sm">
-                      <div className="space-y-1.5">
-                        {resumeSecoes.length > 0 ? (
-                            resumeSecoes.map((secao) => (
-                                <div key={secao.nome} className="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-2.5 py-2">
-                                  <div className="flex min-w-0 items-center gap-2">
-                          <span className="inline-flex h-6 min-w-8 items-center justify-center rounded bg-indigo-100 px-2 text-xs font-semibold text-indigo-700">
-                            {secao.quantidade}x
-                          </span>
-                                    <span className="truncate text-gray-700">{secao.nome}</span>
-                                  </div>
-                                  <span className="text-right font-medium text-gray-700">{secao.valor}</span>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-xs text-gray-500">Nenhuma seção preenchida.</p>
-                        )}
-                      </div>
-                      <div className="space-y-1.5">
-                        {itensVendaComDescricao.length > 0 ? (
-                            itensVendaComDescricao.map((item) => (
-                                <div key={item.id} className="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-2.5 py-2">
-                                  <div className="flex min-w-0 items-center gap-2">
-                          <span className="inline-flex h-6 min-w-8 items-center justify-center rounded bg-indigo-100 px-2 text-xs font-semibold text-indigo-700">
-                            {item.quantidade}x
-                          </span>
-                                    <span className="truncate text-gray-700">{item.descricao}</span>
-                                  </div>
-                                  <span className="text-right font-medium text-gray-700">{moeda(calcItem(item))}</span>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-xs text-gray-500">Nenhum item de venda informado.</p>
-                        )}
-                      </div>
-                      <div className="border-t pt-2 flex justify-between font-bold text-base text-gray-900">
-                        <span>Total</span>
-                        <span className="text-indigo-700">{moeda(totalResumo)}</span>
-                      </div>
+                <div className="space-y-2 text-sm">
+                  <div className="space-y-1.5">
+                    {resumeSecoes.length > 0 ? (
+                        resumeSecoes.map((secao) => (
+                            <div key={secao.nome} className="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-2.5 py-2">
+                              <div className="flex min-w-0 items-center gap-2">
+                        <span className="inline-flex h-6 min-w-8 items-center justify-center rounded bg-indigo-100 px-2 text-xs font-semibold text-indigo-700">
+                          {secao.quantidade}x
+                        </span>
+                                <span className="truncate text-gray-700">{secao.nome}</span>
+                              </div>
+                              <span className="text-right font-medium text-gray-700">{secao.valor}</span>
+                            </div>
+                        ))
+                    ) : (
+                        <p className="text-xs text-gray-500">Nenhuma seção preenchida.</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    {itensVendaComDescricao.length > 0 ? (
+                        itensVendaComDescricao.map((item) => (
+                            <div key={item.id} className="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-2.5 py-2">
+                              <div className="flex min-w-0 items-center gap-2">
+                        <span className="inline-flex h-6 min-w-8 items-center justify-center rounded bg-indigo-100 px-2 text-xs font-semibold text-indigo-700">
+                          {item.quantidade}x
+                        </span>
+                                <span className="truncate text-gray-700">{item.descricao}</span>
+                              </div>
+                              <span className="text-right font-medium text-gray-700">{moeda(calcItem(item))}</span>
+                            </div>
+                        ))
+                    ) : (
+                        <p className="text-xs text-gray-500">Nenhum item de venda informado.</p>
+                    )}
+                  </div>
+                  <div className="border-t pt-2 flex justify-between font-bold text-base text-gray-900">
+                    <span>Total</span>
+                    <span className="text-indigo-700">{moeda(totalResumo)}</span>
+                  </div>
+                </div>
+                )}
+              </Card>
+
+              {/* Orçamento - Resumo */}
+              <Card className="p-3 sm:p-6">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-500" /> Orçamento</h3>
+                  <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setOrcamentoResumoMinimizado((prev) => !prev)}
+                      className="h-8 px-2 text-gray-600"
+                  >
+                    {orcamentoResumoMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                    <span className="ml-1">{orcamentoResumoMinimizado ? " " : " "}</span>
+                  </Button>
+                </div>
+
+                {!orcamentoResumoMinimizado && (
+                    <div className="space-y-4">
+                      {editando ? (
+                        <ResumoOrcamentoInline orcamento={editando} />
+                      ) : (
+                        <p className="text-sm text-gray-600">Salve o orçamento primeiro para visualizar o resumo.</p>
+                      )}
                     </div>
                 )}
               </Card>
 
-              <div className="flex flex-col gap-2">
-                <Button onClick={salvar} disabled={salvando || !form.cliente.trim()} className="w-full gap-2">
-                  <Check className="w-4 h-4 mr-1" />{salvando ? "Salvando..." : editando ? "Salvar" : "Criar orçamento"}
-                </Button>
-                <Button variant="ghost" onClick={() => abrirResumo()} className="w-full gap-2">
-                  Orçamento
-                </Button>
-                <Button
-                    variant="ghost"
-                    onClick={() => gerarRoteiro()}
-                    disabled={form.status !== "Aprovado"}
-                    className="w-full gap-2">
-                  Roteiro
-                </Button>
-              </div>
-            </div>
-          </div>
+              {/* Roteiro */}
+              <Card className="p-3 sm:p-6">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><MapPin className="w-4 h-4 text-indigo-500" /> Roteiro</h3>
+                  <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setRoteiroMinimizado((prev) => !prev)}
+                      className="h-8 px-2 text-gray-600"
+                  >
+                    {roteiroMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                    <span className="ml-1">{roteiroMinimizado ? " " : " "}</span>
+                  </Button>
+                </div>
+
+                {!roteiroMinimizado && (
+                    <div className="space-y-4">
+                      {editando ? (
+                        <div className="w-full" style={{ height: "600px" }}>
+                          <iframe
+                            src={`/financeiro/orcamentos/roteiro/${editando.publicToken || editando.numero}`}
+                            className="w-full h-full border-0 rounded-lg"
+                            title="Roteiro do Orçamento"
+                            onLoad={() => {
+                              localStorage.setItem(`orc_${editando.numero}`, JSON.stringify(editando));
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-600">Salve o orçamento primeiro para visualizar o roteiro.</p>
+                      )}
+                    </div>
+                )}
+              </Card>
 
           {modalFinanceiroAberto && (
               <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
@@ -2222,12 +2318,13 @@ export default function Orcamentos() {
               </div>
           )}
         </div>
+        </div>
     );
   }
 
   // ============ TELA LISTA ============
   return (
-      <div>
+      <div className="px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Orçamentos</h1>
@@ -2239,23 +2336,23 @@ export default function Orcamentos() {
         </div>
 
         {/* Cards de resumo */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <Card className="p-4 flex items-center gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <Card className="p-3 sm:p-6 flex items-center gap-4">
             <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center"><DollarSign className="w-5 h-5 text-indigo-600" /></div>
             <div><p className="text-xs text-gray-500">Volume Total</p><p className="text-xl font-bold text-gray-900">{moeda(totais.total)}</p></div>
           </Card>
-          <Card className="p-4 flex items-center gap-4">
+          <Card className="p-3 sm:p-6 flex items-center gap-4">
             <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center"><Check className="w-5 h-5 text-green-600" /></div>
             <div><p className="text-xs text-gray-500">Aprovados</p><p className="text-xl font-bold text-gray-900">{moeda(totais.aprovados)}</p></div>
           </Card>
-          <Card className="p-4 flex items-center gap-4">
+          <Card className="p-3 sm:p-6 flex items-center gap-4">
             <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center"><Send className="w-5 h-5 text-blue-600" /></div>
             <div><p className="text-xs text-gray-500">Aguardando retorno</p><p className="text-xl font-bold text-gray-900">{totais.pendentes} orçamento{totais.pendentes !== 1 ? "s" : ""}</p></div>
           </Card>
         </div>
 
         {/* Filtros */}
-        <Card className="p-4 mb-6">
+        <Card className="p-3 sm:p-6 mb-4 sm:mb-6">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />

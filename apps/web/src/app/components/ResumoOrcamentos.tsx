@@ -73,7 +73,7 @@ export default function ResumoOrcamentos() {
   const orcamentosRecentes = orcamentos.slice(0, 3);
 
   return (
-    <div className="mb-6 sm:mb-8 px-3 sm:px-4 lg:px-8">
+    <div className="px-3 sm:px-4 lg:px-8 py-4 sm:py-8 mb-6 sm:mb-8">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
         <div className="flex items-center gap-2">
           <FileText className="h-5 sm:h-6 w-5 sm:w-6 text-purple-600 flex-shrink-0" />
