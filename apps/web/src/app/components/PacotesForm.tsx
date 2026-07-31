@@ -1798,6 +1798,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                     hospedagemComodidades: form.hospedagemComodidades?.trim(),
                     hospedagemPoliticasCondicoesInformacoesEspeciais: form.hospedagemPoliticasCondicoesInformacoesEspeciais?.trim(),
                     hospedagemNoites: form.hospedagemNoites?.trim(),
+                    hospedagemValor: form.hospedagemValor?.trim(),
                     hospedagemLink: form.hospedagemLink?.trim(),
                     hospedagemLinks: form.hospedagemLinks || [],
                     hospedagemFoto: form.hospedagemFoto,
@@ -1866,6 +1867,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
         hospedagemComodidades: form.hospedagemComodidades?.trim(),
         hospedagemPoliticasCondicoesInformacoesEspeciais: form.hospedagemPoliticasCondicoesInformacoesEspeciais?.trim(),
         hospedagemNoites: form.hospedagemNoites?.trim(),
+        hospedagemValor: form.hospedagemValor?.trim(),
         hospedagemLink: form.hospedagemLink?.trim(),
         hospedagemLinks: form.hospedagemLinks || [],
         hospedagemFoto: form.hospedagemFoto,
@@ -3087,10 +3089,13 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                               onChange={(e) => {
                                 const texto = e.target.value;
                                 setValorInput(texto);
-                                setForm((prev) => ({ ...prev, valor: parseMoeda(texto) }));
+                                const valorNumerico = parseMoeda(texto);
+                                setForm((prev) => ({ ...prev, valor: valorNumerico }));
                               }}
                               onBlur={() => {
-                                setValorInput(form.valor > 0 ? formatarMoeda(form.valor) : "");
+                                const valorNumerico = parseMoeda(valorInput);
+                                setValorInput(valorNumerico > 0 ? formatarMoeda(valorNumerico) : "");
+                                setForm((prev) => ({ ...prev, valor: valorNumerico }));
                               }}
                               className={`mt-1 ${!valorInput ? 'bg-yellow-50' : 'bg-white'}`}
                           />
