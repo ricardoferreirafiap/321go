@@ -13,7 +13,134 @@ import {
   Plane,
   PhoneOff,
   CheckCircle2,
+  TrendingUp,
+  TrendingDown,
+  RefreshCw,
 } from "lucide-react";
+
+interface CotacaoDolar {
+  bid: string;       // compra
+  ask: string;       // venda
+  high: string;      // máxima do dia
+  low: string;       // mínima do dia
+  pctChange: string; // variação %
+  timestamp: string;
+}
+
+function DolarWidget() {
+  const [cotacao, setCotacao] = useState<CotacaoDolar | null>(null);
+  const [loadingCotacao, setLoadingCotacao] = useState(true);
+  const [erroCotacao, setErroCotacao] = useState<string | null>(null);
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
+
+  async function buscarCotacao() {
+    setLoadingCotacao(true);
+    setErroCotacao(null);
+    try {
+      const res = await fetch("https://economia.awesomeapi.com.br/last/USD-BRL");
+      if (!res.ok) throw new Error("Falha ao buscar cotação");
+      const data = await res.json();
+      setCotacao(data.USDBRL as CotacaoDolar);
+      setUltimaAtualizacao(new Date());
+    } catch {
+      setErroCotacao("Não foi possível carregar a cotação do dólar.");
+    } finally {
+      setLoadingCotacao(false);
+    }
+  }
+
+  useEffect(() => {
+    buscarCotacao();
+    // Atualiza a cada 5 minutos
+    const intervalo = setInterval(buscarCotacao, 5 * 60 * 1000);
+    return () => clearInterval(intervalo);
+  }, []);
+
+  const variacao = cotacao ? parseFloat(cotacao.pctChange) : 0;
+  const positivo = variacao >= 0;
+
+  const formatBRL = (val: string) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(parseFloat(val));
+
+  return (
+    <Card className="border border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20">
+      <CardContent className="pt-4 pb-4">
+        <div className="flex flex-wrap items-center gap-6">
+          {/* Ícone + título */}
+          <div className="flex items-center gap-2 min-w-max">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/40">
+              <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">Dólar Americano</p>
+              <p className="text-xs text-muted-foreground">USD / BRL</p>
+            </div>
+          </div>
+
+          {loadingCotacao ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              Carregando...
+            </div>
+          ) : erroCotacao ? (
+            <p className="text-sm text-red-500">{erroCotacao}</p>
+          ) : cotacao ? (
+            <>
+              {/* Compra */}
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground">Compra</span>
+                <span className="text-xl font-bold text-green-700 dark:text-green-400">
+                  {formatBRL(cotacao.bid)}
+                </span>
+              </div>
+
+              {/* Venda */}
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground">Venda</span>
+                <span className="text-xl font-bold text-gray-800 dark:text-gray-200">
+                  {formatBRL(cotacao.ask)}
+                </span>
+              </div>
+
+              {/* Variação */}
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground">Variação hoje</span>
+                <span className={`flex items-center gap-1 text-sm font-semibold ${positivo ? "text-red-500" : "text-green-600"}`}>
+                  {positivo ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                  {positivo ? "+" : ""}{variacao.toFixed(2)}%
+                </span>
+              </div>
+
+              {/* Máx / Mín */}
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground">Máx / Mín</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  {formatBRL(cotacao.high)} / {formatBRL(cotacao.low)}
+                </span>
+              </div>
+
+              {/* Última atualização + botão */}
+              <div className="ml-auto flex flex-col items-end gap-1">
+                {ultimaAtualizacao && (
+                  <span className="text-xs text-muted-foreground">
+                    Atualizado às {ultimaAtualizacao.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
+                <button
+                  onClick={buscarCotacao}
+                  className="flex items-center gap-1 text-xs text-green-600 hover:text-green-800 transition-colors"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Atualizar
+                </button>
+              </div>
+            </>
+          ) : null}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table";
 import { listarLeads, type Lead } from "../data/leadsApi";
 import { listarLancamentosFinanceiros, type LancamentoFinanceiro } from "../data/financeiroApi";
@@ -560,6 +687,9 @@ export default function LeadDashboard() {
 
   return (
     <div className="flex-1 space-y-4 p-4 sm:p-8 pt-6">
+      {/* Cotação do Dólar */}
+      <DolarWidget />
+
       {/* Cabeçalho e Filtros */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h2 className="text-3xl font-bold tracking-tight">Visão Geral</h2>
