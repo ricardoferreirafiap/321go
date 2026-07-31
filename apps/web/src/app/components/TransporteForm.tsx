@@ -3,7 +3,18 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card } from "./ui/card";
-import { ChevronDown, ChevronUp, Plus, Trash2, Upload, FileText, Image, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Trash2, Upload, FileText, Image, X, Link2, Sparkles, Package2 } from "lucide-react";
+import { enviarMensagemIA } from "../data/aiChatApi";
+import { API_CONFIG } from "../data/apiConfig";
+
+interface Documento {
+  id: number;
+  nome: string;
+  tipo: string;
+  arquivo: string;
+  analise?: string;
+  dadosIA?: any;
+}
 
 interface Transporte {
   id: number;
@@ -20,6 +31,9 @@ interface Transporte {
   voucher: string | null;
   voucherTipo: "pdf" | "imagem" | null;
   voucherNome: string;
+  urlOperador?: string[];
+  documentos?: Documento[];
+  logAnalise?: string;
 }
 
 interface TransporteFormProps {
@@ -56,10 +70,20 @@ export default function TransporteForm({ transportes, onTransportesChange }: Tra
     voucher: null,
     voucherTipo: null,
     voucherNome: "",
+    urlOperador: [],
+    documentos: [],
+    logAnalise: "",
   });
   const [erro, setErro] = useState("");
   const [formMinimizado, setFormMinimizado] = useState(true);
+  const [vouchersMinimizado, setVouchersMinimizado] = useState(true);
+  const [urlOperadorMinimizado, setUrlOperadorMinimizado] = useState(true);
+  const [logAnaliseMinimizado, setLogAnaliseMinimizado] = useState(true);
+  const [analisandoIA, setAnalisandoIA] = useState(false);
+  const [logAnaliseIA, setLogAnaliseIA] = useState<string[]>([]);
+  const [novaUrlOperador, setNovaUrlOperador] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const documentosInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -94,6 +118,208 @@ export default function TransporteForm({ transportes, onTransportesChange }: Tra
     }
   };
 
+  function adicionarUrlOperador() {
+    const url = novaUrlOperador.trim();
+    if (!url) return;
+
+    const urlsAtuais = form.urlOperador || [];
+    if (urlsAtuais.includes(url)) {
+      setErro("Esta URL já foi adicionada.");
+      return;
+    }
+
+    setForm({ ...form, urlOperador: [...urlsAtuais, url] });
+    setNovaUrlOperador("");
+    setErro("");
+  }
+
+  function removerUrlOperador(index: number) {
+    const urlsAtuais = form.urlOperador || [];
+    const novasUrls = urlsAtuais.filter((_, i) => i !== index);
+    setForm({ ...form, urlOperador: novasUrls });
+  }
+
+  async function handleDocumentosUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const arquivos = Array.from(e.target.files ?? []);
+    if (arquivos.length === 0) return;
+
+    const docs = await Promise.all(
+      arquivos.map(
+        (arquivo) =>
+          new Promise<Documento>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              resolve({
+                id: Date.now() + Math.floor(Math.random() * 10000),
+                nome: arquivo.name,
+                tipo: arquivo.type,
+                arquivo: String(reader.result || ""),
+                analise: "",
+              });
+            };
+            reader.onerror = () => reject(new Error("Falha ao carregar documento."));
+            reader.readAsDataURL(arquivo);
+          })
+      )
+    );
+
+    setForm((f) => ({ ...f, documentos: [...(f.documentos || []), ...docs] }));
+    e.target.value = "";
+  }
+
+  function removerDocumento(idDocumento: number) {
+    setForm((f) => ({
+      ...f,
+      documentos: (f.documentos || []).filter((doc) => doc.id !== idDocumento),
+    }));
+  }
+
+  function criarPromptAnaliseUrl(htmlContent: string): string {
+    return `Analise o seguinte conteúdo HTML de uma página de operador de turismo e extraia informações relevantes sobre transporte, transfer, aluguel de carros ou serviços similares.
+
+Conteúdo HTML:
+${htmlContent}
+
+Por favor, extraia e retorne apenas um JSON válido com as seguintes informações (se disponíveis):
+{
+  "empresa": "nome da empresa de transporte",
+  "tipo": "tipo de transporte (transfer, aluguel de carro, táxi, etc)",
+  "origem": "local de origem",
+  "destino": "local de destino",
+  "valor": "valor do serviço",
+  "reserva": "código de reserva se houver",
+  "descricao": "descrição detalhada do serviço",
+  "observacoes": "quaisquer observações importantes"
+}
+
+Se não encontrar alguma informação, retorne null para o campo correspondente.`;
+  }
+
+  async function analisarDocumentosComIA() {
+    if (!form.documentos || form.documentos.length === 0) {
+      if (!form.urlOperador || form.urlOperador.length === 0) {
+        setErro("Nenhum documento ou URL para analisar.");
+        return;
+      }
+    }
+
+    setAnalisandoIA(true);
+    setErro("");
+    setForm((f) => ({ ...f, logAnalise: "" }));
+
+    const logEntries: string[] = ["Iniciando análise com IA..."];
+    setLogAnaliseIA([...logEntries]);
+
+    const adicionarLog = (mensagem: string) => {
+      logEntries.push(mensagem);
+      setLogAnaliseIA([...logEntries]);
+    };
+
+    // Analisar URLs do operador se estiverem preenchidas
+    for (const url of form.urlOperador || []) {
+      if (!url?.trim()) continue;
+
+      try {
+        adicionarLog(`Baixando conteúdo da URL: ${url}`);
+
+        const response = await fetch(`${API_CONFIG.apiBase}/scrape-url`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Falha ao baixar página: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const htmlContent = data.html;
+
+        if (!htmlContent || typeof htmlContent !== 'string') {
+          throw new Error('Conteúdo HTML inválido ou vazio retornado pelo backend.');
+        }
+
+        adicionarLog(`Conteúdo baixado com sucesso (${data.contentLength ?? htmlContent?.length ?? 0} caracteres).`);
+
+        const prompt = criarPromptAnaliseUrl(htmlContent);
+
+        try {
+          adicionarLog(`Analisando URL com IA...`);
+          const dataUrl = await enviarMensagemIA([{ role: "user", content: prompt }]);
+
+          if (dataUrl) {
+            adicionarLog(`Análise da URL concluída com sucesso.`);
+
+            // Criar documento com o resultado da análise
+            const urlDocumento: Documento = {
+              id: Date.now() + Math.floor(Math.random() * 10000),
+              nome: `URL: ${url}`,
+              tipo: "text/url",
+              arquivo: url,
+              analise: dataUrl,
+            };
+
+            setForm((f) => ({ ...f, documentos: [...(f.documentos || []), urlDocumento] }));
+          }
+        } catch (error) {
+          adicionarLog(`Falha na análise da URL: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+        }
+      } catch (error) {
+        adicionarLog(`Erro ao processar URL ${url}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      }
+    }
+
+    // Analisar documentos anexados
+    if (form.documentos && form.documentos.length > 0) {
+      for (const doc of form.documentos) {
+        if (doc.analise) continue; // Já analisado
+
+        try {
+          adicionarLog(`Analisando documento: ${doc.nome}`);
+
+          const prompt = `Analise este documento de transporte e extraia informações relevantes.
+Documento: ${doc.nome}
+Tipo: ${doc.tipo}
+
+Por favor, extraia e retorne apenas um JSON válido com as seguintes informações:
+{
+  "empresa": "nome da empresa de transporte",
+  "tipo": "tipo de transporte",
+  "origem": "local de origem",
+  "destino": "local de destino",
+  "valor": "valor do serviço",
+  "reserva": "código de reserva",
+  "descricao": "descrição detalhada",
+  "observacoes": "observações importantes"
+}`;
+
+          const resultado = await enviarMensagemIA([{ role: "user", content: prompt }]);
+
+          if (resultado) {
+            adicionarLog(`Análise do documento ${doc.nome} concluída.`);
+
+            // Atualizar documento com análise
+            setForm((f) => ({
+              ...f,
+              documentos: (f.documentos || []).map((d) =>
+                d.id === doc.id ? { ...d, analise: resultado } : d
+              ),
+            }));
+          }
+        } catch (error) {
+          adicionarLog(`Falha na análise do documento ${doc.nome}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+        }
+      }
+    }
+
+    adicionarLog("Análise concluída.");
+    setAnalisandoIA(false);
+    setForm((f) => ({ ...f, logAnalise: logEntries.join("\n") }));
+  }
+
   const adicionarTransporte = () => {
     if (!form.tipo || !form.empresa || !form.origem || !form.destino) {
       setErro("Preencha os campos obrigatórios: Tipo, Empresa, Origem e Destino.");
@@ -123,10 +349,18 @@ export default function TransporteForm({ transportes, onTransportesChange }: Tra
       voucher: null,
       voucherTipo: null,
       voucherNome: "",
+      urlOperador: [],
+      documentos: [],
+      logAnalise: "",
     });
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+    if (documentosInputRef.current) {
+      documentosInputRef.current.value = "";
+    }
+    setNovaUrlOperador("");
+    setLogAnaliseIA([]);
     setErro("");
   };
 
@@ -340,6 +574,184 @@ export default function TransporteForm({ transportes, onTransportesChange }: Tra
               </div>
             </div>
 
+            {/* Seção de Vouchers e Documentos */}
+            <div className="mb-3">
+              <Card className="p-3 bg-gray-50">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <h5 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                    <Package2 className="h-4 w-4 text-indigo-500" />
+                    Vouchers e Documentos
+                  </h5>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setVouchersMinimizado((prev) => !prev)}
+                    className="gap-2 text-gray-600 hover:text-gray-900 h-6"
+                  >
+                    {vouchersMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                  </Button>
+                </div>
+
+                {!vouchersMinimizado && (
+                  <>
+                    {/* Upload de Documentos */}
+                    <div className="space-y-3 mb-3">
+                      <div
+                        onClick={() => documentosInputRef.current?.click()}
+                        className="border-2 border-dashed border-gray-300 rounded-lg p-3 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors bg-white"
+                      >
+                        <Upload className="w-5 h-5 mx-auto mb-1 text-gray-400" />
+                        <p className="text-xs text-gray-500">Clique para anexar documentos</p>
+                        <p className="text-xs text-gray-400 mt-0.5">PDF, ZIP, JPG, etc.</p>
+                      </div>
+                      <input
+                        ref={documentosInputRef}
+                        type="file"
+                        multiple
+                        onChange={handleDocumentosUpload}
+                        className="hidden"
+                      />
+                      {(form.documentos || []).length > 0 && (
+                        <div className="space-y-1.5">
+                          {(form.documentos || []).map((doc) => (
+                            <div key={doc.id} className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <a href={doc.arquivo} download={doc.nome} className="truncate text-indigo-600 hover:text-indigo-700 flex items-center gap-2">
+                                    <FileText className="h-4 w-4 flex-shrink-0" />
+                                    <span className="truncate">{doc.nome}</span>
+                                  </a>
+                                  <button type="button" onClick={() => removerDocumento(doc.id)} className="ml-2 rounded p-1 text-red-500 hover:bg-red-50" title="Remover documento">
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* URL do Operador */}
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <Label htmlFor="url-operador" className="text-xs text-gray-500">URL do Operador</Label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setUrlOperadorMinimizado((prev) => !prev)}
+                          className="h-6 gap-1 px-2 text-gray-500 hover:text-gray-700"
+                        >
+                          {urlOperadorMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                        </Button>
+                      </div>
+                      {!urlOperadorMinimizado && (
+                        <>
+                          <div className="relative mt-1 flex gap-2">
+                            <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                            <Input
+                              id="url-operador"
+                              value={novaUrlOperador}
+                              onChange={(e) => setNovaUrlOperador(e.target.value)}
+                              placeholder="Cole a URL do operador aqui..."
+                              className="pl-8"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  adicionarUrlOperador();
+                                }
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={adicionarUrlOperador}
+                              className="shrink-0"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          {(form.urlOperador || []).length > 0 && (
+                            <div className="space-y-1.5 mt-2">
+                              {(form.urlOperador || []).map((url, index) => (
+                                <div key={index} className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs">
+                                  <div className="flex-1 min-w-0">
+                                    <a href={url} target="_blank" rel="noopener noreferrer" className="truncate text-indigo-600 hover:text-indigo-700 flex items-center gap-2">
+                                      <Link2 className="h-4 w-4 flex-shrink-0" />
+                                      <span className="truncate">{url}</span>
+                                    </a>
+                                  </div>
+                                  <button type="button" onClick={() => removerUrlOperador(index)} className="ml-2 rounded p-1 text-red-500 hover:bg-red-50" title="Remover URL">
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Botão Analisar IA */}
+                    <div className="flex justify-end mt-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={analisarDocumentosComIA}
+                        disabled={analisandoIA || ((form.documentos || []).length === 0 && (!form.urlOperador || form.urlOperador.length === 0))}
+                        className="gap-2 text-indigo-600 border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                      >
+                        <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
+                        {analisandoIA ? "Analisando..." : "Analisar IA"}
+                      </Button>
+                    </div>
+
+                    {/* Log de Análise IA */}
+                    {logAnaliseIA.length > 0 && (
+                      <div className="mt-3 rounded-md border border-indigo-200 bg-indigo-50 text-xs text-indigo-800">
+                        <div className="flex items-center justify-between gap-2 p-2">
+                          <span className="font-medium">Log de Análise IA</span>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setLogAnaliseMinimizado((prev) => !prev)}
+                              className="h-6 gap-1 px-2 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900"
+                            >
+                              {logAnaliseMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setLogAnaliseIA([])}
+                              className="h-6 gap-1 px-2 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                        {!logAnaliseMinimizado && (
+                          <div className="p-2 pt-0 max-h-40 overflow-y-auto">
+                            {logAnaliseIA.map((log, index) => (
+                              <div key={index} className="py-0.5 border-t border-indigo-200 first:border-0">
+                                {log}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </Card>
+            </div>
+
             {erro && <p className="text-xs text-red-500 mb-3">{erro}</p>}
 
             <Button
@@ -436,6 +848,22 @@ export default function TransporteForm({ transportes, onTransportesChange }: Tra
                       >
                         Visualizar
                       </button>
+                    </div>
+                  )}
+                  {(transp.urlOperador && transp.urlOperador.length > 0) && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Link2 className="w-3.5 h-3.5 text-indigo-500" />
+                      <span className="text-xs text-gray-500">
+                        {transp.urlOperador.length} URL(s)
+                      </span>
+                    </div>
+                  )}
+                  {(transp.documentos && transp.documentos.length > 0) && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <FileText className="w-3.5 h-3.5 text-gray-500" />
+                      <span className="text-xs text-gray-500">
+                        {transp.documentos.length} documento(s)
+                      </span>
                     </div>
                   )}
                 </div>
