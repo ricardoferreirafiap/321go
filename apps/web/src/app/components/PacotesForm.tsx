@@ -138,7 +138,7 @@ interface Pacote {
   hospedagemComodidades?: string;
   hospedagemPoliticasCondicoesInformacoesEspeciais?: string;
   hospedagemNoites?: string;
-  hospedagemValor?: string;
+  hospedagemValor?: number;
   hospedagemLink?: string;
   hospedagemLinks?: string[];
   hospedagemFoto?: string | null;
@@ -169,6 +169,8 @@ interface Pacote {
 interface PacotesFormProps {
   pacotes: Pacote[];
   onPacotesChange: (pacotes: Pacote[]) => void;
+  hospedagens?: any[];
+  onHospedagensChange?: (hospedagens: any[]) => void;
 }
 
 const operadoresPadrao = [
@@ -219,7 +221,7 @@ const pacoteVazio: Omit<Pacote, "id"> = {
   hospedagemComodidades: "",
   hospedagemPoliticasCondicoesInformacoesEspeciais: "",
   hospedagemNoites: "",
-  hospedagemValor: "",
+  hospedagemValor: 0,
   hospedagemLink: "",
   hospedagemLinks: [],
   hospedagemFoto: null,
@@ -1515,9 +1517,10 @@ function encontrarDocumentoIngresso(documentos: Documento[]) {
   return documentos.find((doc) => possuiDadosIngresso(obterDadosIADocumento(doc)));
 }
 
-export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormProps) {
+export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onHospedagensChange }: PacotesFormProps) {
   const [form, setForm] = useState<Omit<Pacote, "id">>(pacoteVazio);
   const [valorInput, setValorInput] = useState("");
+  const [hospedagemValorInput, setHospedagemValorInput] = useState("");
   const [erro, setErro] = useState("");
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [voucherParaExcluir, setVoucherParaExcluir] = useState<number | null>(null);
@@ -1798,7 +1801,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                     hospedagemComodidades: form.hospedagemComodidades?.trim(),
                     hospedagemPoliticasCondicoesInformacoesEspeciais: form.hospedagemPoliticasCondicoesInformacoesEspeciais?.trim(),
                     hospedagemNoites: form.hospedagemNoites?.trim(),
-                    hospedagemValor: form.hospedagemValor?.trim(),
+                    hospedagemValor: form.hospedagemValor,
                     hospedagemLink: form.hospedagemLink?.trim(),
                     hospedagemLinks: form.hospedagemLinks || [],
                     hospedagemFoto: form.hospedagemFoto,
@@ -1825,6 +1828,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       );
       setForm(pacoteVazio);
       setValorInput("");
+      setHospedagemValorInput("");
       setEditandoId(null);
       setFormMinimizado(true);
       setPoliticaCancelamentoMinimizado(true);
@@ -1867,7 +1871,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
         hospedagemComodidades: form.hospedagemComodidades?.trim(),
         hospedagemPoliticasCondicoesInformacoesEspeciais: form.hospedagemPoliticasCondicoesInformacoesEspeciais?.trim(),
         hospedagemNoites: form.hospedagemNoites?.trim(),
-        hospedagemValor: form.hospedagemValor?.trim(),
+        hospedagemValor: form.hospedagemValor,
         hospedagemLink: form.hospedagemLink?.trim(),
         hospedagemLinks: form.hospedagemLinks || [],
         hospedagemFoto: form.hospedagemFoto,
@@ -1892,6 +1896,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     ]);
     setForm(pacoteVazio);
     setValorInput("");
+    setHospedagemValorInput("");
     setEditandoId(null);
     setFormMinimizado(true);
     setPoliticaCancelamentoMinimizado(true);
@@ -1948,9 +1953,11 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       hospedagemComodidades: pacote.hospedagemComodidades || "",
       hospedagemPoliticasCondicoesInformacoesEspeciais: pacote.hospedagemPoliticasCondicoesInformacoesEspeciais || "",
       hospedagemNoites: pacote.hospedagemNoites || "",
+      hospedagemValor: pacote.hospedagemValor || "",
       hospedagemLink: pacote.hospedagemLink || "",
       hospedagemLinks: Array.isArray(pacote.hospedagemLinks) ? pacote.hospedagemLinks : (pacote.hospedagemLink ? [pacote.hospedagemLink] : []),
       hospedagemFoto: pacote.hospedagemFoto || null,
+      hospedagemFotos: Array.isArray(pacote.hospedagemFotos) ? pacote.hospedagemFotos : (pacote.hospedagemFoto ? [pacote.hospedagemFoto] : []),
       trasladoTipo: pacote.trasladoTipo || "",
       trasladoData: pacote.trasladoData || "",
       trasladoHorario: pacote.trasladoHorario || "",
@@ -1975,6 +1982,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
       logAnalise: pacote.logAnalise || "",
     });
     setValorInput(pacote.valor ? formatarMoeda(Number(pacote.valor) || 0) : "");
+    setHospedagemValorInput(pacote.hospedagemValor ? formatarMoeda(Number(pacote.hospedagemValor) || 0) : "");
     setErro("");
   }
 
@@ -1983,6 +1991,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     if (editandoId === id) {
       setForm(pacoteVazio);
       setValorInput("");
+      setHospedagemValorInput("");
       setEditandoId(null);
       setFormMinimizado(true);
       setPoliticaCancelamentoMinimizado(true);
@@ -2059,6 +2068,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     if (possuiDadosTraslado(dados)) novoForm = mapearDetalhesTraslado(novoForm, dados);
     if (possuiDadosIngresso(dados)) novoForm = mapearDetalhesIngresso(novoForm, dados);
     if (novoForm.valor > 0) setValorInput(formatarMoeda(novoForm.valor));
+    if (novoForm.hospedagemValor) setHospedagemValorInput(formatarMoeda(parseMoeda(novoForm.hospedagemValor)));
     setForm((f) => ({ ...novoForm, documentos: f.documentos }));
     propagarAoPai({ ...novoForm, documentos: form.documentos });
     setTimeout(() => setAtualizando(null), 800);
@@ -3253,10 +3263,21 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                       <div>
                         <Label className="text-xs">Valor (R$)</Label>
                         <Input
-                            className={`mt-1 ${!form.hospedagemValor ? 'bg-yellow-50' : 'bg-white'}`}
+                            className={`mt-1 ${!hospedagemValorInput ? 'bg-yellow-50' : 'bg-white'}`}
                             placeholder="R$ 0,00"
-                            value={form.hospedagemValor || ""}
-                            onChange={(e) => setForm((prev) => ({ ...prev, hospedagemValor: e.target.value }))}
+                            value={hospedagemValorInput}
+                            onChange={(e) => {
+                              const texto = e.target.value;
+                              setHospedagemValorInput(texto);
+                              const valorNumerico = parseMoeda(texto);
+                              setForm((prev) => ({ ...prev, hospedagemValor: valorNumerico }));
+                            }}
+                            onBlur={() => {
+                              const valorNumerico = parseMoeda(hospedagemValorInput);
+                              const formatado = valorNumerico > 0 ? formatarMoeda(valorNumerico) : "";
+                              setHospedagemValorInput(formatado);
+                              setForm((prev) => ({ ...prev, hospedagemValor: valorNumerico }));
+                            }}
                         />
                       </div>
 
@@ -3861,6 +3882,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                           {pacote.hospedagemCheckin && pacote.hospedagemCheckout
                               ? ` (${pacote.hospedagemCheckin} → ${pacote.hospedagemCheckout})`
                               : ""}
+                          {pacote.hospedagemValor && ` - R$ ${pacote.hospedagemValor}`}
                         </p>
                     )}
                     {(pacote.trasladoTipo ||

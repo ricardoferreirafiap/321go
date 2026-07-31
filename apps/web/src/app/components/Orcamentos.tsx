@@ -304,8 +304,34 @@ function resumirItemSecao(item: any) {
 }
 
 function extrairNumeroPositivo(valor: unknown, padrao = 0) {
+  if (typeof valor === "string") {
+    const limpo = valor.replace(/\./g, "").replace(",", ".");
+    const n = parseFloat(limpo);
+    return Number.isFinite(n) && n > 0 ? n : padrao;
+  }
   const n = Number(valor);
   return Number.isFinite(n) && n > 0 ? n : padrao;
+}
+
+function extrairNumero(valor: unknown, padrao = 0) {
+  if (valor === null || valor === undefined) return padrao;
+  if (typeof valor === "string") {
+    const limpo = valor.replace(/\./g, "").replace(",", ".");
+    const n = parseFloat(limpo);
+    return Number.isFinite(n) ? n : padrao;
+  }
+  const n = Number(valor);
+  return Number.isFinite(n) ? n : padrao;
+}
+
+function parseMoeda(valorTexto: string) {
+  const limpo = valorTexto
+      .replace(/\s/g, "")
+      .replace(/R\$/gi, "")
+      .replace(/\./g, "")
+      .replace(/,/g, ".");
+  const numero = parseFloat(limpo);
+  return Number.isFinite(numero) ? numero : 0;
 }
 
 function montarLinhasDescricao(orc: Orcamento): ItemOrc[] {
@@ -355,10 +381,17 @@ function montarLinhasDescricao(orc: Orcamento): ItemOrc[] {
           || extrairNumeroPositivo(item?.noites, 0)
           || 1;
 
-      const valorUnitario = extrairNumeroPositivo(item?.valor, 0)
-          || extrairNumeroPositivo(item?.preco, 0)
-          || extrairNumeroPositivo(item?.valorUnitario, 0)
-          || 0;
+      let valorUnitario = 0;
+      if (secao.titulo === "Pacotes") {
+        const valorPacote = extrairNumero(item?.valor, 0);
+        const valorHosp = extrairNumero(item?.hospedagemValor, 0);
+        valorUnitario = valorPacote + valorHosp;
+      } else {
+        valorUnitario = extrairNumeroPositivo(item?.valor, 0)
+            || extrairNumeroPositivo(item?.preco, 0)
+            || extrairNumeroPositivo(item?.valorUnitario, 0)
+            || 0;
+      }
 
       const unidade = typeof item?.unidade === "string" && item.unidade.trim()
           ? item.unidade
@@ -1281,7 +1314,11 @@ export default function Orcamentos() {
   // ============ TELA FORMULÁRIO ============
   if (tela === "form") {
     const itensVendaComDescricao = form.itens.filter((item) => item.descricao.trim());
-    const totalPacotesResumo = pacotes.reduce((acc, item) => acc + (Number(item?.valor) || 0), 0);
+    const totalPacotesResumo = pacotes.reduce((acc, item) => {
+      const valorPacote = Number(item?.valor) || 0;
+      const valorHospedagem = Number(item?.hospedagemValor) || 0;
+      return acc + valorPacote + valorHospedagem;
+    }, 0);
     const totalHospedagemResumo = hospedagem.reduce((acc, item) => acc + (Number(item?.preco) || 0), 0);
     const totalTransporteResumo = transporte.reduce((acc, item) => acc + (Number(item?.valor) || 0), 0);
     const totalRestauranteResumo = restaurante.reduce((acc, item) => acc + (Number(item?.preco) || 0), 0);
@@ -1299,7 +1336,6 @@ export default function Orcamentos() {
       { nome: "Pacotes" as const, quantidade: pacotes.length, valor: moeda(totalPacotesResumo) },
       { nome: "Voos" as const, quantidade: voos.length, valor: "—" },
       { nome: "Hospedagem" as const, quantidade: hospedagem.length, valor: moeda(totalHospedagemResumo) },
-      { nome: "Roteiro" as const, quantidade: roteiro.trim() ? 1 : 0, valor: roteiro.trim() ? "Preenchido" : "—" },
       { nome: "Day by Day" as const, quantidade: dayByDay.length, valor: "—" },
       { nome: "Transporte" as const, quantidade: transporte.length, valor: moeda(totalTransporteResumo) },
       { nome: "Restaurante" as const, quantidade: restaurante.length, valor: moeda(totalRestauranteResumo) },
@@ -1639,7 +1675,7 @@ export default function Orcamentos() {
                       <div className="mt-3">
                         {section === 'Pacotes' && (
                             <div className="space-y-6">
-                              <PacotesForm pacotes={pacotes} onPacotesChange={setPacotes} />
+                              <PacotesForm pacotes={pacotes} onPacotesChange={setPacotes} hospedagens={hospedagem} onHospedagensChange={setHospedagem} />
                             </div>
                         )}
 

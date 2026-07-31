@@ -11,11 +11,26 @@ interface FavoritosOrcamentosProps {
   isMobile?: boolean;
 }
 
-const calcularTotal = (itens: ItemOrc[]) =>
-  itens.reduce((acc, item) => {
+const calcularTotal = (orc: Orcamento) => {
+  const totalVendas = (orc.itens || []).reduce((acc, item) => {
     const sub = item.quantidade * item.valorUnitario;
     return acc + sub - (sub * item.desconto) / 100;
   }, 0);
+
+  const totalPacotes = (orc.pacotes || []).reduce((acc, p) => {
+    const valorPacote = Number(p.valor) || 0;
+    const valorHospedagem = Number((p as any).hospedagemValor) || 0;
+    return acc + valorPacote + valorHospedagem;
+  }, 0);
+
+  const totalHospedagem = (orc.hospedagem || []).reduce((acc, h) => acc + (h.preco || 0), 0);
+  const totalTransporte = (orc.transporte || []).reduce((acc, t) => acc + (t.valor || 0), 0);
+  const totalRestaurante = (orc.restaurante || []).reduce((acc, r) => acc + (r.preco || 0), 0);
+  const totalExperiencias = (orc.experiencias || []).reduce((acc, e) => acc + (e.preco || 0), 0);
+  const totalSeguro = (orc.seguro || []).reduce((acc, s) => acc + (s.valor || 0), 0);
+
+  return totalVendas + totalPacotes + totalHospedagem + totalTransporte + totalRestaurante + totalExperiencias + totalSeguro;
+};
 
 const statusColor: Record<string, string> = {
   Aprovado: "bg-green-100 text-green-800",
@@ -157,7 +172,7 @@ export default function FavoritosOrcamentos({ setFavoritosOpen, isMobile = false
                     {new Date(orc.dataCriacao + "T00:00:00").toLocaleDateString("pt-BR")}
                   </p>
                   <p className="text-sm font-bold text-gray-900">
-                    {calcularTotal(orc.itens).toLocaleString("pt-BR", {
+                    {calcularTotal(orc).toLocaleString("pt-BR", {
                       style: "currency",
                       currency: "BRL",
                     })}

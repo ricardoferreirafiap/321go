@@ -113,6 +113,7 @@ interface Pacote {
   hospedagemNoites?: string;
   hospedagemLink?: string;
   hospedagemFoto?: string | null;
+  hospedagemValor?: number;
   trasladoTipo?: string;
   trasladoData?: string;
   trasladoHorario?: string;
@@ -260,7 +261,11 @@ export default function ResumoOrcamento() {
   const itensVendaAdicionados = (orcamento.itens || []).filter((item) => item.descricao?.trim());
   const totalVendas = itensVendaAdicionados.reduce((acc, i) => acc + calcItem(i), 0);
   const totalVoos = orcamento.voos?.reduce((acc, v) => acc + (v.valor || 0), 0) || 0;
-  const totalPacotes = orcamento.pacotes?.reduce((acc, p) => acc + (Number(p.valor) || 0), 0) || 0;
+  const totalPacotes = orcamento.pacotes?.reduce((acc, p) => {
+    const valorPacote = Number(p.valor) || 0;
+    const valorHospedagem = Number(p.hospedagemValor) || 0;
+    return acc + valorPacote + valorHospedagem;
+  }, 0) || 0;
   const totalHospedagem = orcamento.hospedagem?.reduce((acc, h) => acc + (h.preco || 0), 0) || 0;
   const totalSeguro = orcamento.seguro?.reduce((acc, s) => acc + (s.valor || 0), 0) || 0;
   const totalTransporte = orcamento.transporte?.reduce((acc, t) => acc + (t.valor || 0), 0) || 0;
@@ -611,14 +616,40 @@ export default function ResumoOrcamento() {
             </CardHeader>
             {expandido.hospedagem && (
             <CardContent>
-                <div className="space-y-2 text-sm">
+                <div className="space-y-3 text-sm">
                   {orcamento.hospedagem.map(h => (
-                    <div key={h.id} className="p-2 bg-gray-50 rounded flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <span className="font-medium">{h.nome} - {h.local}</span>
-                        <p className="text-xs text-gray-500 mt-1">{new Date(h.checkin + 'T00:00:00').toLocaleDateString('pt-BR')} → {new Date(h.checkout + 'T00:00:00').toLocaleDateString('pt-BR')} ({h.noites} noites)</p>
+                    <div key={h.id} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <span className="font-semibold text-gray-900">{h.nome}</span>
+                          <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                            <MapPin className="w-3 h-3" /> {h.local}
+                          </p>
+                          {(h as any).endereco && (
+                            <p className="text-xs text-gray-500 mt-0.5">{(h as any).endereco}</p>
+                          )}
+                        </div>
+                        {h.preco > 0 && <span className="text-sm font-semibold text-purple-700 whitespace-nowrap">{moeda(h.preco)}</span>}
                       </div>
-                      {h.preco > 0 && <span className="text-sm font-semibold text-gray-800 whitespace-nowrap">{moeda(h.preco)}</span>}
+                      <div className="mt-2 pt-2 border-t border-gray-200">
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
+                          <span className="flex items-center gap-1">
+                            <CalendarDays className="w-3 h-3" />
+                            {new Date(h.checkin + 'T00:00:00').toLocaleDateString('pt-BR')} → {new Date(h.checkout + 'T00:00:00').toLocaleDateString('pt-BR')}
+                          </span>
+                          <span>({h.noites} noites)</span>
+                        </div>
+                        {(h as any).tipoQuarto && (
+                          <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
+                            <Building2 className="w-3 h-3" /> Quarto: {(h as any).tipoQuarto}
+                          </p>
+                        )}
+                        {(h as any).classificacao && (h as any).classificacao > 0 && (
+                          <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
+                            <Star className="w-3 h-3 text-yellow-500" /> Classificação: {(h as any).classificacao.toFixed(1)}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
