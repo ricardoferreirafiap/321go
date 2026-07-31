@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+﻿import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -19,16 +19,20 @@ import {
 } from "lucide-react";
 
 interface CotacaoDolar {
-  bid: string;       // compra
-  ask: string;       // venda
-  high: string;      // máxima do dia
-  low: string;       // mínima do dia
-  pctChange: string; // variação %
+  bid: string;
+  ask: string;
+  high: string;
+  low: string;
+  pctChange: string;
   timestamp: string;
 }
 
 function DolarWidget() {
+  const [expandido, setExpandido] = useState(true);
+  // Cotação comercial
   const [cotacao, setCotacao] = useState<CotacaoDolar | null>(null);
+  // Cotação turismo
+  const [cotacaoTurismo, setCotacaoTurismo] = useState<CotacaoDolar | null>(null);
   const [loadingCotacao, setLoadingCotacao] = useState(true);
   const [erroCotacao, setErroCotacao] = useState<string | null>(null);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
@@ -37,10 +41,17 @@ function DolarWidget() {
     setLoadingCotacao(true);
     setErroCotacao(null);
     try {
-      const res = await fetch("https://economia.awesomeapi.com.br/last/USD-BRL");
-      if (!res.ok) throw new Error("Falha ao buscar cotação");
-      const data = await res.json();
-      setCotacao(data.USDBRL as CotacaoDolar);
+      const [resComercial, resTurismo] = await Promise.all([
+        fetch("https://economia.awesomeapi.com.br/last/USD-BRL"),
+        fetch("https://economia.awesomeapi.com.br/last/USD-BRLT"),
+      ]);
+      if (!resComercial.ok) throw new Error("Falha ao buscar cotação");
+      const dataComercial = await resComercial.json();
+      setCotacao(dataComercial.USDBRL as CotacaoDolar);
+      if (resTurismo.ok) {
+        const dataTurismo = await resTurismo.json();
+        setCotacaoTurismo(dataTurismo.USDBRLT as CotacaoDolar);
+      }
       setUltimaAtualizacao(new Date());
     } catch {
       setErroCotacao("Não foi possível carregar a cotação do dólar.");
@@ -51,7 +62,6 @@ function DolarWidget() {
 
   useEffect(() => {
     buscarCotacao();
-    // Atualiza a cada 5 minutos
     const intervalo = setInterval(buscarCotacao, 5 * 60 * 1000);
     return () => clearInterval(intervalo);
   }, []);
@@ -59,88 +69,386 @@ function DolarWidget() {
   const variacao = cotacao ? parseFloat(cotacao.pctChange) : 0;
   const positivo = variacao >= 0;
 
-  const formatBRL = (val: string) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(parseFloat(val));
+  const fmtBRL = (val: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(val);
+  const fmtBRLStr = (val: string) => fmtBRL(parseFloat(val));
 
   return (
     <Card className="border border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20">
-      <CardContent className="pt-4 pb-4">
-        <div className="flex flex-wrap items-center gap-6">
-          {/* Ícone + título */}
-          <div className="flex items-center gap-2 min-w-max">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/40">
-              <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
+      <CardContent className="py-2 px-4">
+        {/* Barra de título sempre visível */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/40">
+              <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
             </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Dólar Americano</p>
-              <p className="text-xs text-muted-foreground">USD / BRL</p>
-            </div>
-          </div>
-
-          {loadingCotacao ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <RefreshCw className="h-4 w-4 animate-spin" />
-              Carregando...
-            </div>
-          ) : erroCotacao ? (
-            <p className="text-sm text-red-500">{erroCotacao}</p>
-          ) : cotacao ? (
-            <>
-              {/* Compra */}
-              <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground">Compra</span>
-                <span className="text-xl font-bold text-green-700 dark:text-green-400">
-                  {formatBRL(cotacao.bid)}
-                </span>
-              </div>
-
-              {/* Venda */}
-              <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground">Venda</span>
-                <span className="text-xl font-bold text-gray-800 dark:text-gray-200">
-                  {formatBRL(cotacao.ask)}
-                </span>
-              </div>
-
-              {/* Variação */}
-              <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground">Variação hoje</span>
-                <span className={`flex items-center gap-1 text-sm font-semibold ${positivo ? "text-red-500" : "text-green-600"}`}>
-                  {positivo ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+            <span className="text-sm font-medium text-muted-foreground">Dólar Americano (USD / BRL)</span>
+            {/* Resumo quando minimizado */}
+            {!expandido && cotacao && !loadingCotacao && (
+              <span className="ml-3 flex items-center gap-3 text-sm">
+                <span className="font-bold text-green-700 dark:text-green-400">{fmtBRLStr(cotacao.bid)}</span>
+                <span className={`flex items-center gap-0.5 font-semibold ${positivo ? "text-red-500" : "text-green-600"}`}>
+                  {positivo ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                   {positivo ? "+" : ""}{variacao.toFixed(2)}%
                 </span>
-              </div>
-
-              {/* Máx / Mín */}
-              <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground">Máx / Mín</span>
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  {formatBRL(cotacao.high)} / {formatBRL(cotacao.low)}
-                </span>
-              </div>
-
-              {/* Última atualização + botão */}
-              <div className="ml-auto flex flex-col items-end gap-1">
-                {ultimaAtualizacao && (
+                {cotacaoTurismo && (
                   <span className="text-xs text-muted-foreground">
-                    Atualizado às {ultimaAtualizacao.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    Turismo: <span className="font-semibold text-green-700">{fmtBRLStr(cotacaoTurismo.ask)}</span>
                   </span>
                 )}
-                <button
-                  onClick={buscarCotacao}
-                  className="flex items-center gap-1 text-xs text-green-600 hover:text-green-800 transition-colors"
-                >
-                  <RefreshCw className="h-3 w-3" />
-                  Atualizar
-                </button>
-              </div>
-            </>
-          ) : null}
+              </span>
+            )}
+            {!expandido && loadingCotacao && (
+              <span className="ml-3 flex items-center gap-1 text-xs text-muted-foreground">
+                <RefreshCw className="h-3 w-3 animate-spin" /> Carregando...
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => setExpandido((v) => !v)}
+            title={expandido ? "Minimizar" : "Expandir"}
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-green-200 bg-white hover:bg-green-50 transition-colors text-green-600 text-xs font-bold shadow-sm"
+          >
+            {expandido ? "▲" : "▼"}
+          </button>
         </div>
+
+        {/* Corpo expandido */}
+        {expandido && (
+          <div className="mt-3 space-y-4">
+            {loadingCotacao ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                Carregando...
+              </div>
+            ) : erroCotacao ? (
+              <p className="text-sm text-red-500">{erroCotacao}</p>
+            ) : cotacao ? (
+              <>
+                {/* ── Linha de cotações ── */}
+                <div className="flex flex-wrap items-start gap-6">
+                  {/* Compra comercial */}
+                  <div className="flex flex-col">
+                    <span className="text-xs text-muted-foreground">Compra</span>
+                    <span className="text-xl font-bold text-green-700 dark:text-green-400">
+                      {fmtBRLStr(cotacao.bid)}
+                    </span>
+                  </div>
+
+                  {/* Separador visual */}
+                  <div className="hidden sm:block w-px self-stretch bg-green-200" />
+
+                  {/* Dólar Turismo — destaque */}
+                  {cotacaoTurismo && (
+                    <div className="flex flex-col">
+                      <span className="text-xs font-semibold text-green-700">Turismo — Compra c/ cartão</span>
+                      <span className="text-xl font-bold text-green-800 dark:text-green-300">
+                        {fmtBRLStr(cotacaoTurismo.ask)}
+                      </span>
+                      <span className="text-xs text-muted-foreground">taxa aplicada no cartão internacional</span>
+                    </div>
+                  )}
+
+                  {/* Variação */}
+                  <div className="flex flex-col">
+                    <span className="text-xs text-muted-foreground">Variação hoje</span>
+                    <span className={`flex items-center gap-1 text-sm font-semibold ${positivo ? "text-red-500" : "text-green-600"}`}>
+                      {positivo ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                      {positivo ? "+" : ""}{variacao.toFixed(2)}%
+                    </span>
+                  </div>
+
+                  {/* Máx / Mín */}
+                  <div className="flex flex-col">
+                    <span className="text-xs text-muted-foreground">Máx / Mín</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {fmtBRLStr(cotacao.high)} / {fmtBRLStr(cotacao.low)}
+                    </span>
+                  </div>
+
+                  {/* Atualização */}
+                  <div className="ml-auto flex flex-col items-end gap-1">
+                    {ultimaAtualizacao && (
+                      <span className="text-xs text-muted-foreground">
+                        Atualizado às {ultimaAtualizacao.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    )}
+                    <button
+                      onClick={buscarCotacao}
+                      className="flex items-center gap-1 text-xs text-green-600 hover:text-green-800 transition-colors"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      Atualizar
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
+const MOEDAS = [
+  { code: "BRL", label: "Real Brasileiro", flag: "🇧🇷" },
+  { code: "USD", label: "Dólar Americano", flag: "🇺🇸" },
+  { code: "EUR", label: "Euro", flag: "🇪🇺" },
+  { code: "GBP", label: "Libra Esterlina", flag: "🇬🇧" },
+  { code: "ARS", label: "Peso Argentino", flag: "🇦🇷" },
+  { code: "CAD", label: "Dólar Canadense", flag: "🇨🇦" },
+  { code: "AUD", label: "Dólar Australiano", flag: "🇦🇺" },
+  { code: "JPY", label: "Iene Japonês", flag: "🇯🇵" },
+  { code: "CHF", label: "Franco Suíço", flag: "🇨🇭" },
+  { code: "CNY", label: "Yuan Chinês", flag: "🇨🇳" },
+  { code: "MXN", label: "Peso Mexicano", flag: "🇲🇽" },
+  { code: "CLP", label: "Peso Chileno", flag: "🇨🇱" },
+];
+
+function ConversorMoedas() {
+  const [expandido, setExpandido] = useState(false);
+  const [valor, setValor] = useState<string>("");
+  const [de, setDe] = useState<string>("USD");
+  const [para, setPara] = useState<string>("BRL");
+  const [resultado, setResultado] = useState<number | null>(null);
+  const [taxa, setTaxa] = useState<number | null>(null);
+  const [taxaTurismo, setTaxaTurismo] = useState<number | null>(null);
+  const [loadingConv, setLoadingConv] = useState(false);
+  const [erroConv, setErroConv] = useState<string | null>(null);
+  const [ultimaConv, setUltimaConv] = useState<Date | null>(null);
+
+  // IOF por forma de pagamento
+  const IOF = { credito: 5.38, debito: 1.1, dinheiro: 0 };
+
+  const formatMoeda = (val: number, currency: string) => {
+    try {
+      return new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(val);
+    } catch {
+      return `${val.toFixed(2)} ${currency}`;
+    }
+  };
+
+  async function converter() {
+    const num = parseFloat(valor.replace(",", "."));
+    if (isNaN(num) || num <= 0) { setErroConv("Valor inválido."); return; }
+    if (de === para) {
+      setTaxa(1); setTaxaTurismo(null); setResultado(num); setUltimaConv(new Date()); setErroConv(null); return;
+    }
+    setLoadingConv(true);
+    setErroConv(null);
+    try {
+      // Busca cotação comercial + turismo em paralelo (turismo só para USD→BRL)
+      const isUsdToBrl = de === "USD" && para === "BRL";
+      const fetches: Promise<Response>[] = [
+        fetch(`https://economia.awesomeapi.com.br/last/${de}-${para}`),
+      ];
+      if (isUsdToBrl) fetches.push(fetch("https://economia.awesomeapi.com.br/last/USD-BRLT"));
+
+      const respostas = await Promise.all(fetches);
+      if (!respostas[0].ok) throw new Error("Par não disponível");
+      const dados = await respostas[0].json();
+      const cotacaoAtual = dados[`${de}${para}`];
+      if (!cotacaoAtual) throw new Error("Cotação não encontrada");
+      const bid = parseFloat(cotacaoAtual.bid);
+      setTaxa(bid);
+      setResultado(num * bid);
+      setUltimaConv(new Date());
+
+      if (isUsdToBrl && respostas[1]?.ok) {
+        const dadosTurismo = await respostas[1].json();
+        const t = parseFloat(dadosTurismo?.USDBRLT?.ask ?? "0");
+        setTaxaTurismo(t > 0 ? t : null);
+      } else {
+        setTaxaTurismo(null);
+      }
+    } catch (e) {
+      setErroConv(e instanceof Error ? e.message : "Erro.");
+      setResultado(null); setTaxa(null); setTaxaTurismo(null);
+    } finally {
+      setLoadingConv(false);
+    }
+  }
+
+  useEffect(() => {
+    if (valor && valor !== "" && valor !== "0") {
+      const timer = setTimeout(() => converter(), 400);
+      return () => clearTimeout(timer);
+    } else {
+      setResultado(null); setTaxa(null); setTaxaTurismo(null);
+    }
+  }, [valor, de, para]);
+
+  function trocarMoedas() {
+    setDe(para); setPara(de); setResultado(null); setTaxa(null); setTaxaTurismo(null);
+  }
+
+  const moedasOptions = MOEDAS.map((m) => (
+    <option key={m.code} value={m.code}>{m.flag} {m.code}</option>
+  ));
+
+  const moedasOrigemLabel = MOEDAS.find((m) => m.code === de);
+  const moedasDestinoLabel = MOEDAS.find((m) => m.code === para);
+
+  // Cálculos de IOF — só exibidos quando o resultado existe e a moeda destino é BRL
+  const num = parseFloat(valor.replace(",", "."));
+  const mostrarIof = resultado !== null && para === "BRL" && !isNaN(num) && num > 0;
+  const baseIof = taxaTurismo ?? taxa; // usa turismo se disponível
+
+  const calcComIof = (iofPct: number) =>
+    baseIof ? num * baseIof * (1 + iofPct / 100) : null;
+
+  const semIof       = baseIof ? num * baseIof : null;
+  const comCredito   = calcComIof(IOF.credito);
+  const comDebito    = calcComIof(IOF.debito);
+  const comDinheiro  = semIof; // sem IOF
+
+  return (
+    <Card className="border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20">
+      <CardContent className="py-2 px-4">
+        {/* Barra sempre visível — título + toggle */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40">
+              <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </div>
+            <span className="text-sm font-medium text-muted-foreground">Conversor de Moedas</span>
+            {/* Resumo quando minimizado */}
+            {!expandido && resultado !== null && !loadingConv && !erroConv && (
+              <span className="ml-3 text-sm font-semibold text-blue-700 dark:text-blue-400">
+                {valor} {moedasOrigemLabel?.flag} {de} = {formatMoeda(resultado, para)} {moedasDestinoLabel?.flag}
+              </span>
+            )}
+            {!expandido && loadingConv && (
+              <span className="ml-3 flex items-center gap-1 text-xs text-muted-foreground">
+                <RefreshCw className="h-3 w-3 animate-spin" /> Calculando...
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => setExpandido((v) => !v)}
+            title={expandido ? "Minimizar" : "Expandir"}
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-blue-200 bg-white hover:bg-blue-50 transition-colors text-blue-600 text-xs font-bold shadow-sm"
+          >
+            {expandido ? "▲" : "▼"}
+          </button>
+        </div>
+
+        {/* Corpo expandido */}
+        {expandido && (
+          <div className="mt-2 space-y-3">
+            {/* ── Linha de inputs ── */}
+            <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
+              <input
+                type="number"
+                min="0"
+                step="any"
+                placeholder="Valor"
+                value={valor}
+                onChange={(e) => setValor(e.target.value)}
+                className="h-8 w-28 shrink-0 rounded-md border border-input bg-background px-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+              <select
+                value={de}
+                onChange={(e) => setDe(e.target.value)}
+                className="h-8 w-28 shrink-0 rounded-md border border-input bg-background px-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                {moedasOptions}
+              </select>
+              <button
+                onClick={trocarMoedas}
+                title="Trocar moedas"
+                className="h-8 w-8 shrink-0 flex items-center justify-center rounded-full border border-blue-200 bg-white hover:bg-blue-50 transition-colors shadow-sm text-blue-500 font-bold"
+              >
+                ⇄
+              </button>
+              <select
+                value={para}
+                onChange={(e) => setPara(e.target.value)}
+                className="h-8 w-28 shrink-0 rounded-md border border-input bg-background px-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                {moedasOptions}
+              </select>
+              <span className="text-muted-foreground shrink-0">=</span>
+              <div className="flex items-center gap-2 shrink-0">
+                {loadingConv ? (
+                  <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <RefreshCw className="h-3 w-3 animate-spin" /> Calculando...
+                  </span>
+                ) : erroConv ? (
+                  <span className="text-sm text-red-500">{erroConv}</span>
+                ) : resultado !== null ? (
+                  <span className="text-base font-bold text-blue-700 dark:text-blue-400 whitespace-nowrap">
+                    {formatMoeda(resultado, para)}
+                  </span>
+                ) : (
+                  <span className="text-sm text-muted-foreground">—</span>
+                )}
+              </div>
+              {taxa !== null && !loadingConv && !erroConv && (
+                <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                  (1 {de} = {taxa.toFixed(4)} {para}
+                  {ultimaConv ? ` · ${ultimaConv.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : ""})
+                </span>
+              )}
+            </div>
+
+            {/* ── Breakdown de IOF — aparece apenas quando há resultado em BRL ── */}
+            {mostrarIof && semIof !== null && (
+              <div className="rounded-lg border border-blue-200 bg-white/70 px-3 py-2">
+                <p className="mb-2 text-xs font-semibold text-blue-800 uppercase tracking-wide">
+                  Custo total por forma de pagamento
+                  {taxaTurismo && (
+                    <span className="ml-2 font-normal text-blue-500 normal-case">
+                      (base: dólar turismo {formatMoeda(taxaTurismo, "BRL")}/USD)
+                    </span>
+                  )}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {/* Cartão de Crédito */}
+                  <div className="flex flex-col rounded-md border border-blue-100 bg-blue-50 px-3 py-2">
+                    <span className="text-xs text-muted-foreground">💳 Cartão de Crédito</span>
+                    <span className="text-base font-bold text-blue-800">
+                      {comCredito !== null ? formatMoeda(comCredito, "BRL") : "—"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      IOF {IOF.credito}% · +{comCredito !== null ? formatMoeda(comCredito - semIof, "BRL") : "—"}
+                    </span>
+                  </div>
+
+                  {/* Cartão de Débito / Pré-pago */}
+                  <div className="flex flex-col rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2">
+                    <span className="text-xs text-muted-foreground">💳 Débito / Pré-pago</span>
+                    <span className="text-base font-bold text-indigo-800">
+                      {comDebito !== null ? formatMoeda(comDebito, "BRL") : "—"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      IOF {IOF.debito}% · +{comDebito !== null ? formatMoeda(comDebito - semIof, "BRL") : "—"}
+                    </span>
+                  </div>
+
+                  {/* Dinheiro / Espécie */}
+                  <div className="flex flex-col rounded-md border border-green-100 bg-green-50 px-3 py-2">
+                    <span className="text-xs text-muted-foreground">💵 Dinheiro / Espécie</span>
+                    <span className="text-base font-bold text-green-800">
+                      {comDinheiro !== null ? formatMoeda(comDinheiro, "BRL") : "—"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Sem IOF · taxa turismo
+                    </span>
+                  </div>
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Valores estimados com base na cotação turismo. O banco pode aplicar tarifas adicionais.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table";
 import { listarLeads, type Lead } from "../data/leadsApi";
 import { listarLancamentosFinanceiros, type LancamentoFinanceiro } from "../data/financeiroApi";
@@ -303,6 +611,7 @@ function montarSerieMesesValor(startDate: Date, endDate: Date, itens: Array<{ da
 }
 
 export default function LeadDashboard() {
+  const [expandidoVisaoGeral, setExpandidoVisaoGeral] = useState(true);
   const [activeFilter, setActiveFilter] = useState("Mês");
   const [activeCard, setActiveCard] = useState<CardKey>("totalLeads");
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -690,126 +999,150 @@ export default function LeadDashboard() {
       {/* Cotação do Dólar */}
       <DolarWidget />
 
-      {/* Cabeçalho e Filtros */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h2 className="text-3xl font-bold tracking-tight">Visão Geral</h2>
-        <div className="flex items-center space-x-2">
-          {periodFilters.map((filter) => (
-            <Button 
-              key={filter} 
-              variant={activeFilter === filter ? "default" : "outline"}
-              onClick={() => setActiveFilter(filter)}
-            >
-              {filter}
-            </Button>
-          ))}
-        </div>
-      </div>
+      {/* Conversor de Moedas */}
+      <ConversorMoedas />
 
-      {/* Cards de Métricas */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {dadosDashboard.cardData.map((card) => (
-          <Card
-            key={card.title}
-            className={`cursor-pointer transition-all ${activeCard === card.key ? "ring-2 ring-blue-500 bg-blue-50/50" : "hover:shadow-md"}`}
-            onClick={() => setActiveCard(card.key)}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {card.title}
-              </CardTitle>
-              {card.icon}
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading ? "..." : card.value}
+      {/* Visão Geral — card colapsável */}
+      <Card className="border border-gray-200">
+        <CardContent className="py-2 px-4">
+          {/* Barra de título */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h2 className="text-xl font-bold tracking-tight">Visão Geral</h2>
+              {/* Filtros de período sempre visíveis */}
+              <div className="flex items-center space-x-2">
+                {periodFilters.map((filter) => (
+                  <Button
+                    key={filter}
+                    variant={activeFilter === filter ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setActiveFilter(filter)}
+                  >
+                    {filter}
+                  </Button>
+                ))}
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {error && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="pt-6 text-sm text-red-700">
-            {error}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Seção de Gráficos */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>{activeChart.barTitle}</CardTitle>
-          </CardHeader>
-          <CardContent className="pl-2">
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={activeChart.barData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="value" fill="#3b82f6" name={activeChart.barName} radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-        <Card className="col-span-3">
-          <CardHeader>
-            <CardTitle>{activeChart.pieTitle}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex justify-center">
-            <ResponsiveContainer width="100%" height={350}>
-              <PieChart>
-                <Pie data={activeChart.pieData} cx="50%" cy="50%" labelLine={false} outerRadius={120} fill="#8884d8" dataKey="value" nameKey="name" label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}>
-                  {activeChart.pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tabela de Dados */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Detalhes - {dadosDashboard.cardData.find(c => c.key === activeCard)?.title || "Dados"}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {tableData.columns.map((column, index) => (
-                    <TableHead key={index}>{column}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tableData.rows.length > 0 ? (
-                  tableData.rows.map((row, rowIndex) => (
-                    <TableRow key={rowIndex}>
-                      {row.map((cell, cellIndex) => (
-                        <TableCell key={cellIndex}>{cell}</TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={tableData.columns.length} className="text-center text-gray-500 py-4">
-                      Nenhum dado disponível
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+            </div>
+            <button
+              onClick={() => setExpandidoVisaoGeral((v) => !v)}
+              title={expandidoVisaoGeral ? "Minimizar" : "Expandir"}
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-gray-600 text-xs font-bold shadow-sm"
+            >
+              {expandidoVisaoGeral ? "▲" : "▼"}
+            </button>
           </div>
+
+          {/* Conteúdo expandido */}
+          {expandidoVisaoGeral && (
+            <div className="mt-4 space-y-4">
+              {/* Cards de Métricas */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {dadosDashboard.cardData.map((card) => (
+                  <Card
+                    key={card.title}
+                    className={`cursor-pointer transition-all ${activeCard === card.key ? "ring-2 ring-blue-500 bg-blue-50/50" : "hover:shadow-md"}`}
+                    onClick={() => setActiveCard(card.key)}
+                  >
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">
+                        {card.title}
+                      </CardTitle>
+                      {card.icon}
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {loading ? "..." : card.value}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {error && (
+                <Card className="border-red-200 bg-red-50">
+                  <CardContent className="pt-6 text-sm text-red-700">
+                    {error}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Seção de Gráficos */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+                <Card className="col-span-4">
+                  <CardHeader>
+                    <CardTitle>{activeChart.barTitle}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pl-2">
+                    <ResponsiveContainer width="100%" height={350}>
+                      <BarChart data={activeChart.barData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="value" fill="#3b82f6" name={activeChart.barName} radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+                <Card className="col-span-3">
+                  <CardHeader>
+                    <CardTitle>{activeChart.pieTitle}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex justify-center">
+                    <ResponsiveContainer width="100%" height={350}>
+                      <PieChart>
+                        <Pie data={activeChart.pieData} cx="50%" cy="50%" labelLine={false} outerRadius={120} fill="#8884d8" dataKey="value" nameKey="name" label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}>
+                          {activeChart.pieData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Tabela de Dados */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Detalhes - {dadosDashboard.cardData.find(c => c.key === activeCard)?.title || "Dados"}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          {tableData.columns.map((column, index) => (
+                            <TableHead key={index}>{column}</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {tableData.rows.length > 0 ? (
+                          tableData.rows.map((row, rowIndex) => (
+                            <TableRow key={rowIndex}>
+                              {row.map((cell, cellIndex) => (
+                                <TableCell key={cellIndex}>{cell}</TableCell>
+                              ))}
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={tableData.columns.length} className="text-center text-gray-500 py-4">
+                              Nenhum dado disponível
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
