@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Plane, Bed, ShieldCheck, ShoppingCart, User, Mail, Share2, DollarSign, CalendarDays, Car, Utensils, Sparkles, Info, Users, Package2, MapPin, Clock, Hash, Link2, Building2, Phone, Tag, Ticket } from "lucide-react";
+import { Plane, Bed, ShieldCheck, ShoppingCart, User, Mail, Share2, DollarSign, CalendarDays, Car, Utensils, Sparkles, Info, Users, Package2, MapPin, Clock, Hash, Link2, Building2, Phone, Tag, Ticket, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "./ui/button";
 import { buscarOrcamentoPublico } from "../data/orcamentosApi";
 // Tipos replicados de Orcamentos.tsx para consistência
@@ -23,6 +23,7 @@ interface Voo {
   destino: string;
   partida: string;
   chegada: string;
+  valor?: number;
   duracao: string;
   documento: string | null;
   documentoTipo: "pdf" | "imagem" | null;
@@ -165,6 +166,20 @@ export default function ResumoOrcamento() {
   const [orcamento, setOrcamento] = useState<OrcamentoCompleto | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
+  const [expandido, setExpandido] = useState<Record<string, boolean>>({
+    pacotes: true,
+    voos: true,
+    hospedagem: true,
+    seguro: true,
+    transporte: true,
+    restaurante: true,
+    experiencias: true,
+    vendas: true,
+  });
+
+  function toggleSecao(secao: string) {
+    setExpandido(prev => ({ ...prev, [secao]: !prev[secao] }));
+  }
 
   useEffect(() => {
     let active = true;
@@ -244,15 +259,15 @@ export default function ResumoOrcamento() {
 
   const itensVendaAdicionados = (orcamento.itens || []).filter((item) => item.descricao?.trim());
   const totalVendas = itensVendaAdicionados.reduce((acc, i) => acc + calcItem(i), 0);
+  const totalVoos = orcamento.voos?.reduce((acc, v) => acc + (v.valor || 0), 0) || 0;
   const totalPacotes = orcamento.pacotes?.reduce((acc, p) => acc + (Number(p.valor) || 0), 0) || 0;
   const totalHospedagem = orcamento.hospedagem?.reduce((acc, h) => acc + (h.preco || 0), 0) || 0;
   const totalSeguro = orcamento.seguro?.reduce((acc, s) => acc + (s.valor || 0), 0) || 0;
   const totalTransporte = orcamento.transporte?.reduce((acc, t) => acc + (t.valor || 0), 0) || 0;
   const totalRestaurante = orcamento.restaurante?.reduce((acc, r) => acc + (r.preco || 0), 0) || 0;
   const totalExperiencias = orcamento.experiencias?.reduce((acc, e) => acc + (e.preco || 0), 0) || 0;
-  const pacoteDestaque = (orcamento.pacotes || []).find((item) => Boolean(item?.foto)) || (orcamento.pacotes || [])[0] || null;
 
-  const totalGeral = totalPacotes + totalVendas + totalHospedagem + totalSeguro + totalTransporte + totalRestaurante + totalExperiencias;
+  const totalGeral = totalPacotes + totalVoos + totalVendas + totalHospedagem + totalSeguro + totalTransporte + totalRestaurante + totalExperiencias;
 
   const handleShareWhatsApp = () => {
     if (!orcamento) return;
@@ -268,25 +283,6 @@ export default function ResumoOrcamento() {
           <h1 className="text-3xl font-bold text-gray-800">Resumo do Orçamento</h1>
           <p className="text-lg text-indigo-600 font-mono mt-1">{orcamento.numero}</p>
         </div>
-
-        {pacoteDestaque?.foto && (
-          <Card className="mb-6 overflow-hidden">
-            <img
-              src={pacoteDestaque.foto}
-              alt="Foto do pacote"
-              className="h-64 w-full object-cover sm:h-80"
-            />
-            {(pacoteDestaque.origem || pacoteDestaque.destino) && (
-              <CardContent className="p-4">
-                <p className="text-sm text-gray-700">
-                  <span className="font-semibold">Origem:</span> {pacoteDestaque.origem || "-"}
-                  <span className="mx-2 text-gray-400">|</span>
-                  <span className="font-semibold">Destino:</span> {pacoteDestaque.destino || "-"}
-                </p>
-              </CardContent>
-            )}
-          </Card>
-        )}
 
         <Card className="mb-6 p-6">
           <CardHeader className="p-0 mb-4">
@@ -327,15 +323,24 @@ export default function ResumoOrcamento() {
           {/* Pacotes / Vouchers */}
           {orcamento.pacotes && orcamento.pacotes.length > 0 && (
             <div className="space-y-4">
-              {orcamento.pacotes.map((p, idx) => (
+              {/* Header da seção Pacotes */}
+              <button
+                onClick={() => toggleSecao("pacotes")}
+                className="w-full flex items-center justify-between px-4 py-3 bg-white rounded-lg border shadow-sm hover:bg-gray-50 transition-colors"
+              >
+                <span className="flex items-center gap-2 font-semibold text-gray-800">
+                  <Package2 className="w-5 h-5 text-indigo-500" /> Pacotes / Vouchers
+                </span>
+                <div className="flex items-center gap-3">
+                  {totalPacotes > 0 && (
+                    <span className="text-base font-semibold text-indigo-700">{moeda(totalPacotes)}</span>
+                  )}
+                  {expandido.pacotes ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                </div>
+              </button>
+
+              {expandido.pacotes && orcamento.pacotes.map((p, idx) => (
                 <Card key={p.id ?? idx} className="overflow-hidden">
-                  {/* Foto do pacote */}
-                  {p.hospedagemFoto && (
-                    <img src={p.hospedagemFoto} alt={p.hospedagemNome || "Hospedagem"} className="h-48 w-full object-cover" />
-                  )}
-                  {!p.hospedagemFoto && p.foto && (
-                    <img src={p.foto} alt="Pacote" className="h-48 w-full object-cover" />
-                  )}
 
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center gap-2 text-lg">
@@ -549,11 +554,19 @@ export default function ResumoOrcamento() {
           {/* Voos */}
           {orcamento.voos && orcamento.voos.length > 0 && (
           <Card>
-            <CardHeader>
+            <CardHeader
+              className="cursor-pointer hover:bg-gray-50 transition-colors rounded-t-lg"
+              onClick={() => toggleSecao("voos")}
+            >
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2"><Plane className="text-blue-500" /> Voos</span>
+                <div className="flex items-center gap-3">
+                  {totalVoos > 0 && <span className="text-base font-semibold text-blue-700">{moeda(totalVoos)}</span>}
+                  {expandido.voos ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                </div>
               </CardTitle>
             </CardHeader>
+            {expandido.voos && (
             <CardContent>
                 <div className="space-y-2 text-sm">
                   {orcamento.voos.map(voo => (
@@ -563,7 +576,10 @@ export default function ResumoOrcamento() {
                           <p className="font-medium text-gray-800">{voo.companhia} {voo.numero}</p>
                           <p className="text-sm text-gray-600">{voo.origem} → {voo.destino}</p>
                         </div>
-                        <span className="text-xs font-medium text-gray-500">{new Date(voo.data + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                        <div className="text-right">
+                          <span className="text-xs font-medium text-gray-500 block">{new Date(voo.data + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                          {(voo.valor ?? 0) > 0 && <span className="text-sm font-semibold text-gray-800">{moeda(voo.valor!)}</span>}
+                        </div>
                       </div>
                       <div className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-500 flex justify-between items-center">
                         <span>Partida: <span className="font-semibold text-gray-700">{voo.partida}</span></span>
@@ -574,47 +590,70 @@ export default function ResumoOrcamento() {
                   ))}
                 </div>
             </CardContent>
+            )}
           </Card>
           )}
 
           {/* Hospedagem */}
           {orcamento.hospedagem && orcamento.hospedagem.length > 0 && (
           <Card>
-            <CardHeader>
+            <CardHeader
+              className="cursor-pointer hover:bg-gray-50 transition-colors rounded-t-lg"
+              onClick={() => toggleSecao("hospedagem")}
+            >
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2"><Bed className="text-purple-500" /> Hospedagem</span>
+                <div className="flex items-center gap-3">
+                  {totalHospedagem > 0 && <span className="text-base font-semibold text-purple-700">{moeda(totalHospedagem)}</span>}
+                  {expandido.hospedagem ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                </div>
               </CardTitle>
             </CardHeader>
+            {expandido.hospedagem && (
             <CardContent>
                 <div className="space-y-2 text-sm">
                   {orcamento.hospedagem.map(h => (
-                    <div key={h.id} className="p-2 bg-gray-50 rounded">
-                      <span className="font-medium">{h.nome} - {h.local}</span>
-                      <p className="text-xs text-gray-500 mt-1">{new Date(h.checkin + 'T00:00:00').toLocaleDateString('pt-BR')} → {new Date(h.checkout + 'T00:00:00').toLocaleDateString('pt-BR')} ({h.noites} noites)</p>
+                    <div key={h.id} className="p-2 bg-gray-50 rounded flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium">{h.nome} - {h.local}</span>
+                        <p className="text-xs text-gray-500 mt-1">{new Date(h.checkin + 'T00:00:00').toLocaleDateString('pt-BR')} → {new Date(h.checkout + 'T00:00:00').toLocaleDateString('pt-BR')} ({h.noites} noites)</p>
+                      </div>
+                      {h.preco > 0 && <span className="text-sm font-semibold text-gray-800 whitespace-nowrap">{moeda(h.preco)}</span>}
                     </div>
                   ))}
                 </div>
             </CardContent>
+            )}
           </Card>
           )}
 
           {/* Seguro */}
           {orcamento.seguro && orcamento.seguro.length > 0 && (
           <Card>
-            <CardHeader>
+            <CardHeader
+              className="cursor-pointer hover:bg-gray-50 transition-colors rounded-t-lg"
+              onClick={() => toggleSecao("seguro")}
+            >
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2"><ShieldCheck className="text-green-500" /> Seguro</span>
+                <div className="flex items-center gap-3">
+                  {totalSeguro > 0 && <span className="text-base font-semibold text-green-700">{moeda(totalSeguro)}</span>}
+                  {expandido.seguro ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                </div>
               </CardTitle>
             </CardHeader>
+            {expandido.seguro && (
             <CardContent>
                 <div className="space-y-2 text-sm">
                   {orcamento.seguro.map(s => (
-                    <div key={s.id} className="p-2 bg-gray-50 rounded">
+                    <div key={s.id} className="p-2 bg-gray-50 rounded flex items-center justify-between gap-2">
                       <span>{s.tipo}</span>
+                      {s.valor > 0 && <span className="text-sm font-semibold text-gray-800 whitespace-nowrap">{moeda(s.valor)}</span>}
                     </div>
                   ))}
                 </div>
             </CardContent>
+            )}
           </Card>
           )}
 
@@ -640,76 +679,131 @@ export default function ResumoOrcamento() {
           {/* Transporte */}
           {orcamento.transporte && orcamento.transporte.length > 0 && (
           <Card>
-            <CardHeader>
+            <CardHeader
+              className="cursor-pointer hover:bg-gray-50 transition-colors rounded-t-lg"
+              onClick={() => toggleSecao("transporte")}
+            >
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2"><Car className="text-yellow-500" /> Transporte</span>
+                <div className="flex items-center gap-3">
+                  {totalTransporte > 0 && <span className="text-base font-semibold text-yellow-700">{moeda(totalTransporte)}</span>}
+                  {expandido.transporte ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                </div>
               </CardTitle>
             </CardHeader>
+            {expandido.transporte && (
             <CardContent>
                 <div className="space-y-2 text-sm">
                   {orcamento.transporte.map(t => (
-                    <div key={t.id} className="p-2 bg-gray-50 rounded">
+                    <div key={t.id} className="p-2 bg-gray-50 rounded flex items-center justify-between gap-2">
                       <span>{t.tipo}: {t.origem} → {t.destino}</span>
+                      {t.valor > 0 && <span className="text-sm font-semibold text-gray-800 whitespace-nowrap">{moeda(t.valor)}</span>}
                     </div>
                   ))}
                 </div>
             </CardContent>
+            )}
           </Card>
           )}
 
           {/* Restaurantes */}
           {orcamento.restaurante && orcamento.restaurante.length > 0 && (
           <Card>
-            <CardHeader>
+            <CardHeader
+              className="cursor-pointer hover:bg-gray-50 transition-colors rounded-t-lg"
+              onClick={() => toggleSecao("restaurante")}
+            >
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2"><Utensils className="text-red-500" /> Restaurantes</span>
+                <div className="flex items-center gap-3">
+                  {totalRestaurante > 0 && <span className="text-base font-semibold text-red-700">{moeda(totalRestaurante)}</span>}
+                  {expandido.restaurante ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                </div>
               </CardTitle>
             </CardHeader>
+            {expandido.restaurante && (
             <CardContent>
                 <div className="space-y-2 text-sm">
                   {orcamento.restaurante.map(r => (
-                    <div key={r.id} className="p-2 bg-gray-50 rounded">
+                    <div key={r.id} className="p-2 bg-gray-50 rounded flex items-center justify-between gap-2">
                       <span>{r.nome} - {r.local}</span>
+                      {r.preco > 0 && <span className="text-sm font-semibold text-gray-800 whitespace-nowrap">{moeda(r.preco)}</span>}
                     </div>
                   ))}
                 </div>
             </CardContent>
+            )}
           </Card>
           )}
 
           {/* Experiências */}
           {orcamento.experiencias && orcamento.experiencias.length > 0 && (
           <Card>
-            <CardHeader>
+            <CardHeader
+              className="cursor-pointer hover:bg-gray-50 transition-colors rounded-t-lg"
+              onClick={() => toggleSecao("experiencias")}
+            >
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2"><Sparkles className="text-pink-500" /> Experiências</span>
+                <div className="flex items-center gap-3">
+                  {totalExperiencias > 0 && <span className="text-base font-semibold text-pink-700">{moeda(totalExperiencias)}</span>}
+                  {expandido.experiencias ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                </div>
               </CardTitle>
             </CardHeader>
+            {expandido.experiencias && (
             <CardContent>
                 <div className="space-y-2 text-sm">
                   {orcamento.experiencias.map(e => (
-                    <div key={e.id} className="p-2 bg-gray-50 rounded">
+                    <div key={e.id} className="p-2 bg-gray-50 rounded flex items-center justify-between gap-2">
                       <span>{e.nome} - {e.local}</span>
+                      {e.preco > 0 && <span className="text-sm font-semibold text-gray-800 whitespace-nowrap">{moeda(e.preco)}</span>}
                     </div>
                   ))}
                 </div>
             </CardContent>
+            )}
           </Card>
           )}
 
           {/* Vendas */}
           {itensVendaAdicionados.length > 0 && (
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><ShoppingCart className="text-orange-500" /> Vendas</CardTitle></CardHeader>
+            <CardHeader
+              className="cursor-pointer hover:bg-gray-50 transition-colors rounded-t-lg"
+              onClick={() => toggleSecao("vendas")}
+            >
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2"><ShoppingCart className="text-orange-500" /> Vendas</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-base font-semibold text-orange-700">{moeda(totalVendas)}</span>
+                  {expandido.vendas ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                </div>
+              </CardTitle>
+            </CardHeader>
+            {expandido.vendas && (
             <CardContent>
                 <div className="space-y-2 text-sm">
-                  {itensVendaAdicionados.map(item => (
-                    <div key={item.id} className="p-2 bg-gray-50 rounded">
-                      {item.descricao}
-                    </div>
-                  ))}
+                  {itensVendaAdicionados.map(item => {
+                    const subtotal = calcItem(item);
+                    return (
+                      <div key={item.id} className="p-3 bg-gray-50 rounded-lg flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-800 truncate">{item.descricao}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {item.quantidade} {item.unidade} × {moeda(item.valorUnitario)}
+                            {item.desconto > 0 && (
+                              <span className="ml-2 text-green-600">− {item.desconto}% desc.</span>
+                            )}
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold text-gray-800 whitespace-nowrap">{moeda(subtotal)}</span>
+                      </div>
+                    );
+                  })}
                 </div>
             </CardContent>
+            )}
           </Card>
           )}
         </div>
