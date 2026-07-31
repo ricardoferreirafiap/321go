@@ -2,11 +2,12 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
 import logoImg from "@/imports/logo.png";
 import { useEffect, useState } from "react";
-import { Menu, X, LogOut, MessageSquare, PanelRightClose, PanelRightOpen, Bot, PanelLeftOpen, Calendar, Star } from "lucide-react";
+import { Menu, X, LogOut } from "lucide-react";
 import WhatsAppChat from "./WhatsAppChat";
 import AIChat from "./AIChat";
 import Agenda from "./Agenda";
 import FavoritosOrcamentos from "./FavoritosOrcamentos";
+import QuickAccessPanel from "./QuickAccessPanel";
 
 const menuItems = [
   { name: "DASHBOARD", path: "/" },
@@ -199,49 +200,17 @@ export default function Root() {
         </div>
       </div>
 
-      {/* Botão flutuante da Agenda */}
-      <div className="fixed bottom-24 left-6 z-50">
-        <button
-          onClick={handleToggleAgenda}
-          className={`w-14 h-14 text-white rounded-full shadow-lg flex items-center justify-center transition-all transform hover:scale-110 ${agendaOpen ? 'bg-indigo-700 hover:bg-indigo-800' : 'bg-indigo-600 hover:bg-indigo-700'}`}
-          title={agendaOpen ? "Fechar Agenda" : "Abrir Agenda"}
-        >
-          <Calendar size={24} />
-        </button>
-      </div>
-
-      {/* Botão flutuante do chat de IA */}
-      <div className="fixed bottom-6 left-6 z-50">
-        <button
-          onClick={handleToggleAiChat}
-          className={`w-14 h-14 text-white rounded-full shadow-lg flex items-center justify-center transition-all transform hover:scale-110 ${aiChatOpen ? 'bg-blue-700 hover:bg-blue-800' : 'bg-blue-600 hover:bg-blue-700'}`}
-          title={aiChatOpen ? "Fechar Agente IA" : "Abrir Agente IA"}
-        >
-          <Bot size={24} />
-        </button>
-      </div>
-
-      {/* Botão flutuante de Favoritos */}
-      <div className="fixed bottom-24 right-6 z-50">
-        <button
-          onClick={handleToggleFavoritos}
-          className={`w-14 h-14 text-white rounded-full shadow-lg flex items-center justify-center transition-all transform hover:scale-110 ${favoritosOpen ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-yellow-400 hover:bg-yellow-500'}`}
-          title={favoritosOpen ? "Fechar Favoritos" : "Orçamentos Favoritos"}
-        >
-          <Star size={24} className={favoritosOpen ? 'fill-white' : ''} />
-        </button>
-      </div>
-
-      {/* Botão flutuante do chat do WhatsApp */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <button
-          onClick={handleToggleWhatsApp}
-          className={`w-14 h-14 text-white rounded-full shadow-lg flex items-center justify-center transition-all transform hover:scale-110 ${chatOpen ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'}`}
-          title={chatOpen ? "Fechar WhatsApp" : "Abrir WhatsApp"}
-        >
-          <MessageSquare size={24} />
-        </button>
-      </div>
+      {/* Painel lateral flutuante de acesso rápido */}
+      <QuickAccessPanel
+        onOpenAgenda={handleToggleAgenda}
+        onOpenAiChat={handleToggleAiChat}
+        onOpenFavoritos={handleToggleFavoritos}
+        onOpenWhatsApp={handleToggleWhatsApp}
+        agendaOpen={agendaOpen}
+        aiChatOpen={aiChatOpen}
+        favoritosOpen={favoritosOpen}
+        chatOpen={chatOpen}
+      />
 
     </div>
   );

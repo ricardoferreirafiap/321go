@@ -740,7 +740,7 @@ export default function Orcamentos() {
     setRestaurante([]);
     setExperiencias([]);
     setSeguro([]);
-    setDadosClienteMinimizados(false);
+    setDadosClienteMinimizados(true);
     setPerfilViagemSelecionado([]);
     setPromptPerfilViagemIA("");
     setPerfilViagemMinimizado(true);
@@ -776,7 +776,7 @@ export default function Orcamentos() {
     setRestaurante(o.restaurante || []);
     setExperiencias(o.experiencias || []);
     setSeguro(o.seguro || []);
-    setDadosClienteMinimizados(false);
+    setDadosClienteMinimizados(true);
     setPerfilViagemSelecionado(Array.isArray(o.perfilViagem) ? o.perfilViagem.filter((item) => typeof item === "string") : []);
     setPromptPerfilViagemIA(typeof o.promptPerfilViagemIA === "string" ? o.promptPerfilViagemIA : "");
     setPerfilViagemMinimizado(true);
@@ -1310,7 +1310,10 @@ export default function Orcamentos() {
         <div>
           <div className="flex items-center gap-3 mb-6 flex-wrap">
             <Button variant="outline" onClick={voltar} className="flex items-center gap-2"><X className="w-4 h-4" /> Cancelar</Button>
-            <h2 className="text-xl font-bold text-gray-900">{editando ? `Editar ${editando.numero}` : "Novo Orçamento"}</h2>
+            {form.cliente && (
+              <span className="text-2xl font-bold text-indigo-700">{form.cliente}</span>
+            )}
+            {!editando && <h2 className="text-xl font-bold text-gray-900">Novo Orçamento</h2>}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
