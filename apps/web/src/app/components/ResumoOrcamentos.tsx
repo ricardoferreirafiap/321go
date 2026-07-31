@@ -136,7 +136,7 @@ export default function ResumoOrcamentos() {
                   <div className="mt-3 pt-3 border-t">
                     <p className="text-xs font-medium text-gray-700 mb-2">Itens:</p>
                     <div className="space-y-1 text-xs">
-                      {orcamento.itens.map((item) => (
+                      {orcamento.itens.filter(item => item.valorUnitario > 0).map((item) => (
                         <div key={item.id} className="flex justify-between text-gray-600">
                           <span className="flex-1">
                             {item.quantidade} {item.unidade} de {item.descricao}

@@ -258,7 +258,7 @@ export default function ResumoOrcamento() {
     );
   }
 
-  const itensVendaAdicionados = (orcamento.itens || []).filter((item) => item.descricao?.trim());
+  const itensVendaAdicionados = (orcamento.itens || []).filter((item) => item.descricao?.trim() && item.valorUnitario > 0);
   const totalVendas = itensVendaAdicionados.reduce((acc, i) => acc + calcItem(i), 0);
   const totalVoos = orcamento.voos?.reduce((acc, v) => acc + (v.valor || 0), 0) || 0;
   const totalPacotes = orcamento.pacotes?.reduce((acc, p) => {
