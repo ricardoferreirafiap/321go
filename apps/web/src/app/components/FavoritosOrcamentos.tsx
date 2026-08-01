@@ -184,7 +184,7 @@ export default function FavoritosOrcamentos({ setFavoritosOpen, isMobile = false
                   className="text-xs h-7 gap-1"
                   onClick={() => {
                     setFavoritosOpen(false);
-                    navigate("/financeiro/orcamentos");
+                    navigate("/financeiro/orcamentos", { state: { editId: orc.id } });
                   }}
                 >
                   <ExternalLink className="w-3 h-3" />

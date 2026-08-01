@@ -40,6 +40,7 @@ import {
 } from "../data/financeiroApi";
 import { buscarOpcoesDestino } from "../data/placePhotoApi";
 import { enviarMensagemIA } from "../data/aiChatApi";
+import { criarEvento } from "../data/eventosApi";
 
 const itemVazio = (): ItemOrc => ({
   id: Date.now(),
@@ -720,14 +721,23 @@ export default function Orcamentos() {
     };
   }, []);
 
-  // Handle state params from ResumoOrcamentos
+  // Handle state params from ResumoOrcamentos and sessionStorage
   useEffect(() => {
     const state = location.state as any;
+    const sessionStorageId = sessionStorage.getItem('editOrcamentoId');
+    
     if (state?.editId) {
       const orc = lista.find(o => o.id === state.editId);
       if (orc) {
         void abrirEdicao(orc);
         navigate(location.pathname, { replace: true });
+      }
+    } else if (sessionStorageId) {
+      const editId = parseInt(sessionStorageId, 10);
+      const orc = lista.find(o => o.id === editId);
+      if (orc) {
+        void abrirEdicao(orc);
+        sessionStorage.removeItem('editOrcamentoId');
       }
     }
   }, [location.state, lista, location.pathname, navigate]);
@@ -887,6 +897,90 @@ export default function Orcamentos() {
 
   function voltar() { setTela("lista"); setEditando(null); }
 
+  async function criarEventosDeOrcamento(
+    orcamento: OrcamentoPayload,
+    pacotesData: any[],
+    voosData: any[]
+  ) {
+    const cliente = orcamento.cliente || "";
+    const agente = orcamento.agenteViagem || "";
+    const destino = orcamento.destino || "";
+    const numero = orcamento.numero || "";
+
+    const eventos: Array<{ data: string; titulo: string; descricao: string }> = [];
+
+    // Datas dos voos individuais
+    for (const voo of voosData) {
+      const data = voo.data;
+      if (!data || typeof data !== "string") continue;
+
+      const trecho = voo.tipoTrecho ? ` (${voo.tipoTrecho})` : "";
+      const rota = voo.origem && voo.destino ? ` ${voo.origem} → ${voo.destino}` : destino ? ` → ${destino}` : "";
+      const cia = voo.companhia ? ` - ${voo.companhia}` : "";
+
+      eventos.push({
+        data,
+        titulo: `✈️ Voo${trecho}${rota}${cia}`,
+        descricao: `Orçamento #${numero} - Cliente: ${cliente}${voo.numero ? ` - Voo: ${voo.numero}` : ""}`,
+      });
+    }
+
+    // Datas dos pacotes (dataIda, dataVolta, hospedagemCheckin, hospedagemCheckout)
+    for (const pacote of pacotesData) {
+      const rotaPacote = pacote.origem && pacote.destino ? ` ${pacote.origem} → ${pacote.destino}` : destino ? ` ${destino}` : "";
+      const operador = pacote.operador ? ` (${pacote.operador})` : "";
+
+      if (pacote.dataIda && typeof pacote.dataIda === "string") {
+        eventos.push({
+          data: pacote.dataIda,
+          titulo: `✈️ Voo Ida${rotaPacote}${operador}`,
+          descricao: `Orçamento #${numero} - Cliente: ${cliente}`,
+        });
+      }
+
+      if (pacote.dataVolta && typeof pacote.dataVolta === "string") {
+        eventos.push({
+          data: pacote.dataVolta,
+          titulo: `✈️ Voo Volta${rotaPacote}${operador}`,
+          descricao: `Orçamento #${numero} - Cliente: ${cliente}`,
+        });
+      }
+
+      if (pacote.hospedagemCheckin && typeof pacote.hospedagemCheckin === "string") {
+        const hotel = pacote.hospedagemNome ? ` - ${pacote.hospedagemNome}` : "";
+        eventos.push({
+          data: pacote.hospedagemCheckin,
+          titulo: `🏨 Check-in${hotel}${operador}`,
+          descricao: `Orçamento #${numero} - Cliente: ${cliente}`,
+        });
+      }
+
+      if (pacote.hospedagemCheckout && typeof pacote.hospedagemCheckout === "string") {
+        const hotel = pacote.hospedagemNome ? ` - ${pacote.hospedagemNome}` : "";
+        eventos.push({
+          data: pacote.hospedagemCheckout,
+          titulo: `🏨 Check-out${hotel}${operador}`,
+          descricao: `Orçamento #${numero} - Cliente: ${cliente}`,
+        });
+      }
+    }
+
+    // Cria todos os eventos em paralelo, ignorando falhas individuais
+    await Promise.allSettled(
+      eventos.map((ev) =>
+        criarEvento({
+          titulo: ev.titulo,
+          descricao: ev.descricao,
+          data: ev.data,
+          hora: "00:00",
+          tipo: "Viagem",
+          cliente,
+          agente,
+        })
+      )
+    );
+  }
+
   async function salvar() {
     if (!form.cliente.trim()) return null;
     setSalvando(true);
@@ -919,6 +1013,14 @@ export default function Orcamentos() {
       }
 
       const criado = await criarOrcamento(orcComSecoes);
+
+      // Cria automaticamente eventos na agenda para cada data de voo/checkin/checkout
+      await criarEventosDeOrcamento(
+        { ...orcComSecoes, numero: criado.numero },
+        pacotes,
+        voos
+      );
+
       await carregarOrcamentos();
       voltar();
       return criado.id;

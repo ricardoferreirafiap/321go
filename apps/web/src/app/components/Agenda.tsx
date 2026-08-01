@@ -1,6 +1,7 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router";
 import {
-  ChevronLeft, ChevronRight, Plus, Calendar, Clock, User, X, Check, Trash2, Edit2,
+  ChevronLeft, ChevronRight, Plus, Calendar, Clock, User, X, Check, Trash2, Edit2, RefreshCw, ChevronUp, ChevronDown, ExternalLink,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
@@ -17,6 +18,7 @@ import {
   type EventoPayload,
   type TipoEvento,
 } from "../data/eventosApi";
+import { listarOrcamentos, type Orcamento } from "../data/orcamentosApi";
 import { listarFuncionarios, type Funcionario } from "../data/funcionariosApi";
 
 type FiltroPeriodo = "semana" | "mes" | "ano";
@@ -77,7 +79,22 @@ function formatarData(d: string) {
   const [y, m, day] = d.split("-");
   return `${day}/${m}/${y}`;
 }
+// Paleta de cores para clientes — cada cliente recebe um índice fixo
+const PALETA_CLIENTES = [
+  { bg: "bg-sky-200",      border: "border-sky-400",      text: "text-sky-800",      dot: "bg-sky-400"      },
+  { bg: "bg-emerald-200",  border: "border-emerald-400",  text: "text-emerald-800",  dot: "bg-emerald-400"  },
+  { bg: "bg-violet-200",   border: "border-violet-400",   text: "text-violet-800",   dot: "bg-violet-400"   },
+  { bg: "bg-amber-200",    border: "border-amber-400",    text: "text-amber-800",    dot: "bg-amber-400"    },
+  { bg: "bg-rose-200",     border: "border-rose-400",     text: "text-rose-800",     dot: "bg-rose-400"     },
+  { bg: "bg-teal-200",     border: "border-teal-400",     text: "text-teal-800",     dot: "bg-teal-400"     },
+  { bg: "bg-orange-200",   border: "border-orange-400",   text: "text-orange-800",   dot: "bg-orange-400"   },
+  { bg: "bg-pink-200",     border: "border-pink-400",     text: "text-pink-800",     dot: "bg-pink-400"     },
+  { bg: "bg-lime-200",     border: "border-lime-400",     text: "text-lime-800",     dot: "bg-lime-400"     },
+  { bg: "bg-cyan-200",     border: "border-cyan-400",     text: "text-cyan-800",     dot: "bg-cyan-400"     },
+];
+
 export default function Agenda() {
+  const navigate = useNavigate();
   const [eventos, setEventos]           = useState<Evento[]>([]);
   const [clientes, setClientes]         = useState<Cliente[]>([]);
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
@@ -91,6 +108,114 @@ export default function Agenda() {
   const [carregando, setCarregando]     = useState(true);
   const [salvando, setSalvando]         = useState(false);
   const [erro, setErro]                 = useState<string | null>(null);
+  const [sincronizando, setSincronizando] = useState(false);
+  const [msgSinc, setMsgSinc]           = useState<string | null>(null);
+  const [orcamentos, setOrcamentos]     = useState<Orcamento[]>([]);
+  const [modalViagemCliente, setModalViagemCliente] = useState<string | null>(null);
+  const [cardStates, setCardStates] = useState<{
+    calendario: boolean;
+    eventosDia: boolean;
+    eventosPeriodo: boolean;
+    proximosEventos: boolean;
+  }>({
+    calendario: false,
+    eventosDia: false,
+    eventosPeriodo: false,
+    proximosEventos: false,
+  });
+
+  // Mapa cliente → índice de cor (estável, baseado na ordem de aparição)
+  const corPorCliente = useMemo(() => {
+    const mapa = new Map<string, number>();
+    for (const orc of orcamentos) {
+      const nome = orc.cliente || "";
+      if (nome && !mapa.has(nome)) {
+        mapa.set(nome, mapa.size % PALETA_CLIENTES.length);
+      }
+    }
+    return mapa;
+  }, [orcamentos]);
+
+  // Normaliza datas em qualquer formato (ISO "2026-08-15" ou BR "15/08/2026") para "yyyy-mm-dd"
+  function normalizarData(valor: unknown): string | null {
+    if (!valor || typeof valor !== "string") return null;
+    const v = valor.trim();
+    if (!v) return null;
+    // já é ISO
+    if (/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10);
+    // formato BR dd/mm/yyyy
+    const m = v.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+    return null;
+  }
+
+  // Intervalos checkin→checkout extraídos dos orçamentos
+  // Fontes: pacotes[].hospedagemCheckin/Checkout, pacotes[].dataIda/dataVolta,
+  //         hospedagem[].checkin/checkout, voos[] (agrupa IDA→VOLTA por orçamento)
+  const intervalosViagem = useMemo(() => {
+    const intervalos: { checkin: string; checkout: string | null; cliente: string }[] = [];
+
+    for (const orc of orcamentos) {
+      const cliente = orc.cliente || "";
+
+      // 1. Pacotes: hospedagemCheckin/Checkout
+      for (const pacote of orc.pacotes ?? []) {
+        const checkin  = normalizarData(pacote.hospedagemCheckin);
+        const checkout = normalizarData(pacote.hospedagemCheckout);
+        if (checkin) intervalos.push({ checkin, checkout, cliente });
+      }
+
+      // 2. Pacotes: dataIda/dataVolta (quando não há hospedagem no pacote)
+      for (const pacote of orc.pacotes ?? []) {
+        if (pacote.hospedagemCheckin) continue; // já coberto acima
+        const checkin  = normalizarData(pacote.dataIda);
+        const checkout = normalizarData(pacote.dataVolta);
+        if (checkin) intervalos.push({ checkin, checkout, cliente });
+      }
+
+      // 3. Hospedagem separada: checkin/checkout (vários campos possíveis)
+      for (const hosp of orc.hospedagem ?? []) {
+        const checkin  = normalizarData(hosp.checkin)  ?? normalizarData(hosp.checkinHotel)  ?? normalizarData(hosp.dataCheckin)  ?? null;
+        const checkout = normalizarData(hosp.checkout) ?? normalizarData(hosp.checkoutHotel) ?? normalizarData(hosp.dataCheckout) ?? null;
+        if (checkin) intervalos.push({ checkin, checkout, cliente });
+      }
+
+      // 4. Voos individuais: agrupa primeiro voo IDA como checkin e primeiro VOLTA como checkout
+      const voosOrc: any[] = orc.voos ?? [];
+      const vooIda   = voosOrc.find((v: any) => v.tipoTrecho === "IDA"   || (!v.tipoTrecho && voosOrc.indexOf(v) === 0));
+      const vooVolta = voosOrc.find((v: any) => v.tipoTrecho === "VOLTA" || (!v.tipoTrecho && voosOrc.indexOf(v) === voosOrc.length - 1 && voosOrc.length > 1));
+      const checkinVoo  = normalizarData(vooIda?.data);
+      const checkoutVoo = normalizarData(vooVolta?.data);
+      // Só adiciona voo se não houver pacote/hospedagem já cobrindo esse cliente
+      const jaTemIntervalo = intervalos.some(i => i.cliente === cliente);
+      if (checkinVoo && !jaTemIntervalo) {
+        intervalos.push({ checkin: checkinVoo, checkout: checkoutVoo ?? null, cliente });
+      }
+    }
+
+    return intervalos;
+  }, [orcamentos]);
+
+  // Para cada data, retorna status no intervalo + paleta de cor do cliente
+  function statusDiaViagem(dataStr: string): {
+    status: "checkin" | "checkout" | "meio" | "unico" | null;
+    cliente: string;
+    cor: typeof PALETA_CLIENTES[number] | null;
+  } {
+    for (const { checkin, checkout, cliente } of intervalosViagem) {
+      const idx = corPorCliente.get(cliente) ?? 0;
+      const cor = PALETA_CLIENTES[idx];
+      if (!checkout) {
+        if (dataStr === checkin) return { status: "unico", cliente, cor };
+        continue;
+      }
+      if (dataStr === checkin && dataStr === checkout) return { status: "unico", cliente, cor };
+      if (dataStr === checkin)  return { status: "checkin",  cliente, cor };
+      if (dataStr === checkout) return { status: "checkout", cliente, cor };
+      if (dataStr > checkin && dataStr < checkout) return { status: "meio", cliente, cor };
+    }
+    return { status: null, cliente: "", cor: null };
+  }
 
   async function carregarEventos() {
     setErro(null);
@@ -101,6 +226,15 @@ export default function Agenda() {
       setErro(error instanceof Error ? error.message : "Erro ao carregar eventos.");
     } finally {
       setCarregando(false);
+    }
+  }
+
+  async function carregarOrcamentos() {
+    try {
+      const lista = await listarOrcamentos();
+      setOrcamentos(lista);
+    } catch {
+      // não bloqueia a agenda se falhar
     }
   }
 
@@ -119,8 +253,105 @@ export default function Agenda() {
     }
   }
 
+  async function sincronizarOrcamentos() {
+    setSincronizando(true);
+    setMsgSinc(null);
+    setErro(null);
+
+    try {
+      const orcamentos = await listarOrcamentos();
+      const eventosExistentes = await listarEventos();
+
+      // Monta conjunto de títulos já existentes por data para evitar duplicatas
+      const chaveExistente = new Set(
+        eventosExistentes.map((e) => `${e.data}||${e.titulo}`)
+      );
+
+      const novosEventos: EventoPayload[] = [];
+
+      for (const orc of orcamentos) {
+        const cliente = orc.cliente || "";
+        const agente = orc.agenteViagem || "";
+        const numero = orc.numero || String(orc.id);
+
+        // Voos individuais
+        for (const voo of orc.voos ?? []) {
+          const data: string = voo.data;
+          if (!data || typeof data !== "string") continue;
+          const trecho = voo.tipoTrecho ? ` (${voo.tipoTrecho})` : "";
+          const rota = voo.origem && voo.destino ? ` ${voo.origem} → ${voo.destino}` : "";
+          const cia = voo.companhia ? ` - ${voo.companhia}` : "";
+          const titulo = `✈️ Voo${trecho}${rota}${cia}`;
+          const chave = `${data}||${titulo}`;
+          if (!chaveExistente.has(chave)) {
+            chaveExistente.add(chave);
+            novosEventos.push({
+              titulo,
+              descricao: `Orçamento #${numero} - Cliente: ${cliente}${voo.numero ? ` - Voo: ${voo.numero}` : ""}`,
+              data,
+              hora: "00:00",
+              tipo: "Viagem",
+              cliente,
+              agente,
+            });
+          }
+        }
+
+        // Pacotes: dataIda, dataVolta, hospedagemCheckin, hospedagemCheckout
+        for (const pacote of orc.pacotes ?? []) {
+          const operador = pacote.operador ? ` (${pacote.operador})` : "";
+          const rotaPacote =
+            pacote.origem && pacote.destino
+              ? ` ${pacote.origem} → ${pacote.destino}`
+              : orc.destino
+              ? ` ${orc.destino}`
+              : "";
+
+          const pares: Array<[string | undefined, string]> = [
+            [pacote.dataIda,             `✈️ Voo Ida${rotaPacote}${operador}`],
+            [pacote.dataVolta,           `✈️ Voo Volta${rotaPacote}${operador}`],
+            [pacote.hospedagemCheckin,   `🏨 Check-in${pacote.hospedagemNome ? ` - ${pacote.hospedagemNome}` : ""}${operador}`],
+            [pacote.hospedagemCheckout,  `🏨 Check-out${pacote.hospedagemNome ? ` - ${pacote.hospedagemNome}` : ""}${operador}`],
+          ];
+
+          for (const [data, titulo] of pares) {
+            if (!data || typeof data !== "string") continue;
+            const chave = `${data}||${titulo}`;
+            if (!chaveExistente.has(chave)) {
+              chaveExistente.add(chave);
+              novosEventos.push({
+                titulo,
+                descricao: `Orçamento #${numero} - Cliente: ${cliente}`,
+                data,
+                hora: "00:00",
+                tipo: "Viagem",
+                cliente,
+                agente,
+              });
+            }
+          }
+        }
+      }
+
+      if (novosEventos.length === 0) {
+        setMsgSinc("Nenhum evento novo encontrado. Agenda já está sincronizada.");
+        return;
+      }
+
+      await Promise.allSettled(novosEventos.map((ev) => criarEvento(ev)));
+      await carregarEventos();
+      setMsgSinc(`${novosEventos.length} evento(s) criado(s) com sucesso!`);
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : "Erro ao sincronizar orçamentos.");
+    } finally {
+      setSincronizando(false);
+      setTimeout(() => setMsgSinc(null), 5000);
+    }
+  }
+
   useEffect(() => {
     carregarEventos();
+    carregarOrcamentos();
     carregarRelacionamentos();
   }, []);
 
@@ -258,6 +489,13 @@ export default function Agenda() {
     }
   };
 
+  const toggleCardState = (card: keyof typeof cardStates) => {
+    setCardStates(prev => ({
+      ...prev,
+      [card]: !prev[card]
+    }));
+  };
+
   const proximosEventos = [...eventos]
     .filter(e => e.data >= toDateStr(hoje))
     .sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora))
@@ -270,6 +508,13 @@ export default function Agenda() {
           <Calendar className="w-8 h-8 text-blue-600" /> Agenda
         </h2>
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => { aplicarDataBase(hoje); setFiltroPeriodo("mes"); }}
+            className="px-3 py-1.5 text-sm rounded-full border transition-colors bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+          >
+            Hoje
+          </button>
           {([
             { key: "semana", label: "Semana" },
             { key: "mes", label: "Mês" },
@@ -284,23 +529,40 @@ export default function Agenda() {
               {filtro.label}
             </button>
           ))}
+          <Button
+            onClick={sincronizarOrcamentos}
+            disabled={sincronizando}
+            variant="outline"
+            className="flex items-center gap-2 border-purple-300 text-purple-700 hover:bg-purple-50"
+            title="Importar datas de voo e hospedagem dos orçamentos existentes"
+          >
+            <RefreshCw className={`w-4 h-4 ${sincronizando ? "animate-spin" : ""}`} />
+            {sincronizando ? "Sincronizando..." : ""}
+          </Button>
           <Button onClick={abrirNovo} className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2">
             <Plus className="w-4 h-4" /> Novo Evento
           </Button>
         </div>
       </div>
       {erro && <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+      {msgSinc && <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{msgSinc}</p>}
       {carregando && <p className="text-sm text-gray-500">Carregando eventos...</p>}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Navegação e visão do período */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
+      <div className="space-y-6">
+        {/* Calendário — largura total */}
+        <Card className={cardStates.calendario ? "h-16 overflow-hidden" : ""}>
+          <CardHeader className="pb-2 cursor-pointer select-none" onClick={() => toggleCardState('calendario')}>
             <div className="flex items-center justify-between">
-              <button onClick={navegarAnterior} className="p-2 rounded-md hover:bg-gray-100 transition-colors"><ChevronLeft className="w-5 h-5 text-gray-600" /></button>
-              <CardTitle className="text-lg font-semibold">{tituloPeriodo}</CardTitle>
-              <button onClick={navegarProximo} className="p-2 rounded-md hover:bg-gray-100 transition-colors"><ChevronRight className="w-5 h-5 text-gray-600" /></button>
+              <div className="flex items-center gap-2">
+                <button onClick={(e) => { e.stopPropagation(); navegarAnterior(); }} className="p-2 rounded-md hover:bg-gray-100 transition-colors"><ChevronLeft className="w-5 h-5 text-gray-600" /></button>
+                <CardTitle className="text-lg font-semibold">{tituloPeriodo}</CardTitle>
+                <button onClick={(e) => { e.stopPropagation(); navegarProximo(); }} className="p-2 rounded-md hover:bg-gray-100 transition-colors"><ChevronRight className="w-5 h-5 text-gray-600" /></button>
+              </div>
+              <button onClick={(e) => { e.stopPropagation(); toggleCardState('calendario'); }} className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 transition-colors" title="Minimizar/Maximizar">
+                {cardStates.calendario ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+              </button>
             </div>
           </CardHeader>
+          {!cardStates.calendario && (
           <CardContent>
             {filtroPeriodo !== "ano" && (
               <div className="grid grid-cols-7 mb-2">
@@ -317,14 +579,28 @@ export default function Agenda() {
                   const isHoje  = dataStr === toDateStr(hoje);
                   const isSel   = dataStr === diaSelecionado;
                   const evsDia  = eventosDoDia(dataStr);
+                  const { status: svStatus, cliente: svCliente, cor: svCor } = statusDiaViagem(dataStr);
+
+                  const bgViagem = !isSel && !isHoje && svStatus && svCor
+                    ? `${svCor.bg} ${svCor.border}`
+                    : "";
+
                   return (
                     <button key={dia} onClick={() => setDiaSel(dataStr)}
+                      title={svCliente ? svCliente : undefined}
                       className={`relative flex flex-col items-center justify-start pt-1 pb-1 rounded-lg min-h-[52px] text-sm font-medium transition-colors border ${
                         isSel  ? "bg-blue-600 text-white border-blue-600"
                         : isHoje ? "bg-blue-50 text-blue-700 border-blue-300"
+                        : bgViagem
+                        ? `text-gray-800 ${bgViagem}`
                         : "text-gray-700 border-transparent hover:bg-gray-100"}`}
                     >
                       <span>{dia}</span>
+                      {svStatus && !isSel && (
+                        <span className="text-[9px] leading-none font-semibold truncate max-w-full px-0.5 mt-0.5 text-gray-600">
+                          {svStatus === "checkin" || svStatus === "unico" ? "▶" : svStatus === "checkout" ? "◀" : "·"}
+                        </span>
+                      )}
                       {evsDia.length > 0 && (
                         <div className="flex flex-wrap justify-center gap-0.5 mt-0.5 px-0.5">
                           {evsDia.slice(0, 3).map(ev => <span key={ev.id} className={`w-1.5 h-1.5 rounded-full ${isSel ? "bg-white" : tipoConfig[ev.tipo].dot}`} />)}
@@ -339,34 +615,48 @@ export default function Agenda() {
 
             {filtroPeriodo === "semana" && (
               <div className="grid grid-cols-7 gap-2">
-                {diasDaSemana.map(({ data, dataStr, eventos: evsDia, isHoje, isSel }) => (
-                  <button
-                    key={dataStr}
-                    onClick={() => setDiaSel(dataStr)}
-                    className={`rounded-lg border min-h-[88px] p-2 text-left transition-colors ${
-                      isSel
-                        ? "bg-blue-600 text-white border-blue-600"
-                        : isHoje
-                        ? "bg-blue-50 text-blue-700 border-blue-300"
-                        : "text-gray-700 border-gray-200 hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="text-xs font-semibold">{nomeDias[data.getDay()]}</div>
-                    <div className="text-sm font-bold">{pad(data.getDate())}</div>
-                    <div className="mt-2 space-y-1">
-                      {evsDia.slice(0, 2).map(ev => (
-                        <div key={ev.id} className={`text-[11px] truncate rounded px-1.5 py-0.5 ${isSel ? "bg-white/20" : "bg-gray-100 text-gray-700"}`}>
-                          {ev.hora} {ev.titulo}
-                        </div>
-                      ))}
-                      {evsDia.length > 2 && (
-                        <div className={`text-[11px] font-semibold ${isSel ? "text-white" : "text-gray-500"}`}>
-                          +{evsDia.length - 2} eventos
+                {diasDaSemana.map(({ data, dataStr, eventos: evsDia, isHoje, isSel }) => {
+                  const { status: svStatus, cliente: svCliente, cor: svCor } = statusDiaViagem(dataStr);
+                  const bgViagem = !isSel && !isHoje && svStatus && svCor
+                    ? `${svCor.bg} ${svCor.border}`
+                    : "";
+                  return (
+                    <button
+                      key={dataStr}
+                      onClick={() => setDiaSel(dataStr)}
+                      title={svCliente || undefined}
+                      className={`rounded-lg border min-h-[88px] p-2 text-left transition-colors ${
+                        isSel
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : isHoje
+                          ? "bg-blue-50 text-blue-700 border-blue-300"
+                          : bgViagem
+                          ? `text-gray-800 ${bgViagem}`
+                          : "text-gray-700 border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="text-xs font-semibold">{nomeDias[data.getDay()]}</div>
+                      <div className="text-sm font-bold">{pad(data.getDate())}</div>
+                      {svStatus && !isSel && (
+                        <div className="text-[10px] font-semibold text-gray-600 mt-0.5">
+                          {svStatus === "checkin" || svStatus === "unico" ? "▶ Check-in" : svStatus === "checkout" ? "◀ Check-out" : "· · ·"}
                         </div>
                       )}
-                    </div>
-                  </button>
-                ))}
+                      <div className="mt-2 space-y-1">
+                        {evsDia.slice(0, 2).map(ev => (
+                          <div key={ev.id} className={`text-[11px] truncate rounded px-1.5 py-0.5 ${isSel ? "bg-white/20" : "bg-gray-100 text-gray-700"}`}>
+                            {ev.hora} {ev.titulo}
+                          </div>
+                        ))}
+                        {evsDia.length > 2 && (
+                          <div className={`text-[11px] font-semibold ${isSel ? "text-white" : "text-gray-500"}`}>
+                            +{evsDia.length - 2} eventos
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
 
@@ -393,24 +683,55 @@ export default function Agenda() {
                 })}
               </div>
             )}
+
+            {/* Legenda de cores de viagem */}
+            {intervalosViagem.length > 0 && filtroPeriodo !== "ano" && (
+              <div className="flex flex-wrap items-center gap-4 mt-4 pt-3 border-t border-gray-100">
+                <span className="text-xs text-gray-500 font-medium">Viagens:</span>
+                {Array.from(corPorCliente.entries()).map(([nome, idx]) => {
+                  const cor = PALETA_CLIENTES[idx];
+                  return (
+                    <button
+                      key={nome}
+                      type="button"
+                      onClick={() => setModalViagemCliente(nome)}
+                      className={`flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border transition-colors hover:opacity-80 ${cor.bg} ${cor.border} ${cor.text}`}
+                      title={`Ver calendário de viagem de ${nome}`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${cor.dot} flex-shrink-0`} />
+                      {nome}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
+          )}
         </Card>
-        {/* Painel lateral */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-2">
+
+        {/* Painéis inferiores em coluna */}
+        <div className="space-y-6">
+          {/* Eventos do dia selecionado */}
+          <Card className={cardStates.eventosDia ? "h-16 overflow-hidden" : ""}>
+            <CardHeader className="pb-2 cursor-pointer select-none" onClick={() => toggleCardState('eventosDia')}>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">
                   {diaSelecionado ? formatarData(diaSelecionado) : "Selecione um dia"}
                 </CardTitle>
-                <button onClick={abrirNovo} className="p-1.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors" title="Adicionar evento"><Plus className="w-4 h-4" /></button>
+                <div className="flex items-center gap-1">
+                  <button onClick={(e) => { e.stopPropagation(); abrirNovo(); }} className="p-1.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors" title="Adicionar evento"><Plus className="w-4 h-4" /></button>
+                  <button onClick={(e) => { e.stopPropagation(); toggleCardState('eventosDia'); }} className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 transition-colors" title="Minimizar/Maximizar">
+                    {cardStates.eventosDia ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             </CardHeader>
+            {!cardStates.eventosDia && (
             <CardContent>
               {eventosSelecionados.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-4">Nenhum evento neste dia.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
                   {eventosSelecionados.map(ev => {
                     const cfg = tipoConfig[ev.tipo];
                     return (
@@ -437,17 +758,28 @@ export default function Agenda() {
                 </div>
               )}
             </CardContent>
+            )}
           </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Eventos do Período</CardTitle>
-              <p className="text-xs text-gray-500 mt-1">{tituloPeriodo}</p>
+
+          {/* Eventos do período */}
+          <Card className={cardStates.eventosPeriodo ? "h-16 overflow-hidden" : ""}>
+            <CardHeader className="pb-2 cursor-pointer select-none" onClick={() => toggleCardState('eventosPeriodo')}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-semibold">Eventos do Período</CardTitle>
+                  <p className="text-xs text-gray-500 mt-1">{tituloPeriodo}</p>
+                </div>
+                <button onClick={(e) => { e.stopPropagation(); toggleCardState('eventosPeriodo'); }} className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 transition-colors" title="Minimizar/Maximizar">
+                  {cardStates.eventosPeriodo ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                </button>
+              </div>
             </CardHeader>
+            {!cardStates.eventosPeriodo && (
             <CardContent>
               {eventosDoPeriodo.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-4">Sem eventos no período selecionado.</p>
               ) : (
-                <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-[320px] overflow-y-scroll pr-1">
                   {eventosDoPeriodo.map(ev => {
                     const cfg = tipoConfig[ev.tipo];
                     return (
@@ -464,14 +796,25 @@ export default function Agenda() {
                 </div>
               )}
             </CardContent>
+            )}
           </Card>
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base font-semibold">Próximos Eventos</CardTitle></CardHeader>
+
+          {/* Próximos eventos */}
+          <Card className={cardStates.proximosEventos ? "h-16 overflow-hidden" : ""}>
+            <CardHeader className="pb-2 cursor-pointer select-none" onClick={() => toggleCardState('proximosEventos')}>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold">Próximos Eventos</CardTitle>
+                <button onClick={(e) => { e.stopPropagation(); toggleCardState('proximosEventos'); }} className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 transition-colors" title="Minimizar/Maximizar">
+                  {cardStates.proximosEventos ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                </button>
+              </div>
+            </CardHeader>
+            {!cardStates.proximosEventos && (
             <CardContent>
               {proximosEventos.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-4">Sem próximos eventos.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-[320px] overflow-y-scroll pr-1">
                   {proximosEventos.map(ev => {
                     const cfg = tipoConfig[ev.tipo];
                     return (
@@ -488,9 +831,155 @@ export default function Agenda() {
                 </div>
               )}
             </CardContent>
+            )}
           </Card>
         </div>
       </div>
+
+      {/* Modal de calendário de viagem do cliente */}
+      {modalViagemCliente && (() => {
+        const clienteNome = modalViagemCliente;
+        const idx = corPorCliente.get(clienteNome) ?? 0;
+        const cor = PALETA_CLIENTES[idx];
+        const intervalosCliente = intervalosViagem.filter(i => i.cliente === clienteNome);
+        const orcamentosCliente = orcamentos.filter(o => o.cliente === clienteNome);
+
+        // Determina o range total de todas as viagens do cliente
+        const todasDatas = intervalosCliente.flatMap(i => [i.checkin, i.checkout].filter(Boolean) as string[]);
+        if (todasDatas.length === 0) return null;
+        todasDatas.sort();
+        const primeiraData = fromDateStr(todasDatas[0]);
+        const ultimaData   = fromDateStr(todasDatas[todasDatas.length - 1]);
+
+        // Meses a exibir (do mês da primeira à última data)
+        const mesesExibir: Array<{ ano: number; mes: number }> = [];
+        let cur = new Date(primeiraData.getFullYear(), primeiraData.getMonth(), 1);
+        const fim = new Date(ultimaData.getFullYear(), ultimaData.getMonth(), 1);
+        while (cur <= fim) {
+          mesesExibir.push({ ano: cur.getFullYear(), mes: cur.getMonth() });
+          cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+        }
+
+        function statusViagem(dataStr: string) {
+          for (const { checkin, checkout } of intervalosCliente) {
+            if (!checkout) { if (dataStr === checkin) return "unico"; continue; }
+            if (dataStr === checkin && dataStr === checkout) return "unico";
+            if (dataStr === checkin)  return "checkin";
+            if (dataStr === checkout) return "checkout";
+            if (dataStr > checkin && dataStr < checkout) return "meio";
+          }
+          return null;
+        }
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setModalViagemCliente(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <span className={`w-4 h-4 rounded-full ${cor.dot}`} />
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">{clienteNome}</h3>
+                    <p className="text-xs text-gray-500">{intervalosCliente.length} viagem(ns) cadastrada(s)</p>
+                    {orcamentosCliente.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {orcamentosCliente.map(orc => (
+                          <button
+                            key={orc.id}
+                            onClick={() => {
+                              setModalViagemCliente(null);
+                              setTimeout(() => {
+                                window.location.href = '/financeiro/orcamentos';
+                                // Store the editId in sessionStorage to retrieve after navigation
+                                sessionStorage.setItem('editOrcamentoId', String(orc.id));
+                              }, 50);
+                            }}
+                            className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors hover:opacity-80 ${cor.bg} ${cor.border} ${cor.text}`}
+                            title="Abrir orçamento"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            #{orc.numero}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <button onClick={() => setModalViagemCliente(null)} className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Resumo dos intervalos */}
+              <div className="flex flex-wrap gap-2 mb-5">
+                {intervalosCliente.map((iv, i) => (
+                  <span key={i} className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border font-medium ${cor.bg} ${cor.border} ${cor.text}`}>
+                    {formatarData(iv.checkin)}
+                    {iv.checkout && iv.checkout !== iv.checkin ? ` → ${formatarData(iv.checkout)}` : ""}
+                  </span>
+                ))}
+              </div>
+
+              {/* Calendários mensais */}
+              <div className={`grid gap-6 ${mesesExibir.length > 1 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>
+                {mesesExibir.map(({ ano, mes }) => {
+                  const primeiroDia = new Date(ano, mes, 1).getDay();
+                  const totalDias   = new Date(ano, mes + 1, 0).getDate();
+                  return (
+                    <div key={`${ano}-${mes}`}>
+                      <p className="text-sm font-semibold text-gray-700 mb-2 text-center">
+                        {nomeMeses[mes]} {ano}
+                      </p>
+                      <div className="grid grid-cols-7 mb-1">
+                        {nomeDias.map(d => <div key={d} className="text-center text-[10px] font-semibold text-gray-400 py-0.5">{d}</div>)}
+                      </div>
+                      <div className="grid grid-cols-7 gap-0.5">
+                        {Array.from({ length: primeiroDia }).map((_, i) => <div key={`e-${i}`} />)}
+                        {Array.from({ length: totalDias }).map((_, i) => {
+                          const dia     = i + 1;
+                          const dataStr = `${ano}-${pad(mes + 1)}-${pad(dia)}`;
+                          const sv      = statusViagem(dataStr);
+                          const isHoje  = dataStr === toDateStr(hoje);
+                          const bgDia   = sv ? `${cor.bg} ${cor.border}` : isHoje ? "bg-blue-50 border-blue-300" : "border-transparent";
+                          return (
+                            <button
+                              key={dia}
+                              type="button"
+                              onClick={() => { setDiaSel(dataStr); aplicarDataBase(fromDateStr(dataStr)); setModalViagemCliente(null); }}
+                              className={`flex flex-col items-center justify-center rounded-md min-h-[36px] text-xs font-medium border transition-colors hover:opacity-80 ${bgDia} ${sv ? cor.text : isHoje ? "text-blue-700" : "text-gray-700"}`}
+                              title={sv === "checkin" || sv === "unico" ? "Check-in" : sv === "checkout" ? "Check-out" : sv === "meio" ? "Em viagem" : undefined}
+                            >
+                              {dia}
+                              {sv && (
+                                <span className="text-[8px] leading-none mt-0.5">
+                                  {sv === "checkin" || sv === "unico" ? "▶" : sv === "checkout" ? "◀" : "·"}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Legenda do modal */}
+              <div className="flex flex-wrap items-center gap-4 mt-5 pt-4 border-t border-gray-100">
+                <span className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <span className={`w-3 h-3 rounded-sm ${cor.bg} border ${cor.border} inline-block`} /> Check-in ▶
+                </span>
+                <span className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <span className={`w-3 h-3 rounded-sm ${cor.bg} border ${cor.border} opacity-50 inline-block`} /> Período
+                </span>
+                <span className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <span className={`w-3 h-3 rounded-sm ${cor.bg} border ${cor.border} inline-block`} /> Check-out ◀
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal */}
       {modalAberto && (
