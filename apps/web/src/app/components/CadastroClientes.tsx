@@ -16,6 +16,7 @@ import {
 type ClienteForm = Omit<Cliente, "id">;
 
 const clienteVazio: ClienteForm = {
+  apelido: "",
   nome: "",
   email: "",
   telefone: "",
@@ -64,6 +65,7 @@ export default function CadastroClientes() {
     const termo = busca.toLowerCase();
     const matchBusca =
       c.nome.toLowerCase().includes(termo) ||
+      c.apelido.toLowerCase().includes(termo) ||
       c.email.toLowerCase().includes(termo) ||
       c.telefone.includes(termo) ||
       c.cep.includes(termo) ||
@@ -86,6 +88,7 @@ export default function CadastroClientes() {
     setErro(null);
     setEditando(cliente);
     setForm({
+      apelido: cliente.apelido,
       nome: cliente.nome,
       email: cliente.email,
       telefone: cliente.telefone,
@@ -383,6 +386,16 @@ export default function CadastroClientes() {
 
             {/* Formulário */}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div>
+                <Label htmlFor="apelido">Nome</Label>
+                <Input
+                  id="apelido"
+                  value={form.apelido}
+                  onChange={(e) => setForm({ ...form, apelido: e.target.value })}
+                  placeholder="Nome ou apelido"
+                  className="mt-1"
+                />
+              </div>
               <div>
                 <Label htmlFor="nome">Nome completo *</Label>
                 <Input
