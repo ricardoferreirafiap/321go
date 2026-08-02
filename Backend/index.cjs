@@ -199,6 +199,7 @@ let ensureOrcamentosPromptRoteiroIaColumnPromise = null;
 let ensureOrcamentosPublicTokenColumnPromise = null;
 let ensureOrcamentosPublicTokenBackfillPromise = null;
 let ensureFuncionariosSaudacoesColumnPromise = null;
+let ensureFinanceiroComissaoColumnsPromise = null;
 
 async function ensureOrcamentosDestinoColumn() {
     if (!pool) {
@@ -250,6 +251,24 @@ async function ensureOrcamentosPagamentoColumns() {
     }
 
     await ensureOrcamentosPagamentoColumnsPromise;
+}
+
+async function ensureFinanceiroComissaoColumns() {
+    if (!pool) {
+        return;
+    }
+
+    if (!ensureFinanceiroComissaoColumnsPromise) {
+        ensureFinanceiroComissaoColumnsPromise = Promise.all([
+            pool.query('ALTER TABLE public.financeiro ADD COLUMN IF NOT EXISTS comissao_percentual NUMERIC(7, 2)'),
+            pool.query('ALTER TABLE public.financeiro ADD COLUMN IF NOT EXISTS comissao_valor NUMERIC(14, 2)'),
+        ]).catch((error) => {
+            ensureFinanceiroComissaoColumnsPromise = null;
+            throw error;
+        });
+    }
+
+    await ensureFinanceiroComissaoColumnsPromise;
 }
 
 async function ensureOrcamentosPacotesColumn() {
@@ -590,6 +609,8 @@ function mapLancamentoFinanceiro(row) {
         tipo: row.tipo,
         descricao: row.descricao,
         valor: Number(row.valor || 0),
+        comissaoPercentual: row.comissao_percentual === null || row.comissao_percentual === undefined ? null : Number(row.comissao_percentual),
+        comissaoValor: row.comissao_valor === null || row.comissao_valor === undefined ? null : Number(row.comissao_valor),
         data: row.data_lancamento ? new Date(row.data_lancamento).toISOString().slice(0, 10) : '',
         oculto: Boolean(row.oculto),
         orcamentoPago: Boolean(row.orcamento_pago),
@@ -776,11 +797,24 @@ function normalizeLancamentoFinanceiroPayload(body) {
     const formaPagamento = orcamentoPago ? String(body?.formaPagamento || '').trim() : '';
     const parcelas =
         orcamentoPago && Number.isInteger(Number(body?.parcelas)) && Number(body?.parcelas) > 0 ? Number(body?.parcelas) : null;
+    const valor = Math.abs(Number(body?.valor || 0));
+    const comissaoPercentualNumero = Number(body?.comissaoPercentual);
+    const comissaoValorNumero = Number(body?.comissaoValor);
+    let comissaoPercentual = Number.isFinite(comissaoPercentualNumero) && comissaoPercentualNumero >= 0 ? comissaoPercentualNumero : null;
+    let comissaoValor = Number.isFinite(comissaoValorNumero) && comissaoValorNumero >= 0 ? comissaoValorNumero : null;
+
+    if (valor > 0 && comissaoPercentual !== null && comissaoValor === null) {
+        comissaoValor = Number(((valor * comissaoPercentual) / 100).toFixed(2));
+    } else if (valor > 0 && comissaoValor !== null && comissaoPercentual === null) {
+        comissaoPercentual = Number(((comissaoValor / valor) * 100).toFixed(2));
+    }
 
     return {
         tipo: normalizedTipo,
         descricao: String(body?.descricao || '').trim(),
-        valor: Math.abs(Number(body?.valor || 0)),
+        valor,
+        comissaoPercentual,
+        comissaoValor,
         data: String(body?.data || '').trim(),
         oculto: body?.oculto === true,
         orcamentoPago,
@@ -3613,8 +3647,9 @@ app.delete('/api/orcamentos/:id', ensureDb, async (req, res) => {
 
 app.get('/api/financeiro', ensureDb, async (req, res) => {
     try {
+        await ensureFinanceiroComissaoColumns();
         const result = await pool.query(
-            `SELECT f.id, f.tipo, f.descricao, f.valor, f.data_lancamento, f.oculto, f.orcamento_pago, f.forma_pagamento, f.parcelas, f.orcamento_id, o.numero AS orcamento_numero, o.cliente
+            `SELECT f.id, f.tipo, f.descricao, f.valor, f.comissao_percentual, f.comissao_valor, f.data_lancamento, f.oculto, f.orcamento_pago, f.forma_pagamento, f.parcelas, f.orcamento_id, o.numero AS orcamento_numero, o.cliente
        FROM public.financeiro f
        LEFT JOIN public.orcamentos o ON o.id = f.orcamento_id
        ORDER BY f.data_lancamento DESC, f.id DESC`
@@ -3648,14 +3683,17 @@ app.post('/api/financeiro', ensureDb, async (req, res) => {
     }
 
     try {
+        await ensureFinanceiroComissaoColumns();
         const result = await pool.query(
-            `INSERT INTO public.financeiro (tipo, descricao, valor, data_lancamento, oculto, orcamento_pago, forma_pagamento, parcelas, orcamento_id)
-       VALUES ($1, $2, $3, NULLIF($4, '')::date, $5, $6, NULLIF($7, ''), $8, $9)
+            `INSERT INTO public.financeiro (tipo, descricao, valor, comissao_percentual, comissao_valor, data_lancamento, oculto, orcamento_pago, forma_pagamento, parcelas, orcamento_id)
+       VALUES ($1, $2, $3, $4, $5, NULLIF($6, '')::date, $7, $8, NULLIF($9, ''), $10, $11)
        RETURNING id`,
             [
                 payload.tipo,
                 payload.descricao,
                 payload.valor,
+                payload.comissaoPercentual,
+                payload.comissaoValor,
                 payload.data,
                 payload.oculto,
                 payload.orcamentoPago,
@@ -3666,7 +3704,7 @@ app.post('/api/financeiro', ensureDb, async (req, res) => {
         );
 
         const enriched = await pool.query(
-            `SELECT f.id, f.tipo, f.descricao, f.valor, f.data_lancamento, f.oculto, f.orcamento_pago, f.forma_pagamento, f.parcelas, f.orcamento_id, o.numero AS orcamento_numero, o.cliente
+            `SELECT f.id, f.tipo, f.descricao, f.valor, f.comissao_percentual, f.comissao_valor, f.data_lancamento, f.oculto, f.orcamento_pago, f.forma_pagamento, f.parcelas, f.orcamento_id, o.numero AS orcamento_numero, o.cliente
        FROM public.financeiro f
        LEFT JOIN public.orcamentos o ON o.id = f.orcamento_id
        WHERE f.id = $1`,
@@ -3714,24 +3752,29 @@ app.put('/api/financeiro/:id', ensureDb, async (req, res) => {
     }
 
     try {
+        await ensureFinanceiroComissaoColumns();
         const result = await pool.query(
             `UPDATE public.financeiro
           SET tipo = $1,
               descricao = $2,
               valor = $3,
-              data_lancamento = NULLIF($4, '')::date,
-              oculto = $5,
-              orcamento_pago = $6,
-              forma_pagamento = NULLIF($7, ''),
-              parcelas = $8,
-              orcamento_id = $9,
+              comissao_percentual = $4,
+              comissao_valor = $5,
+              data_lancamento = NULLIF($6, '')::date,
+              oculto = $7,
+              orcamento_pago = $8,
+              forma_pagamento = NULLIF($9, ''),
+              parcelas = $10,
+              orcamento_id = $11,
               atualizado_em = NOW()
-        WHERE id = $10
+        WHERE id = $12
       RETURNING id`,
             [
                 payload.tipo,
                 payload.descricao,
                 payload.valor,
+                payload.comissaoPercentual,
+                payload.comissaoValor,
                 payload.data,
                 payload.oculto,
                 payload.orcamentoPago,
@@ -3747,7 +3790,7 @@ app.put('/api/financeiro/:id', ensureDb, async (req, res) => {
         }
 
         const updated = await pool.query(
-            `SELECT f.id, f.tipo, f.descricao, f.valor, f.data_lancamento, f.oculto, f.orcamento_pago, f.forma_pagamento, f.parcelas, f.orcamento_id, o.numero AS orcamento_numero, o.cliente
+            `SELECT f.id, f.tipo, f.descricao, f.valor, f.comissao_percentual, f.comissao_valor, f.data_lancamento, f.oculto, f.orcamento_pago, f.forma_pagamento, f.parcelas, f.orcamento_id, o.numero AS orcamento_numero, o.cliente
        FROM public.financeiro f
        LEFT JOIN public.orcamentos o ON o.id = f.orcamento_id
        WHERE f.id = $1`,
@@ -4229,6 +4272,5 @@ io.on('connection', (socket) => {
 server.listen(PORT, () => {
     logServerError(`Servidor ouvindo na porta ${PORT}`);
 });
-
 
 

@@ -43,6 +43,71 @@ function formatarData(data: string) {
   return date.toLocaleDateString("pt-BR");
 }
 
+function parseNumeroInput(valor: string) {
+  const valorNormalizado = valor.replace(",", ".").trim();
+  if (!valorNormalizado) return null;
+
+  const numero = Number(valorNormalizado);
+  return Number.isFinite(numero) ? numero : null;
+}
+
+function formatarNumeroInput(valor: number, casasDecimais = 2) {
+  return Number(valor.toFixed(casasDecimais)).toString();
+}
+
+type OrigemComissao = "percentual" | "valor" | null;
+
+function sincronizarComissaoComValor(
+  valorBaseTexto: string,
+  origem: OrigemComissao,
+  percentualTexto: string,
+  valorComissaoTexto: string
+) {
+  const valorBase = parseNumeroInput(valorBaseTexto);
+  const percentual = parseNumeroInput(percentualTexto);
+  const valorComissao = parseNumeroInput(valorComissaoTexto);
+
+  if (!valorBase || valorBase <= 0) {
+    return {
+      percentualComissao: origem === "valor" ? "" : percentualTexto,
+      valorComissao: origem === "percentual" ? "" : valorComissaoTexto,
+    };
+  }
+
+  if (origem === "percentual") {
+    return {
+      percentualComissao: percentualTexto,
+      valorComissao: percentual === null ? "" : formatarNumeroInput((valorBase * percentual) / 100),
+    };
+  }
+
+  if (origem === "valor") {
+    return {
+      percentualComissao: valorComissao === null ? "" : formatarNumeroInput((valorComissao / valorBase) * 100),
+      valorComissao: valorComissaoTexto,
+    };
+  }
+
+  if (percentual !== null) {
+    return {
+      percentualComissao: percentualTexto,
+      valorComissao: formatarNumeroInput((valorBase * percentual) / 100),
+    };
+  }
+
+  if (valorComissao !== null) {
+    return {
+      percentualComissao: formatarNumeroInput((valorComissao / valorBase) * 100),
+      valorComissao: valorComissaoTexto,
+    };
+  }
+
+  return {
+    percentualComissao: percentualTexto,
+    valorComissao: valorComissaoTexto,
+  };
+}
+
 export default function Financeiro() {
   const [lancamentos, setLancamentos] = useState<LancamentoFinanceiro[]>([]);
   const [orcamentosAprovados, setOrcamentosAprovados] = useState<Orcamento[]>([]);
@@ -53,6 +118,9 @@ export default function Financeiro() {
   const [tipo, setTipo] = useState<TipoLancamento>("receita");
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
+  const [percentualComissao, setPercentualComissao] = useState("");
+  const [valorComissao, setValorComissao] = useState("");
+  const [origemComissao, setOrigemComissao] = useState<OrigemComissao>(null);
   const [data, setData] = useState(new Date().toISOString().slice(0, 10));
   const [orcamentoBusca, setOrcamentoBusca] = useState("");
   const [orcamentoId, setOrcamentoId] = useState<number | null>(null);
@@ -147,6 +215,9 @@ export default function Financeiro() {
     setTipo("receita");
     setDescricao("");
     setValor("");
+    setPercentualComissao("");
+    setValorComissao("");
+    setOrigemComissao(null);
     setData(new Date().toISOString().slice(0, 10));
     setOrcamentoBusca("");
     setOrcamentoId(null);
@@ -177,14 +248,21 @@ export default function Financeiro() {
       setOrcamentoId(null);
       setDescricao("");
       setValor("");
+      setPercentualComissao("");
+      setValorComissao("");
+      setOrigemComissao(null);
       setData("");
       return;
     }
 
     const totalOrcamento = calcularTotalOrcamento(encontrado);
+    const novoValor = totalOrcamento.toFixed(2);
+    const comissaoSincronizada = sincronizarComissaoComValor(novoValor, origemComissao, percentualComissao, valorComissao);
     setOrcamentoId(encontrado.id);
     setDescricao(`Receita do orçamento #${encontrado.numero} - ${encontrado.cliente}`);
-    setValor(totalOrcamento.toFixed(2));
+    setValor(novoValor);
+    setPercentualComissao(comissaoSincronizada.percentualComissao);
+    setValorComissao(comissaoSincronizada.valorComissao);
     setData(encontrado.dataCriacao || new Date().toISOString().slice(0, 10));
   }
 
@@ -196,10 +274,16 @@ export default function Financeiro() {
       setOrcamentoId(null);
       setDescricao("");
       setValor("");
+      setPercentualComissao("");
+      setValorComissao("");
+      setOrigemComissao(null);
       setData(new Date().toISOString().slice(0, 10));
     } else {
       setDescricao("");
       setValor("");
+      setPercentualComissao("");
+      setValorComissao("");
+      setOrigemComissao(null);
       setData("");
     }
   }
@@ -209,6 +293,13 @@ export default function Financeiro() {
     setTipo(lancamento.tipo);
     setDescricao(lancamento.descricao);
     setValor(String(lancamento.valor));
+    setPercentualComissao(
+      lancamento.comissaoPercentual === null ? "" : formatarNumeroInput(lancamento.comissaoPercentual)
+    );
+    setValorComissao(lancamento.comissaoValor === null ? "" : formatarNumeroInput(lancamento.comissaoValor));
+    setOrigemComissao(
+      lancamento.comissaoPercentual !== null ? "percentual" : lancamento.comissaoValor !== null ? "valor" : null
+    );
     setData(lancamento.data);
     setEditandoOculto(lancamento.oculto);
     setOrcamentoPago(lancamento.orcamentoPago);
@@ -238,6 +329,8 @@ export default function Financeiro() {
         tipo: lancamento.tipo,
         descricao: lancamento.descricao,
         valor: lancamento.valor,
+        comissaoPercentual: lancamento.comissaoPercentual,
+        comissaoValor: lancamento.comissaoValor,
         data: lancamento.data,
         oculto: !lancamento.oculto,
         orcamentoPago: lancamento.orcamentoPago,
@@ -252,6 +345,36 @@ export default function Financeiro() {
     }
   }
 
+  function onChangeValor(novoValor: string) {
+    setValor(novoValor);
+
+    const comissaoSincronizada = sincronizarComissaoComValor(
+      novoValor,
+      origemComissao,
+      percentualComissao,
+      valorComissao
+    );
+
+    setPercentualComissao(comissaoSincronizada.percentualComissao);
+    setValorComissao(comissaoSincronizada.valorComissao);
+  }
+
+  function onChangePercentualComissao(novoPercentual: string) {
+    setOrigemComissao("percentual");
+    setPercentualComissao(novoPercentual);
+
+    const comissaoSincronizada = sincronizarComissaoComValor(valor, "percentual", novoPercentual, valorComissao);
+    setValorComissao(comissaoSincronizada.valorComissao);
+  }
+
+  function onChangeValorComissao(novoValorComissao: string) {
+    setOrigemComissao("valor");
+    setValorComissao(novoValorComissao);
+
+    const comissaoSincronizada = sincronizarComissaoComValor(valor, "valor", percentualComissao, novoValorComissao);
+    setPercentualComissao(comissaoSincronizada.percentualComissao);
+  }
+
   async function salvarLancamento() {
     if (tipo === "receita" && !orcamentoId) {
       setErro("Selecione um orçamento aprovado para lançar a receita.");
@@ -259,6 +382,8 @@ export default function Financeiro() {
     }
 
     const valorNumerico = Number(valor.replace(",", "."));
+    const percentualComissaoNumerico = parseNumeroInput(percentualComissao);
+    const valorComissaoNumerico = parseNumeroInput(valorComissao);
     const parcelasNumero = Number(parcelas);
     if (!descricao.trim() || !valorNumerico || !data) {
       return;
@@ -282,6 +407,8 @@ export default function Financeiro() {
         tipo,
         descricao: descricao.trim(),
         valor: Math.abs(valorNumerico),
+        comissaoPercentual: percentualComissaoNumerico === null ? null : Math.abs(percentualComissaoNumerico),
+        comissaoValor: valorComissaoNumerico === null ? null : Math.abs(valorComissaoNumerico),
         data,
         oculto: editandoId ? editandoOculto : false,
         orcamentoPago,
@@ -402,7 +529,7 @@ export default function Financeiro() {
       {modalAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/50" onClick={fecharModal} />
-          <div className="relative z-10 w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+          <div className="relative z-10 w-full max-w-3xl rounded-lg bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">{editandoId ? "Editar lançamento" : "Novo lançamento"}</h2>
               <button
@@ -458,7 +585,7 @@ export default function Financeiro() {
                 </datalist>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <Label htmlFor="valor-lancamento">Valor</Label>
                   <Input
@@ -467,10 +594,38 @@ export default function Financeiro() {
                     min="0"
                     step="0.01"
                     value={valor}
-                    onChange={(e) => setValor(e.target.value)}
+                    onChange={(e) => onChangeValor(e.target.value)}
                     placeholder="0,00"
                     className="mt-1"
                     disabled={camposPreenchidosPorOrcamento}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="percentual-comissao">Porcentagem da comissão</Label>
+                  <Input
+                    id="percentual-comissao"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={percentualComissao}
+                    onChange={(e) => onChangePercentualComissao(e.target.value)}
+                    placeholder="0,00"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="valor-comissao">Valor da comissão</Label>
+                  <Input
+                    id="valor-comissao"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={valorComissao}
+                    onChange={(e) => onChangeValorComissao(e.target.value)}
+                    placeholder="0,00"
+                    className="mt-1"
                   />
                 </div>
 
