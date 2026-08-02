@@ -40,10 +40,26 @@ export default function CadastroClientes() {
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando] = useState<Cliente | null>(null);
   const [form, setForm] = useState<ClienteForm>(clienteVazio);
+  const [sobrenome, setSobrenome] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+
+  function extrairSobrenome(nome: string, nomeCompleto: string) {
+    const nomeLimpo = nome.trim();
+    const nomeCompletoLimpo = nomeCompleto.trim();
+
+    if (!nomeCompletoLimpo) return "";
+    if (!nomeLimpo) return nomeCompletoLimpo;
+
+    const inicioNormalizado = nomeCompletoLimpo.slice(0, nomeLimpo.length).toLowerCase();
+    if (inicioNormalizado === nomeLimpo.toLowerCase()) {
+      return nomeCompletoLimpo.slice(nomeLimpo.length).trim();
+    }
+
+    return nomeCompletoLimpo;
+  }
 
   async function carregarClientes() {
     setErro(null);
@@ -81,6 +97,7 @@ export default function CadastroClientes() {
     setErro(null);
     setEditando(null);
     setForm(clienteVazio);
+    setSobrenome("");
     setModalAberto(true);
   }
 
@@ -104,6 +121,7 @@ export default function CadastroClientes() {
       dataNascimento: cliente.dataNascimento,
       documentoNome: cliente.documentoNome,
     });
+    setSobrenome(extrairSobrenome(cliente.nome, cliente.nomeCompleto));
     setModalAberto(true);
   }
 
@@ -113,7 +131,8 @@ export default function CadastroClientes() {
   }
 
   async function salvar() {
-    if (!form.nomeCompleto.trim()) return;
+    const nomeCompletoComposto = `${form.nome.trim()} ${sobrenome.trim()}`.trim();
+    if (!nomeCompletoComposto) return;
 
     setSalvando(true);
     setErro(null);
@@ -121,7 +140,7 @@ export default function CadastroClientes() {
     try {
       const payload = {
         ...form,
-        nomeCompleto: form.nomeCompleto.trim(),
+        nomeCompleto: nomeCompletoComposto,
         email: form.email.trim(),
         estado: form.estado.trim().toUpperCase().slice(0, 2),
       };
@@ -386,25 +405,27 @@ export default function CadastroClientes() {
 
             {/* Formulário */}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <div>
-                <Label htmlFor="nome">Nome</Label>
-                <Input
-                  id="nome"
-                  value={form.nome}
-                  onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                  placeholder="Nome ou apelido"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="nomeCompleto">Nome completo *</Label>
-                <Input
-                  id="nomeCompleto"
-                  value={form.nomeCompleto}
-                  onChange={(e) => setForm({ ...form, nomeCompleto: e.target.value })}
-                  placeholder="Nome do cliente"
-                  className="mt-1"
-                />
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="nome">Nome</Label>
+                  <Input
+                    id="nome"
+                    value={form.nome}
+                    onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                    placeholder="Nome ou apelido"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="sobrenome">Sobrenome *</Label>
+                  <Input
+                    id="sobrenome"
+                    value={sobrenome}
+                    onChange={(e) => setSobrenome(e.target.value)}
+                    placeholder="Sobrenome do cliente"
+                    className="mt-1"
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 md:col-span-2 xl:col-span-2">
                 <div>
@@ -576,7 +597,7 @@ export default function CadastroClientes() {
               </Button>
               <Button
                 onClick={salvar}
-                disabled={salvando || !form.nomeCompleto.trim()}
+                disabled={salvando || !`${form.nome.trim()} ${sobrenome.trim()}`.trim()}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {salvando ? "Salvando..." : editando ? "Salvar alterações" : "Cadastrar"}
