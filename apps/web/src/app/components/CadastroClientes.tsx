@@ -44,6 +44,7 @@ export default function CadastroClientes() {
   const [salvando, setSalvando] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [sobrenome, setSobrenome] = useState("");
 
   async function carregarClientes() {
     setErro(null);
@@ -80,6 +81,7 @@ export default function CadastroClientes() {
   function abrirNovo() {
     setErro(null);
     setEditando(null);
+    setSobrenome("");
     setForm(clienteVazio);
     setModalAberto(true);
   }
@@ -87,6 +89,7 @@ export default function CadastroClientes() {
   function abrirEdicao(cliente: Cliente) {
     setErro(null);
     setEditando(cliente);
+    setSobrenome("");
     setForm({
       nome: cliente.nome,
       nomeCompleto: cliente.nomeCompleto,
@@ -386,15 +389,27 @@ export default function CadastroClientes() {
 
             {/* Formulário */}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <div>
-                <Label htmlFor="nome">Nome</Label>
-                <Input
-                  id="nome"
-                  value={form.nome}
-                  onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                  placeholder="Nome ou apelido"
-                  className="mt-1"
-                />
+              <div className="grid gap-4">
+                <div>
+                  <Label htmlFor="nome">Nome</Label>
+                  <Input
+                    id="nome"
+                    value={form.nome}
+                    onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                    placeholder="Nome ou apelido"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="sobrenome">Sobrenome</Label>
+                  <Input
+                    id="sobrenome"
+                    value={sobrenome}
+                    onChange={(e) => setSobrenome(e.target.value)}
+                    placeholder="Sobrenome"
+                    className="mt-1"
+                  />
+                </div>
               </div>
               <div>
                 <Label htmlFor="nomeCompleto">Nome completo *</Label>
