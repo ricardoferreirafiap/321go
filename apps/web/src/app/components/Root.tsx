@@ -147,7 +147,7 @@ export default function Root() {
       </header>
 
       {/* Conteúdo com Chat */}
-      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         <div className="flex gap-8 relative">
           {/* Painel do Agente IA */}
           {!agendaOpen && (
