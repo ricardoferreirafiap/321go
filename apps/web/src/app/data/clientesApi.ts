@@ -1,7 +1,7 @@
 export interface Cliente {
   id: number;
-  apelido: string;
   nome: string;
+  nomeCompleto: string;
   email: string;
   telefone: string;
   cep: string;

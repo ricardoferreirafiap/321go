@@ -1525,7 +1525,7 @@ export default function Orcamentos() {
                             value={form.cliente}
                             onChange={(e) => {
                               const nome = e.target.value;
-                              const cliente = clientesAtivos.find((item) => item.nome === nome);
+                              const cliente = clientesAtivos.find((item) => item.nomeCompleto === nome);
                               const funcionario = funcionariosAtivos.find((item) => item.name === nome);
                               const fornecedor = fornecedoresAtivos.find((item) => (item.nomeFantasia || item.razaoSocial) === nome);
                               setForm({
@@ -1538,7 +1538,7 @@ export default function Orcamentos() {
                         >
                           <option value="">Selecione um cliente</option>
                           {[
-                            ...clientesAtivos.map((c) => ({ nome: c.nome, tipo: "Cliente" as const })),
+                            ...clientesAtivos.map((c) => ({ nome: c.nomeCompleto, tipo: "Cliente" as const })),
                             ...funcionariosAtivos.map((f) => ({ nome: f.name, tipo: "Funcionário" as const })),
                             ...fornecedoresAtivos.map((f) => ({ nome: f.nomeFantasia || f.razaoSocial, tipo: "Fornecedor" as const })),
                           ]
@@ -1579,7 +1579,7 @@ export default function Orcamentos() {
                         >
                           <option value="">Selecione e adicione passageiros</option>
                           {[
-                            ...clientesAtivos.map((c) => ({ nome: c.nome, tipo: "Cliente" as const })),
+                            ...clientesAtivos.map((c) => ({ nome: c.nomeCompleto, tipo: "Cliente" as const })),
                             ...funcionariosAtivos.map((f) => ({ nome: f.name, tipo: "Funcionário" as const })),
                             ...fornecedoresAtivos.map((f) => ({ nome: f.nomeFantasia || f.razaoSocial, tipo: "Fornecedor" as const })),
                           ]
