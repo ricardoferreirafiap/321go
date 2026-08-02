@@ -15,7 +15,9 @@ CREATE TABLE "financeiro" (
     "criado_em" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "atualizado_em" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "financeiro_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "financeiro_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "financeiro_tipo_check" CHECK ("tipo" IN ('receita', 'despesa')),
+    CONSTRAINT "financeiro_valor_check" CHECK ("valor" > 0)
 );
 
 -- CreateIndex
@@ -26,6 +28,9 @@ CREATE INDEX "idx_financeiro_data" ON "financeiro"("data_lancamento" DESC);
 
 -- CreateIndex
 CREATE INDEX "idx_financeiro_orcamento_id" ON "financeiro"("orcamento_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "uq_financeiro_receita_orcamento" ON "financeiro"("orcamento_id") WHERE "tipo" = 'receita' AND "orcamento_id" IS NOT NULL;
 
 -- AddForeignKey
 ALTER TABLE "financeiro" ADD CONSTRAINT "financeiro_orcamento_id_fkey" FOREIGN KEY ("orcamento_id") REFERENCES "orcamentos"("id") ON DELETE SET NULL ON UPDATE NO ACTION;
