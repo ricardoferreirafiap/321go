@@ -1013,7 +1013,7 @@ export default function Agenda() {
                   >
                     <option value="">Selecione...</option>
                     {clientes.filter((cliente) => cliente.status === "Ativo").map((cliente) => (
-                      <option key={cliente.id} value={cliente.nome}>{cliente.nome}</option>
+                      <option key={cliente.id} value={cliente.nomeCompleto}>{cliente.nomeCompleto}</option>
                     ))}
                   </select>
                 </div>

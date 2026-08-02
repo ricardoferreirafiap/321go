@@ -17,6 +17,7 @@ type ClienteForm = Omit<Cliente, "id">;
 
 const clienteVazio: ClienteForm = {
   nome: "",
+  nomeCompleto: "",
   email: "",
   telefone: "",
   cep: "",
@@ -63,6 +64,7 @@ export default function CadastroClientes() {
   const clientesFiltrados = clientes.filter((c) => {
     const termo = busca.toLowerCase();
     const matchBusca =
+      c.nomeCompleto.toLowerCase().includes(termo) ||
       c.nome.toLowerCase().includes(termo) ||
       c.email.toLowerCase().includes(termo) ||
       c.telefone.includes(termo) ||
@@ -87,6 +89,7 @@ export default function CadastroClientes() {
     setEditando(cliente);
     setForm({
       nome: cliente.nome,
+      nomeCompleto: cliente.nomeCompleto,
       email: cliente.email,
       telefone: cliente.telefone,
       cep: cliente.cep,
@@ -110,7 +113,7 @@ export default function CadastroClientes() {
   }
 
   async function salvar() {
-    if (!form.nome.trim()) return;
+    if (!form.nomeCompleto.trim()) return;
 
     setSalvando(true);
     setErro(null);
@@ -118,7 +121,7 @@ export default function CadastroClientes() {
     try {
       const payload = {
         ...form,
-        nome: form.nome.trim(),
+        nomeCompleto: form.nomeCompleto.trim(),
         email: form.email.trim(),
         estado: form.estado.trim().toUpperCase().slice(0, 2),
       };
@@ -290,9 +293,9 @@ export default function CadastroClientes() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-xs flex-shrink-0">
-                          {cliente.nome.charAt(0).toUpperCase()}
+                          {(cliente.nome || cliente.nomeCompleto).charAt(0).toUpperCase()}
                         </div>
-                        <span className="font-medium text-gray-900">{cliente.nome}</span>
+                        <span className="font-medium text-gray-900">{cliente.nome || cliente.nomeCompleto}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{cliente.cpfCnpj}</td>
@@ -384,11 +387,21 @@ export default function CadastroClientes() {
             {/* Formulário */}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <div>
-                <Label htmlFor="nome">Nome completo *</Label>
+                <Label htmlFor="nome">Nome</Label>
                 <Input
                   id="nome"
                   value={form.nome}
                   onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                  placeholder="Nome ou apelido"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="nomeCompleto">Nome completo *</Label>
+                <Input
+                  id="nomeCompleto"
+                  value={form.nomeCompleto}
+                  onChange={(e) => setForm({ ...form, nomeCompleto: e.target.value })}
                   placeholder="Nome do cliente"
                   className="mt-1"
                 />
@@ -563,7 +576,7 @@ export default function CadastroClientes() {
               </Button>
               <Button
                 onClick={salvar}
-                disabled={salvando || !form.nome.trim()}
+                disabled={salvando || !form.nomeCompleto.trim()}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {salvando ? "Salvando..." : editando ? "Salvar alterações" : "Cadastrar"}
