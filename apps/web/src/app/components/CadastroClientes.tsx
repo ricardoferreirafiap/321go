@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, Plus, Edit2, Phone, Mail, MapPin, X } from "lucide-react";
+import { Search, Plus, Edit2, Phone, Mail, MapPin, X, Copy } from "lucide-react";
 import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
@@ -45,6 +45,31 @@ export default function CadastroClientes() {
   const [salvando, setSalvando] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [sobrenome, setSobrenome] = useState("");
+
+  function montarNomeCompleto(nome: string, sobrenomeValue: string) {
+    return `${nome.trim()} ${sobrenomeValue.trim()}`.trim();
+  }
+
+  function extrairSobrenome(nome: string, nomeCompleto: string) {
+    const nomeLimpo = nome.trim();
+    const nomeCompletoLimpo = nomeCompleto.trim();
+
+    if (!nomeCompletoLimpo) return "";
+
+    if (nomeLimpo && nomeCompletoLimpo.toLowerCase().startsWith(nomeLimpo.toLowerCase())) {
+      return nomeCompletoLimpo.slice(nomeLimpo.length).trim();
+    }
+
+    if (!nomeLimpo) {
+      const partes = nomeCompletoLimpo.split(/\s+/);
+      if (partes.length > 1) {
+        return partes.slice(1).join(" ");
+      }
+    }
+
+    return "";
+  }
 
   function extrairSobrenome(nome: string, nomeCompleto: string) {
     const nomeLimpo = nome.trim();
@@ -96,6 +121,7 @@ export default function CadastroClientes() {
   function abrirNovo() {
     setErro(null);
     setEditando(null);
+    setSobrenome("");
     setForm(clienteVazio);
     setSobrenome("");
     setModalAberto(true);
@@ -104,9 +130,11 @@ export default function CadastroClientes() {
   function abrirEdicao(cliente: Cliente) {
     setErro(null);
     setEditando(cliente);
+    const sobrenomeInicial = extrairSobrenome(cliente.nome, cliente.nomeCompleto);
+    setSobrenome(sobrenomeInicial);
     setForm({
       nome: cliente.nome,
-      nomeCompleto: cliente.nomeCompleto,
+      nomeCompleto: montarNomeCompleto(cliente.nome, sobrenomeInicial) || cliente.nomeCompleto,
       email: cliente.email,
       telefone: cliente.telefone,
       cep: cliente.cep,
@@ -140,7 +168,11 @@ export default function CadastroClientes() {
     try {
       const payload = {
         ...form,
+<<<<<<< HEAD
         nomeCompleto: nomeCompletoComposto,
+=======
+        nomeCompleto: montarNomeCompleto(form.nome, sobrenome).trim(),
+>>>>>>> origin/main
         email: form.email.trim(),
         estado: form.estado.trim().toUpperCase().slice(0, 2),
       };
@@ -149,6 +181,17 @@ export default function CadastroClientes() {
         await atualizarCliente(editando.id, payload);
       } else {
         await criarCliente(payload);
+      }
+
+      async function copiarNomeCompleto() {
+        const valor = form.nomeCompleto.trim();
+        if (!valor) return;
+
+        try {
+          await navigator.clipboard.writeText(valor);
+        } catch {
+          setErro("Não foi possível copiar o nome completo.");
+        }
       }
 
       await carregarClientes();
@@ -405,18 +448,34 @@ export default function CadastroClientes() {
 
             {/* Formulário */}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+<<<<<<< HEAD
               <div className="space-y-4">
+=======
+              <div className="grid gap-4">
+>>>>>>> origin/main
                 <div>
                   <Label htmlFor="nome">Nome</Label>
                   <Input
                     id="nome"
                     value={form.nome}
+<<<<<<< HEAD
                     onChange={(e) => setForm({ ...form, nome: e.target.value })}
+=======
+                    onChange={(e) => {
+                      const novoNome = e.target.value;
+                      setForm((prev) => ({
+                        ...prev,
+                        nome: novoNome,
+                        nomeCompleto: montarNomeCompleto(novoNome, sobrenome),
+                      }));
+                    }}
+>>>>>>> origin/main
                     placeholder="Nome ou apelido"
                     className="mt-1"
                   />
                 </div>
                 <div>
+<<<<<<< HEAD
                   <Label htmlFor="sobrenome">Sobrenome *</Label>
                   <Input
                     id="sobrenome"
@@ -426,6 +485,46 @@ export default function CadastroClientes() {
                     className="mt-1"
                   />
                 </div>
+=======
+                  <Label htmlFor="sobrenome">Sobrenome</Label>
+                  <Input
+                    id="sobrenome"
+                    value={sobrenome}
+                    onChange={(e) => {
+                      const novoSobrenome = e.target.value;
+                      setSobrenome(novoSobrenome);
+                      setForm((prev) => ({
+                        ...prev,
+                        nomeCompleto: montarNomeCompleto(prev.nome, novoSobrenome),
+                      }));
+                    }}
+                    placeholder="Sobrenome"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="nomeCompleto">Nome completo *</Label>
+                <div className="mt-1 flex gap-2">
+                  <Input
+                    id="nomeCompleto"
+                    value={form.nomeCompleto}
+                    placeholder="Nome do cliente"
+                    disabled
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      void copiarNomeCompleto();
+                    }}
+                    disabled={!form.nomeCompleto.trim()}
+                  >
+                    <Copy className="w-4 h-4" />
+                    Copiar
+                  </Button>
+                </div>
+>>>>>>> origin/main
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 md:col-span-2 xl:col-span-2">
                 <div>
