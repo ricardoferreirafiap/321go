@@ -312,9 +312,9 @@ export default function CadastroClientes() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-xs flex-shrink-0">
-                          {(cliente.nome || cliente.nomeCompleto).charAt(0).toUpperCase()}
+                          {(cliente.nomeCompleto || cliente.nome).charAt(0).toUpperCase()}
                         </div>
-                        <span className="font-medium text-gray-900">{cliente.nome || cliente.nomeCompleto}</span>
+                        <span className="font-medium text-gray-900">{cliente.nomeCompleto || cliente.nome}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{cliente.cpfCnpj}</td>
