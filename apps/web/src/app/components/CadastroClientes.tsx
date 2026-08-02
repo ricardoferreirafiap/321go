@@ -40,11 +40,11 @@ export default function CadastroClientes() {
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando] = useState<Cliente | null>(null);
   const [form, setForm] = useState<ClienteForm>(clienteVazio);
+  const [sobrenome, setSobrenome] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [sobrenome, setSobrenome] = useState("");
 
   function montarNomeCompleto(nome: string, sobrenomeValue: string) {
     return `${nome.trim()} ${sobrenomeValue.trim()}`.trim();
@@ -141,7 +141,8 @@ export default function CadastroClientes() {
   }
 
   async function salvar() {
-    if (!form.nomeCompleto.trim()) return;
+    const nomeCompletoComposto = `${form.nome.trim()} ${sobrenome.trim()}`.trim();
+    if (!nomeCompletoComposto) return;
 
     setSalvando(true);
     setErro(null);
@@ -160,23 +161,23 @@ export default function CadastroClientes() {
         await criarCliente(payload);
       }
 
-      async function copiarNomeCompleto() {
-        const valor = form.nomeCompleto.trim();
-        if (!valor) return;
-
-        try {
-          await navigator.clipboard.writeText(valor);
-        } catch {
-          setErro("Não foi possível copiar o nome completo.");
-        }
-      }
-
       await carregarClientes();
       fecharModal();
     } catch (error) {
       setErro(error instanceof Error ? error.message : "Erro ao salvar cliente.");
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function copiarNomeCompleto() {
+    const valor = form.nomeCompleto.trim();
+    if (!valor) return;
+
+    try {
+      await navigator.clipboard.writeText(valor);
+    } catch {
+      setErro("Não foi possível copiar o nome completo.");
     }
   }
 
@@ -332,9 +333,9 @@ export default function CadastroClientes() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-xs flex-shrink-0">
-                          {(cliente.nome || cliente.nomeCompleto).charAt(0).toUpperCase()}
+                          {(cliente.nomeCompleto || cliente.nome).charAt(0).toUpperCase()}
                         </div>
-                        <span className="font-medium text-gray-900">{cliente.nome || cliente.nomeCompleto}</span>
+                        <span className="font-medium text-gray-900">{cliente.nomeCompleto || cliente.nome}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{cliente.cpfCnpj}</td>
@@ -653,7 +654,7 @@ export default function CadastroClientes() {
               </Button>
               <Button
                 onClick={salvar}
-                disabled={salvando || !form.nomeCompleto.trim()}
+                disabled={salvando || !`${form.nome.trim()} ${sobrenome.trim()}`.trim()}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {salvando ? "Salvando..." : editando ? "Salvar alterações" : "Cadastrar"}
