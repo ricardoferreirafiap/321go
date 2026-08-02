@@ -3,6 +3,8 @@ CREATE TABLE IF NOT EXISTS public.financeiro (
   tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('receita', 'despesa')),
   descricao VARCHAR(255) NOT NULL,
   valor NUMERIC(14, 2) NOT NULL CHECK (valor > 0),
+  comissao_percentual NUMERIC(7, 2),
+  comissao_valor NUMERIC(14, 2),
   data_lancamento DATE NOT NULL,
   oculto BOOLEAN NOT NULL DEFAULT FALSE,
   orcamento_pago BOOLEAN NOT NULL DEFAULT FALSE,
@@ -24,6 +26,12 @@ ALTER TABLE IF EXISTS public.financeiro
 
 ALTER TABLE IF EXISTS public.financeiro
   ADD COLUMN IF NOT EXISTS parcelas INTEGER;
+
+ALTER TABLE IF EXISTS public.financeiro
+  ADD COLUMN IF NOT EXISTS comissao_percentual NUMERIC(7, 2);
+
+ALTER TABLE IF EXISTS public.financeiro
+  ADD COLUMN IF NOT EXISTS comissao_valor NUMERIC(14, 2);
 
 CREATE INDEX IF NOT EXISTS idx_financeiro_tipo ON public.financeiro (tipo);
 CREATE INDEX IF NOT EXISTS idx_financeiro_data ON public.financeiro (data_lancamento DESC);
