@@ -45,7 +45,6 @@ export default function CadastroClientes() {
   const [salvando, setSalvando] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [sobrenome, setSobrenome] = useState("");
 
   function montarNomeCompleto(nome: string, sobrenomeValue: string) {
     return `${nome.trim()} ${sobrenomeValue.trim()}`.trim();
@@ -69,21 +68,6 @@ export default function CadastroClientes() {
     }
 
     return "";
-  }
-
-  function extrairSobrenome(nome: string, nomeCompleto: string) {
-    const nomeLimpo = nome.trim();
-    const nomeCompletoLimpo = nomeCompleto.trim();
-
-    if (!nomeCompletoLimpo) return "";
-    if (!nomeLimpo) return nomeCompletoLimpo;
-
-    const inicioNormalizado = nomeCompletoLimpo.slice(0, nomeLimpo.length).toLowerCase();
-    if (inicioNormalizado === nomeLimpo.toLowerCase()) {
-      return nomeCompletoLimpo.slice(nomeLimpo.length).trim();
-    }
-
-    return nomeCompletoLimpo;
   }
 
   async function carregarClientes() {
@@ -123,7 +107,6 @@ export default function CadastroClientes() {
     setEditando(null);
     setSobrenome("");
     setForm(clienteVazio);
-    setSobrenome("");
     setModalAberto(true);
   }
 
@@ -149,7 +132,6 @@ export default function CadastroClientes() {
       dataNascimento: cliente.dataNascimento,
       documentoNome: cliente.documentoNome,
     });
-    setSobrenome(extrairSobrenome(cliente.nome, cliente.nomeCompleto));
     setModalAberto(true);
   }
 
@@ -168,11 +150,7 @@ export default function CadastroClientes() {
     try {
       const payload = {
         ...form,
-<<<<<<< HEAD
-        nomeCompleto: nomeCompletoComposto,
-=======
         nomeCompleto: montarNomeCompleto(form.nome, sobrenome).trim(),
->>>>>>> origin/main
         email: form.email.trim(),
         estado: form.estado.trim().toUpperCase().slice(0, 2),
       };
@@ -183,23 +161,23 @@ export default function CadastroClientes() {
         await criarCliente(payload);
       }
 
-      async function copiarNomeCompleto() {
-        const valor = form.nomeCompleto.trim();
-        if (!valor) return;
-
-        try {
-          await navigator.clipboard.writeText(valor);
-        } catch {
-          setErro("Não foi possível copiar o nome completo.");
-        }
-      }
-
       await carregarClientes();
       fecharModal();
     } catch (error) {
       setErro(error instanceof Error ? error.message : "Erro ao salvar cliente.");
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function copiarNomeCompleto() {
+    const valor = form.nomeCompleto.trim();
+    if (!valor) return;
+
+    try {
+      await navigator.clipboard.writeText(valor);
+    } catch {
+      setErro("Não foi possível copiar o nome completo.");
     }
   }
 
@@ -448,19 +426,12 @@ export default function CadastroClientes() {
 
             {/* Formulário */}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-<<<<<<< HEAD
-              <div className="space-y-4">
-=======
               <div className="grid gap-4">
->>>>>>> origin/main
                 <div>
                   <Label htmlFor="nome">Nome</Label>
                   <Input
                     id="nome"
                     value={form.nome}
-<<<<<<< HEAD
-                    onChange={(e) => setForm({ ...form, nome: e.target.value })}
-=======
                     onChange={(e) => {
                       const novoNome = e.target.value;
                       setForm((prev) => ({
@@ -469,23 +440,11 @@ export default function CadastroClientes() {
                         nomeCompleto: montarNomeCompleto(novoNome, sobrenome),
                       }));
                     }}
->>>>>>> origin/main
                     placeholder="Nome ou apelido"
                     className="mt-1"
                   />
                 </div>
                 <div>
-<<<<<<< HEAD
-                  <Label htmlFor="sobrenome">Sobrenome *</Label>
-                  <Input
-                    id="sobrenome"
-                    value={sobrenome}
-                    onChange={(e) => setSobrenome(e.target.value)}
-                    placeholder="Sobrenome do cliente"
-                    className="mt-1"
-                  />
-                </div>
-=======
                   <Label htmlFor="sobrenome">Sobrenome</Label>
                   <Input
                     id="sobrenome"
@@ -524,7 +483,6 @@ export default function CadastroClientes() {
                     Copiar
                   </Button>
                 </div>
->>>>>>> origin/main
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 md:col-span-2 xl:col-span-2">
                 <div>
