@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["public"]
+}
+
+model Orcamento {
+  id          BigInt       @id @default(autoincrement())
+  financeiros Financeiro[]
+
+  @@map("orcamentos")
+  @@schema("public")
+}
+
+model Financeiro {
+  id                 BigInt     @id @default(autoincrement())
+  tipo               String     @db.VarChar(10)
+  descricao          String     @db.VarChar(255)
+  valor              Decimal    @db.Decimal(14, 2)
+  comissaoPercentual Decimal?   @map("comissao_percentual") @db.Decimal(7, 2)
+  comissaoValor      Decimal?   @map("comissao_valor") @db.Decimal(14, 2)
+  dataLancamento     DateTime   @map("data_lancamento") @db.Date
+  oculto             Boolean    @default(false)
+  orcamentoPago      Boolean    @default(false) @map("orcamento_pago")
+  formaPagamento     String?    @map("forma_pagamento") @db.VarChar(30)
+  parcelas           Int?
+  orcamentoId        BigInt?    @map("orcamento_id")
+  criadoEm           DateTime   @default(now()) @map("criado_em") @db.Timestamptz(6)
+  atualizadoEm       DateTime   @default(now()) @map("atualizado_em") @db.Timestamptz(6)
+  orcamento          Orcamento? @relation(fields: [orcamentoId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([tipo], map: "idx_financeiro_tipo")
+  @@index([dataLancamento(sort: Desc)], map: "idx_financeiro_data")
+  @@index([orcamentoId], map: "idx_financeiro_orcamento_id")
+  @@map("financeiro")
+  @@schema("public")
+}

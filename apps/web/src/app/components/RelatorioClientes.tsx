@@ -109,7 +109,7 @@ export default function RelatorioClientes() {
 
     const orcamentosPeriodo = orcamentos.filter((orcamento) => {
       if (estado !== "todos") {
-        const clienteRelacionado = clientes.find((cliente) => cliente.nome === orcamento.cliente);
+        const clienteRelacionado = clientes.find((cliente) => cliente.nomeCompleto === orcamento.cliente);
         if (clienteRelacionado?.estado !== estado) {
           return false;
         }
@@ -137,7 +137,7 @@ export default function RelatorioClientes() {
     const valorPorClienteMap = new Map<string, { nome: string; valor: number; pedidos: number; status: string }>();
     orcamentosPeriodo.forEach((orcamento) => {
       const valor = calcularValorOrcamento(orcamento);
-      const clienteSistema = clientes.find((cliente) => cliente.nome === orcamento.cliente);
+      const clienteSistema = clientes.find((cliente) => cliente.nomeCompleto === orcamento.cliente);
       const atual = valorPorClienteMap.get(orcamento.cliente) || {
         nome: orcamento.cliente,
         valor: 0,

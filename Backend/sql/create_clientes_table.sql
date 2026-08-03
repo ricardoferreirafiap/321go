@@ -31,3 +31,6 @@ ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS endereco VARCHAR(255);
 ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS numero VARCHAR(20);
 ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS complemento VARCHAR(120);
 ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS rg VARCHAR(32);
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS nome_completo VARCHAR(255);
+ALTER TABLE public.clientes ALTER COLUMN nome DROP NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_clientes_nome_completo ON public.clientes (nome_completo);

@@ -167,7 +167,7 @@ function DolarWidget() {
                   </div>
 
                   {/* Atualização */}
-                  <div className="ml-auto flex flex-col items-end gap-1">
+                  <div className="flex flex-col items-start sm:items-end gap-1 sm:ml-auto">
                     {ultimaAtualizacao && (
                       <span className="text-xs text-muted-foreground">
                         Atualizado às {ultimaAtualizacao.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
@@ -337,7 +337,7 @@ function ConversorMoedas() {
         {expandido && (
           <div className="mt-2 space-y-3">
             {/* ── Linha de inputs ── */}
-            <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
+            <div className="flex flex-wrap items-center gap-2 pb-1">
               <input
                 type="number"
                 min="0"
@@ -1006,17 +1006,18 @@ export default function LeadDashboard() {
       <Card className="border border-gray-200">
         <CardContent className="py-2 px-4">
           {/* Barra de título */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h2 className="text-xl font-bold tracking-tight">Visão Geral</h2>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight whitespace-nowrap">Visão Geral</h2>
               {/* Filtros de período sempre visíveis */}
-              <div className="flex items-center space-x-2">
+              <div className="flex flex-wrap items-center gap-1">
                 {periodFilters.map((filter) => (
                   <Button
                     key={filter}
                     variant={activeFilter === filter ? "default" : "outline"}
                     size="sm"
                     onClick={() => setActiveFilter(filter)}
+                    className="h-7 px-2 text-xs sm:px-3 sm:text-sm"
                   >
                     {filter}
                   </Button>
@@ -1036,21 +1037,21 @@ export default function LeadDashboard() {
           {expandidoVisaoGeral && (
             <div className="mt-4 space-y-4">
               {/* Cards de Métricas */}
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-3 grid-cols-2 md:grid-cols-2 lg:grid-cols-4">
                 {dadosDashboard.cardData.map((card) => (
                   <Card
                     key={card.title}
                     className={`cursor-pointer transition-all ${activeCard === card.key ? "ring-2 ring-blue-500 bg-blue-50/50" : "hover:shadow-md"}`}
                     onClick={() => setActiveCard(card.key)}
                   >
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 pt-3">
+                      <CardTitle className="text-xs sm:text-sm font-medium leading-tight">
                         {card.title}
                       </CardTitle>
                       {card.icon}
                     </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">
+                    <CardContent className="px-3 pb-3">
+                      <div className="text-base sm:text-2xl font-bold truncate">
                         {loading ? "..." : card.value}
                       </div>
                     </CardContent>
@@ -1067,17 +1068,17 @@ export default function LeadDashboard() {
               )}
 
               {/* Seção de Gráficos */}
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <Card className="col-span-4">
+              <div className="grid gap-4 grid-cols-1 lg:grid-cols-7">
+                <Card className="col-span-1 lg:col-span-4">
                   <CardHeader>
-                    <CardTitle>{activeChart.barTitle}</CardTitle>
+                    <CardTitle className="text-sm sm:text-base">{activeChart.barTitle}</CardTitle>
                   </CardHeader>
                   <CardContent className="pl-2">
-                    <ResponsiveContainer width="100%" height={350}>
+                    <ResponsiveContainer width="100%" height={280}>
                       <BarChart data={activeChart.barData}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
+                        <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
                         <Tooltip />
                         <Legend />
                         <Bar dataKey="value" fill="#3b82f6" name={activeChart.barName} radius={[4, 4, 0, 0]} />
@@ -1085,14 +1086,14 @@ export default function LeadDashboard() {
                     </ResponsiveContainer>
                   </CardContent>
                 </Card>
-                <Card className="col-span-3">
+                <Card className="col-span-1 lg:col-span-3">
                   <CardHeader>
-                    <CardTitle>{activeChart.pieTitle}</CardTitle>
+                    <CardTitle className="text-sm sm:text-base">{activeChart.pieTitle}</CardTitle>
                   </CardHeader>
                   <CardContent className="flex justify-center">
-                    <ResponsiveContainer width="100%" height={350}>
+                    <ResponsiveContainer width="100%" height={280}>
                       <PieChart>
-                        <Pie data={activeChart.pieData} cx="50%" cy="50%" labelLine={false} outerRadius={120} fill="#8884d8" dataKey="value" nameKey="name" label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}>
+                        <Pie data={activeChart.pieData} cx="50%" cy="50%" labelLine={false} outerRadius={100} fill="#8884d8" dataKey="value" nameKey="name" label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}>
                           {activeChart.pieData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}

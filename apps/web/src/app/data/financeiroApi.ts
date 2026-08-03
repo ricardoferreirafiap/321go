@@ -5,6 +5,8 @@ export interface LancamentoFinanceiro {
   tipo: TipoLancamento;
   descricao: string;
   valor: number;
+  comissaoPercentual: number | null;
+  comissaoValor: number | null;
   data: string;
   oculto: boolean;
   orcamentoPago: boolean;
@@ -19,6 +21,8 @@ export interface LancamentoFinanceiroPayload {
   tipo: TipoLancamento;
   descricao: string;
   valor: number;
+  comissaoPercentual?: number | null;
+  comissaoValor?: number | null;
   data: string;
   oculto?: boolean;
   orcamentoPago?: boolean;
