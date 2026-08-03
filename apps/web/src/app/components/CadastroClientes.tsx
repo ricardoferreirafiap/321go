@@ -363,27 +363,32 @@ export default function CadastroClientes() {
 
       {/* Modal de cadastro/edição — sem Portal/Radix Dialog */}
       {modalAberto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           {/* Overlay */}
           <div
             className="absolute inset-0 bg-black/50"
             onClick={fecharModal}
           />
-          {/* Painel */}
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-5xl mx-4 p-6 z-10 max-h-[90vh] overflow-y-auto">
-            {/* Título */}
-            <div className="flex items-center justify-between mb-4">
+          {/* Painel — full-screen em mobile, centralizado em sm+ */}
+          <div className="relative bg-white w-full sm:rounded-lg sm:shadow-xl sm:max-w-5xl sm:mx-4 sm:p-6 z-10
+            h-[100dvh] sm:h-auto sm:max-h-[90vh]
+            flex flex-col
+            rounded-t-2xl shadow-2xl">
+
+            {/* Título — fixo no topo */}
+            <div className="flex items-center justify-between px-4 pt-4 pb-3 sm:px-0 sm:pt-0 sm:pb-4 border-b border-gray-100 sm:border-none flex-shrink-0">
               <h2 className="text-lg font-semibold text-gray-900">
                 {editando ? "Editar Cliente" : "Novo Cliente"}
               </h2>
-              <button onClick={fecharModal} className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+              <button onClick={fecharModal} className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Formulário */}
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <div>
+            {/* Formulário — scrollável */}
+            <div className="flex-1 overflow-y-auto px-4 sm:px-0 py-4 sm:py-0">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="sm:col-span-2 xl:col-span-1">
                 <Label htmlFor="nome">Nome completo *</Label>
                 <Input
                   id="nome"
@@ -393,7 +398,7 @@ export default function CadastroClientes() {
                   className="mt-1"
                 />
               </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 md:col-span-2 xl:col-span-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:col-span-2 xl:col-span-2">
                 <div>
                   <Label htmlFor="cpfCnpj">CPF / CNPJ</Label>
                   <Input
@@ -425,7 +430,7 @@ export default function CadastroClientes() {
                   />
                 </div>
               </div>
-              <div className="md:col-span-2 xl:col-span-1">
+              <div className="sm:col-span-2 xl:col-span-1">
                 <Label htmlFor="email">E-mail</Label>
                 <Input
                   id="email"
@@ -436,7 +441,7 @@ export default function CadastroClientes() {
                   className="mt-1"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4 md:col-span-2 xl:col-span-1">
+              <div className="grid grid-cols-2 gap-4 sm:col-span-2 xl:col-span-1">
                 <div>
                   <Label htmlFor="cep">CEP</Label>
                   <Input
@@ -462,7 +467,7 @@ export default function CadastroClientes() {
                   />
                 </div>
               </div>
-              <div className="md:col-span-2 xl:col-span-2">
+              <div className="sm:col-span-2 xl:col-span-2">
                 <Label htmlFor="endereco">Endereço</Label>
                 <Input
                   id="endereco"
@@ -472,7 +477,7 @@ export default function CadastroClientes() {
                   className="mt-1"
                 />
               </div>
-              <div className="md:col-span-2 xl:col-span-1">
+              <div className="sm:col-span-2 xl:col-span-1">
                 <Label htmlFor="complemento">Complemento</Label>
                 <Input
                   id="complemento"
@@ -482,7 +487,7 @@ export default function CadastroClientes() {
                   className="mt-1"
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:col-span-2 xl:col-span-1">
+              <div className="grid grid-cols-2 gap-4 sm:col-span-2 xl:col-span-1">
                 <div>
                   <Label htmlFor="dataNascimento">Data de Nascimento</Label>
                   <Input
@@ -510,7 +515,7 @@ export default function CadastroClientes() {
                   )}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4 md:col-span-2 xl:col-span-1">
+              <div className="grid grid-cols-2 gap-4 sm:col-span-2 xl:col-span-1">
                 <div>
                   <Label htmlFor="cidade">Cidade</Label>
                   <Input
@@ -533,7 +538,7 @@ export default function CadastroClientes() {
                   />
                 </div>
               </div>
-              <div className="md:col-span-2 xl:col-span-1">
+              <div className="sm:col-span-2 xl:col-span-1">
                 <Label>Status</Label>
                 <div className="flex gap-2 mt-1">
                   {(["Ativo", "Inativo"] as const).map((s) => (
@@ -556,15 +561,21 @@ export default function CadastroClientes() {
               </div>
             </div>
 
-            {/* Rodapé */}
-            <div className="flex justify-end gap-2 mt-6">
-              <Button variant="outline" onClick={fecharModal}>
+            {/* Mensagem de erro dentro do form */}
+            {erro && (
+              <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>
+            )}
+            </div>{/* fim overflow-y-auto */}
+
+            {/* Rodapé — fixo na base do modal */}
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 px-4 pt-3 pb-4 sm:px-0 sm:pb-0 border-t border-gray-100 sm:border-none sm:mt-6 flex-shrink-0">
+              <Button variant="outline" onClick={fecharModal} className="w-full sm:w-auto">
                 Cancelar
               </Button>
               <Button
                 onClick={salvar}
                 disabled={salvando || !form.nome.trim()}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {salvando ? "Salvando..." : editando ? "Salvar alterações" : "Cadastrar"}
               </Button>
