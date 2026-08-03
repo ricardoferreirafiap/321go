@@ -391,6 +391,8 @@ async function backfillOrcamentosPublicToken() {
 }
 
 let ensureOrcamentosStatusViagemColumnPromise = null;
+let ensureClientesSobrenomeColumnPromise = null;
+
 async function ensureOrcamentosStatusViagemColumn() {
     if (!pool) {
         return;
@@ -406,6 +408,23 @@ async function ensureOrcamentosStatusViagemColumn() {
     }
 
     await ensureOrcamentosStatusViagemColumnPromise;
+}
+
+async function ensureClientesSobrenomeColumn() {
+    if (!pool) {
+        return;
+    }
+
+    if (!ensureClientesSobrenomeColumnPromise) {
+        ensureClientesSobrenomeColumnPromise = pool
+            .query('ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS sobrenome VARCHAR(150)')
+            .catch((error) => {
+                ensureClientesSobrenomeColumnPromise = null;
+                throw error;
+            });
+    }
+
+    await ensureClientesSobrenomeColumnPromise;
 }
 
 async function ensureFuncionariosSaudacoesColumn() {
@@ -480,7 +499,8 @@ function mapFuncionario(row) {
 function mapCliente(row) {
     return {
         id: Number(row.id),
-        nome: row.nome,
+        nome: row.nome || '',
+        sobrenome: row.sobrenome || '',
         nomeCompleto: row.nome_completo || '',
         email: row.email || '',
         telefone: row.telefone || '',
@@ -640,6 +660,7 @@ function normalizePayload(body) {
 function normalizeClientePayload(body) {
     return {
         nome: String(body?.nome || '').trim(),
+        sobrenome: String(body?.sobrenome || '').trim(),
         nomeCompleto: String(body?.nomeCompleto || '').trim(),
         email: String(body?.email || '').trim().toLowerCase(),
         telefone: String(body?.telefone || '').trim(),
@@ -2578,8 +2599,9 @@ app.delete('/api/funcionarios/:id', ensureDb, async (req, res) => {
 
 app.get('/api/clientes', ensureDb, async (req, res) => {
     try {
+        await ensureClientesSobrenomeColumn();
         const result = await pool.query(
-              `SELECT id, nome, nome_completo, email, telefone, cep, endereco, numero, complemento, cidade, estado, status, cpf_cnpj, rg, data_nascimento, documento_nome
+              `SELECT id, nome, sobrenome, nome_completo, email, telefone, cep, endereco, numero, complemento, cidade, estado, status, cpf_cnpj, rg, data_nascimento, documento_nome
        FROM public.clientes
        ORDER BY nome ASC`
         );
@@ -2600,13 +2622,15 @@ app.post('/api/clientes', ensureDb, async (req, res) => {
     }
 
     try {
+        await ensureClientesSobrenomeColumn();
         const result = await pool.query(
             `INSERT INTO public.clientes
-        (nome, nome_completo, email, telefone, cep, endereco, numero, complemento, cidade, estado, status, cpf_cnpj, rg, data_nascimento, documento_nome)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NULLIF($14, '')::date, $15)
-       RETURNING id, nome, nome_completo, email, telefone, cep, endereco, numero, complemento, cidade, estado, status, cpf_cnpj, rg, data_nascimento, documento_nome`,
+        (nome, sobrenome, nome_completo, email, telefone, cep, endereco, numero, complemento, cidade, estado, status, cpf_cnpj, rg, data_nascimento, documento_nome)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NULLIF($15, '')::date, $16)
+       RETURNING id, nome, sobrenome, nome_completo, email, telefone, cep, endereco, numero, complemento, cidade, estado, status, cpf_cnpj, rg, data_nascimento, documento_nome`,
             [
                 payload.nome || null,
+                payload.sobrenome || null,
                 payload.nomeCompleto,
                 payload.email || null,
                 payload.telefone || null,
@@ -2649,28 +2673,31 @@ app.put('/api/clientes/:id', ensureDb, async (req, res) => {
     }
 
     try {
+        await ensureClientesSobrenomeColumn();
         const result = await pool.query(
                         `UPDATE public.clientes
           SET nome = $1,
-              nome_completo = $2,
-              email = $3,
-              telefone = $4,
-              cep = $5,
-              endereco = $6,
-              numero = $7,
-              complemento = $8,
-              cidade = $9,
-              estado = $10,
-              status = $11,
-              cpf_cnpj = $12,
-              rg = $13,
-              data_nascimento = NULLIF($14, '')::date,
-              documento_nome = $15,
+              sobrenome = $2,
+              nome_completo = $3,
+              email = $4,
+              telefone = $5,
+              cep = $6,
+              endereco = $7,
+              numero = $8,
+              complemento = $9,
+              cidade = $10,
+              estado = $11,
+              status = $12,
+              cpf_cnpj = $13,
+              rg = $14,
+              data_nascimento = NULLIF($15, '')::date,
+              documento_nome = $16,
               atualizado_em = NOW()
-          WHERE id = $16
-        RETURNING id, nome, nome_completo, email, telefone, cep, endereco, numero, complemento, cidade, estado, status, cpf_cnpj, rg, data_nascimento, documento_nome`,
+          WHERE id = $17
+        RETURNING id, nome, sobrenome, nome_completo, email, telefone, cep, endereco, numero, complemento, cidade, estado, status, cpf_cnpj, rg, data_nascimento, documento_nome`,
             [
                 payload.nome || null,
+                payload.sobrenome || null,
                 payload.nomeCompleto,
                 payload.email || null,
                 payload.telefone || null,

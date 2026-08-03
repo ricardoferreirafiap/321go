@@ -17,6 +17,8 @@ type ClienteForm = Omit<Cliente, "id">;
 
 const clienteVazio: ClienteForm = {
   nome: "",
+  sobrenome: "",
+  nomeCompleto: "",
   email: "",
   telefone: "",
   cep: "",
@@ -43,6 +45,7 @@ export default function CadastroClientes() {
   const [salvando, setSalvando] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState(false);
 
   async function carregarClientes() {
     setErro(null);
@@ -63,14 +66,15 @@ export default function CadastroClientes() {
   const clientesFiltrados = clientes.filter((c) => {
     const termo = busca.toLowerCase();
     const matchBusca =
-      c.nome.toLowerCase().includes(termo) ||
-      c.email.toLowerCase().includes(termo) ||
-      c.telefone.includes(termo) ||
-      c.cep.includes(termo) ||
-      c.endereco.toLowerCase().includes(termo) ||
-      c.cidade.toLowerCase().includes(termo) ||
-      c.rg.includes(termo) ||
-      c.cpfCnpj.includes(termo);
+      (c.nomeCompleto || c.nome || "").toLowerCase().includes(termo) ||
+      (c.sobrenome || "").toLowerCase().includes(termo) ||
+      (c.email || "").toLowerCase().includes(termo) ||
+      (c.telefone || "").includes(termo) ||
+      (c.cep || "").includes(termo) ||
+      (c.endereco || "").toLowerCase().includes(termo) ||
+      (c.cidade || "").toLowerCase().includes(termo) ||
+      (c.rg || "").includes(termo) ||
+      (c.cpfCnpj || "").includes(termo);
     const matchStatus = filtroStatus === "Todos" || c.status === filtroStatus;
     return matchBusca && matchStatus;
   });
@@ -86,20 +90,22 @@ export default function CadastroClientes() {
     setErro(null);
     setEditando(cliente);
     setForm({
-      nome: cliente.nome,
-      email: cliente.email,
-      telefone: cliente.telefone,
-      cep: cliente.cep,
-      endereco: cliente.endereco,
-      numero: cliente.numero,
-      complemento: cliente.complemento,
-      cidade: cliente.cidade,
-      estado: cliente.estado,
+      nome: cliente.nome || "",
+      sobrenome: cliente.sobrenome || "",
+      nomeCompleto: cliente.nomeCompleto || "",
+      email: cliente.email || "",
+      telefone: cliente.telefone || "",
+      cep: cliente.cep || "",
+      endereco: cliente.endereco || "",
+      numero: cliente.numero || "",
+      complemento: cliente.complemento || "",
+      cidade: cliente.cidade || "",
+      estado: cliente.estado || "",
       status: cliente.status,
-      cpfCnpj: cliente.cpfCnpj,
+      cpfCnpj: cliente.cpfCnpj || "",
       rg: cliente.rg || "",
-      dataNascimento: cliente.dataNascimento,
-      documentoNome: cliente.documentoNome,
+      dataNascimento: cliente.dataNascimento || "",
+      documentoNome: cliente.documentoNome || "",
     });
     setModalAberto(true);
   }
@@ -110,17 +116,20 @@ export default function CadastroClientes() {
   }
 
   async function salvar() {
-    if (!form.nome.trim()) return;
+    if (!(form.nome || "").trim()) return;
 
     setSalvando(true);
     setErro(null);
 
     try {
+      const nomeCompleto = [(form.nome || "").trim(), (form.sobrenome || "").trim()].filter(Boolean).join(" ");
       const payload = {
         ...form,
-        nome: form.nome.trim(),
-        email: form.email.trim(),
-        estado: form.estado.trim().toUpperCase().slice(0, 2),
+        nome: (form.nome || "").trim(),
+        sobrenome: (form.sobrenome || "").trim(),
+        nomeCompleto,
+        email: (form.email || "").trim(),
+        estado: (form.estado || "").trim().toUpperCase().slice(0, 2),
       };
 
       if (editando) {
@@ -290,9 +299,9 @@ export default function CadastroClientes() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-xs flex-shrink-0">
-                          {cliente.nome.charAt(0).toUpperCase()}
+                          {(cliente.nomeCompleto || cliente.nome).charAt(0).toUpperCase()}
                         </div>
-                        <span className="font-medium text-gray-900">{cliente.nome}</span>
+                        <span className="font-medium text-gray-900">{cliente.nomeCompleto || cliente.nome}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{cliente.cpfCnpj}</td>
@@ -310,7 +319,7 @@ export default function CadastroClientes() {
                               href={linkWhatsApp(cliente.telefone) || "#"}
                               target="_blank"
                               rel="noreferrer"
-                              aria-label={`Abrir WhatsApp de ${cliente.nome}`}
+                              aria-label={`Abrir WhatsApp de ${cliente.nomeCompleto || cliente.nome}`}
                               title="Abrir no WhatsApp"
                               className="ml-1 inline-flex items-center justify-center rounded text-green-600 hover:text-green-700"
                             >
@@ -388,17 +397,71 @@ export default function CadastroClientes() {
             {/* Formulário — scrollável */}
             <div className="flex-1 overflow-y-auto px-4 sm:px-0 py-4 sm:py-0">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              <div className="sm:col-span-2 xl:col-span-1">
-                <Label htmlFor="nome">Nome completo *</Label>
+              <div>
+                <Label htmlFor="nome">Nome *</Label>
                 <Input
                   id="nome"
                   value={form.nome}
-                  onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                  placeholder="Nome do cliente"
+                  onChange={(e) => {
+                    const nome = e.target.value;
+                    const nomeCompleto = [nome.trim(), (form.sobrenome || "").trim()].filter(Boolean).join(" ");
+                    setForm({ ...form, nome, nomeCompleto });
+                  }}
+                  placeholder="Primeiro nome"
                   className="mt-1"
                 />
               </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:col-span-2 xl:col-span-2">
+              <div>
+                <Label htmlFor="sobrenome">Sobrenome</Label>
+                <Input
+                  id="sobrenome"
+                  value={form.sobrenome}
+                  onChange={(e) => {
+                    const sobrenome = e.target.value;
+                    const nomeCompleto = [(form.nome || "").trim(), sobrenome.trim()].filter(Boolean).join(" ");
+                    setForm({ ...form, sobrenome, nomeCompleto });
+                  }}
+                  placeholder="Sobrenome"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="nomeCompleto">Nome Completo</Label>
+                <div className="relative mt-1">
+                  <Input
+                    id="nomeCompleto"
+                    value={form.nomeCompleto}
+                    disabled
+                    placeholder="Preenchido automaticamente"
+                    className="bg-gray-100 text-gray-500 cursor-not-allowed pr-10"
+                  />
+                  <button
+                    type="button"
+                    title="Copiar nome completo"
+                    disabled={!form.nomeCompleto}
+                    onClick={() => {
+                      if (!form.nomeCompleto) return;
+                      void navigator.clipboard.writeText(form.nomeCompleto).then(() => {
+                        setCopiado(true);
+                        setTimeout(() => setCopiado(false), 2000);
+                      });
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {copiado ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:col-span-2 xl:col-span-3">
                 <div>
                   <Label htmlFor="cpfCnpj">CPF / CNPJ</Label>
                   <Input
@@ -574,7 +637,7 @@ export default function CadastroClientes() {
               </Button>
               <Button
                 onClick={salvar}
-                disabled={salvando || !form.nome.trim()}
+                disabled={salvando || !(form.nome || "").trim()}
                 className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {salvando ? "Salvando..." : editando ? "Salvar alterações" : "Cadastrar"}
