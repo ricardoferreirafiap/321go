@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { DollarSign, TrendingUp, TrendingDown, Wallet, Plus, X, Pencil, Eye, EyeOff, ChevronDown, ChevronUp, Search } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
@@ -154,6 +154,7 @@ function sincronizarComissaoComValor(
 
 export default function Financeiro() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [lancamentos, setLancamentos] = useState<LancamentoFinanceiro[]>([]);
   const [orcamentosAprovados, setOrcamentosAprovados] = useState<Orcamento[]>([]);
   const [todosOrcamentos, setTodosOrcamentos] = useState<Orcamento[]>([]);
@@ -178,6 +179,8 @@ export default function Financeiro() {
   const [formaPagamento, setFormaPagamento] = useState("");
   const [parcelas, setParcelas] = useState("1");
 
+  const habilitarDadosPagamento = orcamentoPago;
+
   // Filtros da tabela de transações
   const [filtroTexto, setFiltroTexto] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<"todos" | "receita" | "despesa">("todos");
@@ -188,7 +191,6 @@ export default function Financeiro() {
   const [resumoMinimizado, setResumoMinimizado] = useState(false);
 
   const camposPreenchidosPorOrcamento = tipo === "receita";
-  const habilitarDadosPagamento = orcamentoPago;
 
   useEffect(() => {
     async function carregarDados() {
@@ -210,6 +212,71 @@ export default function Financeiro() {
     }
     carregarDados();
   }, []);
+
+  // Abre modal pré-preenchido quando navegado de Orçamentos com state.novoLancamentoOrcamento
+  useEffect(() => {
+    const state = location.state as any;
+    const orc = state?.novoLancamentoOrcamento;
+    const lancamentoExistente: LancamentoFinanceiro | null = state?.lancamentoExistente ?? null;
+    if (!orc) return;
+
+    // Limpa o state para não reabrir em navegações futuras
+    window.history.replaceState({}, '');
+
+    if (lancamentoExistente) {
+      // Abre modal em modo edição com os dados do lançamento existente
+      setEditandoId(lancamentoExistente.id);
+      setTipo(lancamentoExistente.tipo);
+      setDescricao(lancamentoExistente.descricao);
+      setValor(new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(lancamentoExistente.valor));
+      setData(lancamentoExistente.data);
+      setOrcamentoId(lancamentoExistente.orcamentoId);
+      setOrcamentoBusca(`${orc.numero} - ${orc.cliente}`);
+      setOrcamentoIdOriginalEdicao(lancamentoExistente.orcamentoId);
+      setOrcamentoBuscaOriginalEdicao(`${orc.numero} - ${orc.cliente}`);
+      setPercentualComissao(lancamentoExistente.comissaoPercentual === null ? "" : String(lancamentoExistente.comissaoPercentual));
+      setValorComissao(lancamentoExistente.comissaoValor === null ? "" : new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(lancamentoExistente.comissaoValor));
+      setOrigemComissao(lancamentoExistente.comissaoPercentual !== null ? "percentual" : lancamentoExistente.comissaoValor !== null ? "valor" : null);
+      setOrcamentoPago(lancamentoExistente.orcamentoPago);
+      setFormaPagamento(lancamentoExistente.formaPagamento || "");
+      setParcelas(String(lancamentoExistente.parcelas ?? 1));
+      setEditandoOculto(lancamentoExistente.oculto);
+    } else {
+      // Abre modal em modo novo lançamento pré-preenchido com dados do orçamento
+      const totalOrcamento =
+        (orc.itens || []).reduce((acc: number, item: any) => {
+          const subtotal = Number(item.quantidade || 0) * Number(item.valorUnitario || 0);
+          return acc + subtotal - subtotal * (Number(item.desconto || 0) / 100);
+        }, 0) +
+        (orc.hospedagem || []).reduce((acc: number, i: any) => acc + (Number(i?.preco) || 0), 0) +
+        (orc.transporte || []).reduce((acc: number, i: any) => acc + (Number(i?.valor) || 0), 0) +
+        (orc.restaurante || []).reduce((acc: number, i: any) => acc + (Number(i?.preco) || 0), 0) +
+        (orc.experiencias || []).reduce((acc: number, i: any) => acc + (Number(i?.preco) || 0), 0) +
+        (orc.seguro || []).reduce((acc: number, i: any) => acc + (Number(i?.valor) || 0), 0) +
+        (orc.pacotes || []).reduce((acc: number, i: any) => acc + (Number(i?.valor) || 0) + (Number(i?.hospedagemValor) || 0), 0);
+
+      setEditandoId(null);
+      setTipo("receita");
+      setDescricao(`Receita do orçamento #${orc.numero} - ${orc.cliente}`);
+      setValor(new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(totalOrcamento));
+      setData(orc.dataCriacao || new Date().toISOString().slice(0, 10));
+      setOrcamentoId(orc.id);
+      setOrcamentoBusca(`${orc.numero} - ${orc.cliente}`);
+      setOrcamentoIdOriginalEdicao(null);
+      setOrcamentoBuscaOriginalEdicao("");
+      setPercentualComissao("");
+      setValorComissao("");
+      setOrigemComissao(null);
+      setOrcamentoPago(false);
+      setFormaPagamento("");
+      setParcelas("1");
+      setEditandoOculto(false);
+    }
+
+    setErro(null);
+    setModalAberto(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   const resumo = useMemo(() => {
     const receitas = lancamentos
@@ -426,7 +493,7 @@ export default function Financeiro() {
     setEditandoOculto(lancamento.oculto);
     setOrcamentoPago(lancamento.orcamentoPago);
     setFormaPagamento(lancamento.formaPagamento || "");
-    setParcelas(String(lancamento.parcelas || 1));
+    setParcelas(String(lancamento.parcelas ?? 1));
 
     if (lancamento.tipo === "receita" && lancamento.orcamentoId) {
       const relacionado = orcamentosAprovados.find((orcamento) => orcamento.id === lancamento.orcamentoId);
@@ -575,15 +642,23 @@ export default function Financeiro() {
     const percentualComissaoNumerico = parseNumeroInput(percentualComissao);
     const valorComissaoNumerico = parseMoedaInput(valorComissao);
     const parcelasNumero = Number(parcelas);
-    if (!descricao.trim() || !valorNumerico || !data) {
+
+    if (!descricao.trim()) {
+      setErro("Descrição é obrigatória.");
       return;
     }
-
+    if (!valorNumerico || valorNumerico <= 0) {
+      setErro("Informe um valor maior que zero.");
+      return;
+    }
+    if (!data) {
+      setErro("Data é obrigatória.");
+      return;
+    }
     if (habilitarDadosPagamento && !formaPagamento.trim()) {
-      setErro("Selecione a forma de pagamento para receita com orçamento quitado.");
+      setErro("Selecione a forma de pagamento para receita quitada.");
       return;
     }
-
     if (habilitarDadosPagamento && (!Number.isInteger(parcelasNumero) || parcelasNumero <= 0)) {
       setErro("Informe uma quantidade de parcelas válida.");
       return;
@@ -1003,7 +1078,7 @@ export default function Financeiro() {
                 </div>
                 <div>
                   <Label htmlFor="forma-pagamento">Forma de pagamento</Label>
-                  <select id="forma-pagamento" value={formaPagamento} onChange={(e) => setFormaPagamento(e.target.value)} className="mt-1 flex h-10 w-full rounded-md border border-input bg-input-background px-3 py-2 text-base sm:text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50" disabled={!habilitarDadosPagamento}>
+                  <select id="forma-pagamento" value={formaPagamento} onChange={(e) => setFormaPagamento(e.target.value)} disabled={!habilitarDadosPagamento} className="mt-1 flex h-10 w-full rounded-md border border-input bg-input-background px-3 py-2 text-base sm:text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50">
                     <option value="">Selecione</option>
                     <option value="pix">PIX</option>
                     <option value="cartao_credito">Cartão de crédito</option>
@@ -1015,9 +1090,10 @@ export default function Financeiro() {
                 </div>
                 <div>
                   <Label htmlFor="parcelas">Parcelado em</Label>
-                  <Input id="parcelas" type="number" inputMode="numeric" min="1" step="1" value={parcelas} onChange={(e) => setParcelas(e.target.value)} placeholder="Ex.: 1" className="mt-1 h-10 text-base sm:text-sm" disabled={!habilitarDadosPagamento} />
+                  <Input id="parcelas" type="number" inputMode="numeric" min="1" step="1" value={parcelas} onChange={(e) => setParcelas(e.target.value)} placeholder="Ex.: 1" disabled={!habilitarDadosPagamento} className="mt-1 h-10 text-base sm:text-sm" />
                 </div>
               </div>
+
             </div>
 
             {/* Footer fixo */}

@@ -817,7 +817,9 @@ function normalizeLancamentoFinanceiroPayload(body) {
     const orcamentoPago = body?.orcamentoPago === true;
     const formaPagamento = orcamentoPago ? String(body?.formaPagamento || '').trim() : '';
     const parcelas =
-        orcamentoPago && Number.isInteger(Number(body?.parcelas)) && Number(body?.parcelas) > 0 ? Number(body?.parcelas) : null;
+        orcamentoPago && Number.isInteger(Number(body?.parcelas)) && Number(body?.parcelas) > 0
+            ? Number(body?.parcelas)
+            : null;
     const valor = Math.abs(Number(body?.valor || 0));
     const comissaoPercentualNumero = Number(body?.comissaoPercentual);
     const comissaoValorNumero = Number(body?.comissaoValor);
@@ -3705,47 +3707,80 @@ app.post('/api/financeiro', ensureDb, async (req, res) => {
         return res.status(400).json({ error: 'Data é obrigatória.' });
     }
 
-    if (payload.orcamentoPago && (!payload.formaPagamento || !payload.parcelas)) {
-        return res.status(400).json({ error: 'Informe forma de pagamento e parcelas para receita com orçamento quitado.' });
-    }
-
     try {
         await ensureFinanceiroComissaoColumns();
-        const result = await pool.query(
-            `INSERT INTO public.financeiro (tipo, descricao, valor, comissao_percentual, comissao_valor, data_lancamento, oculto, orcamento_pago, forma_pagamento, parcelas, orcamento_id)
+
+        let lancamentoId;
+        try {
+            const result = await pool.query(
+                `INSERT INTO public.financeiro (tipo, descricao, valor, comissao_percentual, comissao_valor, data_lancamento, oculto, orcamento_pago, forma_pagamento, parcelas, orcamento_id)
        VALUES ($1, $2, $3, $4, $5, NULLIF($6, '')::date, $7, $8, NULLIF($9, ''), $10, $11)
        RETURNING id`,
-            [
-                payload.tipo,
-                payload.descricao,
-                payload.valor,
-                payload.comissaoPercentual,
-                payload.comissaoValor,
-                payload.data,
-                payload.oculto,
-                payload.orcamentoPago,
-                payload.formaPagamento,
-                payload.parcelas,
-                payload.orcamentoId,
-            ]
-        );
+                [
+                    payload.tipo,
+                    payload.descricao,
+                    payload.valor,
+                    payload.comissaoPercentual,
+                    payload.comissaoValor,
+                    payload.data,
+                    payload.oculto,
+                    payload.orcamentoPago,
+                    payload.formaPagamento,
+                    payload.parcelas,
+                    payload.orcamentoId,
+                ]
+            );
+            lancamentoId = result.rows[0].id;
+        } catch (insertError) {
+            // Se já existe receita para este orçamento, substitui
+            if (insertError.code === '23505' && payload.orcamentoId) {
+                const updated = await pool.query(
+                    `UPDATE public.financeiro
+                     SET tipo = $1,
+                         descricao = $2,
+                         valor = $3,
+                         comissao_percentual = $4,
+                         comissao_valor = $5,
+                         data_lancamento = NULLIF($6, '')::date,
+                         oculto = $7,
+                         orcamento_pago = $8,
+                         forma_pagamento = NULLIF($9, ''),
+                         parcelas = $10,
+                         atualizado_em = NOW()
+                     WHERE orcamento_id = $11
+                     RETURNING id`,
+                    [
+                        payload.tipo,
+                        payload.descricao,
+                        payload.valor,
+                        payload.comissaoPercentual,
+                        payload.comissaoValor,
+                        payload.data,
+                        payload.oculto,
+                        payload.orcamentoPago,
+                        payload.formaPagamento,
+                        payload.parcelas,
+                        payload.orcamentoId,
+                    ]
+                );
+                lancamentoId = updated.rows[0].id;
+            } else {
+                throw insertError;
+            }
+        }
 
         const enriched = await pool.query(
             `SELECT f.id, f.tipo, f.descricao, f.valor, f.comissao_percentual, f.comissao_valor, f.data_lancamento, f.oculto, f.orcamento_pago, f.forma_pagamento, f.parcelas, f.orcamento_id, o.numero AS orcamento_numero, o.cliente
        FROM public.financeiro f
        LEFT JOIN public.orcamentos o ON o.id = f.orcamento_id
        WHERE f.id = $1`,
-            [result.rows[0].id]
+            [lancamentoId]
         );
 
         res.status(201).json(mapLancamentoFinanceiro(enriched.rows[0]));
     } catch (error) {
         if (error.code === '23503') {
             return res.status(400).json({ error: 'Orçamento selecionado não existe.' });
-        }
-
-        if (error.code === '23505') {
-            return res.status(409).json({ error: 'A receita deste orçamento já foi lançada.' });
         }
 
         logServerError('Erro ao criar lançamento financeiro:', error);
@@ -3772,10 +3807,6 @@ app.put('/api/financeiro/:id', ensureDb, async (req, res) => {
 
     if (!payload.data) {
         return res.status(400).json({ error: 'Data é obrigatória.' });
-    }
-
-    if (payload.orcamentoPago && (!payload.formaPagamento || !payload.parcelas)) {
-        return res.status(400).json({ error: 'Informe forma de pagamento e parcelas para receita com orçamento quitado.' });
     }
 
     try {
@@ -3828,10 +3859,6 @@ app.put('/api/financeiro/:id', ensureDb, async (req, res) => {
     } catch (error) {
         if (error.code === '23503') {
             return res.status(400).json({ error: 'Orçamento selecionado não existe.' });
-        }
-
-        if (error.code === '23505') {
-            return res.status(409).json({ error: 'A receita deste orçamento já foi lançada.' });
         }
 
         logServerError('Erro ao atualizar lançamento financeiro:', error);

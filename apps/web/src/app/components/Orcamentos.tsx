@@ -42,6 +42,98 @@ import { buscarOpcoesDestino } from "../data/placePhotoApi";
 import { enviarMensagemIA } from "../data/aiChatApi";
 import { criarEvento } from "../data/eventosApi";
 
+// ─── Utilitários de comissão (espelhados de Financeiro.tsx) ─────────────────
+
+function parseNumeroInput(valor: string) {
+  const valorNormalizado = valor.replace(",", ".").trim();
+  if (!valorNormalizado) return null;
+  const numero = Number(valorNormalizado);
+  return Number.isFinite(numero) ? numero : null;
+}
+
+function formatarNumeroInput(valor: number, casasDecimais = 2) {
+  return Number(valor.toFixed(casasDecimais)).toString();
+}
+
+function parseMoedaInput(valor: string): number | null {
+  if (!valor) return null;
+  const limpo = valor
+    .replace(/R\$\s*/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".")
+    .trim();
+  if (!limpo) return null;
+  const numero = Number(limpo);
+  return Number.isFinite(numero) ? numero : null;
+}
+
+function formatarMoedaInput(valor: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(valor);
+}
+
+function aplicarMascaraMoeda(texto: string): string {
+  const apenasDigitos = texto.replace(/\D/g, "");
+  if (!apenasDigitos) return "";
+  const centavos = parseInt(apenasDigitos, 10);
+  const reais = centavos / 100;
+  return formatarMoedaInput(reais);
+}
+
+type OrigemComissao = "percentual" | "valor" | null;
+
+function sincronizarComissaoComValor(
+  valorBaseTexto: string,
+  origem: OrigemComissao,
+  percentualTexto: string,
+  valorComissaoTexto: string
+) {
+  const valorBase = parseMoedaInput(valorBaseTexto);
+  const percentual = parseNumeroInput(percentualTexto);
+  const valorComissao = parseMoedaInput(valorComissaoTexto);
+
+  if (!valorBase || valorBase <= 0) {
+    return {
+      percentualComissao: origem === "valor" ? "" : percentualTexto,
+      valorComissao: origem === "percentual" ? "" : valorComissaoTexto,
+    };
+  }
+
+  if (origem === "percentual") {
+    return {
+      percentualComissao: percentualTexto,
+      valorComissao: percentual === null ? "" : formatarMoedaInput((valorBase * percentual) / 100),
+    };
+  }
+
+  if (origem === "valor") {
+    return {
+      percentualComissao: valorComissao === null ? "" : formatarNumeroInput((valorComissao / valorBase) * 100),
+      valorComissao: valorComissaoTexto,
+    };
+  }
+
+  if (percentual !== null) {
+    return {
+      percentualComissao: percentualTexto,
+      valorComissao: formatarMoedaInput((valorBase * percentual) / 100),
+    };
+  }
+
+  if (valorComissao !== null) {
+    return {
+      percentualComissao: formatarNumeroInput((valorComissao / valorBase) * 100),
+      valorComissao: valorComissaoTexto,
+    };
+  }
+
+  return { percentualComissao: percentualTexto, valorComissao: valorComissaoTexto };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+
 const itemVazio = (): ItemOrc => ({
   id: Date.now(),
   descricao: "",
@@ -450,6 +542,7 @@ export default function Orcamentos() {
   const navigate = useNavigate();
   const location = useLocation();
   const [lista, setLista] = useState<Orcamento[]>([]);
+  const [lancamentosFinanceiros, setLancamentosFinanceiros] = useState<LancamentoFinanceiro[]>([]);
   const [tela, setTela] = useState<Tela>("lista");
   const [editando, setEditando] = useState<Orcamento | null>(null);
   const [form, setForm] = useState<OrcamentoPayload>(orcVazio());
@@ -475,7 +568,6 @@ export default function Orcamentos() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [statusBloqueado, setStatusBloqueado] = useState(false);
   const [modalFinanceiroAberto, setModalFinanceiroAberto] = useState(false);
   const [salvandoLancamento, setSalvandoLancamento] = useState(false);
   const [erroLancamento, setErroLancamento] = useState<string | null>(null);
@@ -483,6 +575,9 @@ export default function Orcamentos() {
   const [formaPagamentoLancamento, setFormaPagamentoLancamento] = useState("");
   const [parcelasLancamento, setParcelasLancamento] = useState("1");
   const [dataLancamento, setDataLancamento] = useState(new Date().toISOString().slice(0, 10));
+  const [percentualComissaoLancamento, setPercentualComissaoLancamento] = useState("");
+  const [valorComissaoLancamento, setValorComissaoLancamento] = useState("");
+  const [origemComissaoLancamento, setOrigemComissaoLancamento] = useState<OrigemComissao>(null);
   const [popupAprovadoAberto, setPopupAprovadoAberto] = useState(false);
   const [orcamentoDuplicacaoPendente, setOrcamentoDuplicacaoPendente] = useState<Orcamento | null>(null);
   const [dadosClienteMinimizados, setDadosClienteMinimizados] = useState(true);
@@ -566,7 +661,11 @@ export default function Orcamentos() {
 
   function calcularTotalOrcamentoAtual() {
     const totalVendas = form.itens.reduce((acc, item) => acc + calcItem(item), 0);
-    const totalPacotes = pacotes.reduce((acc, item) => acc + (Number(item?.valor) || 0), 0);
+    const totalPacotes = pacotes.reduce((acc, item) => {
+      const valorPacote = Number(item?.valor) || 0;
+      const valorHospedagem = Number(item?.hospedagemValor) || 0;
+      return acc + valorPacote + valorHospedagem;
+    }, 0);
     const totalHospedagem = hospedagem.reduce((acc, item) => acc + (Number(item?.preco) || 0), 0);
     const totalTransporte = transporte.reduce((acc, item) => acc + (Number(item?.valor) || 0), 0);
     const totalRestaurante = restaurante.reduce((acc, item) => acc + (Number(item?.preco) || 0), 0);
@@ -576,32 +675,44 @@ export default function Orcamentos() {
     return totalVendas + totalPacotes + totalHospedagem + totalTransporte + totalRestaurante + totalExperiencias + totalSeguro;
   }
 
-  async function verificarReceitaLancada(orcamentoId: number) {
-    try {
-      const lancamentos = await listarLancamentosFinanceiros();
-      const receita = lancamentos.find(
-          (item: LancamentoFinanceiro) => item.tipo === "receita" && item.orcamentoId === orcamentoId
-      );
-      setStatusBloqueado(Boolean(receita));
-    } catch {
-      setStatusBloqueado(false);
-    }
-  }
-
   function abrirCadastroLancamentoFinanceiro() {
     setErroLancamento(null);
     setQuitadoLancamento(true);
     setFormaPagamentoLancamento("");
     setParcelasLancamento("1");
     setDataLancamento(form.dataCriacao || new Date().toISOString().slice(0, 10));
+    setPercentualComissaoLancamento("");
+    setValorComissaoLancamento("");
+    setOrigemComissaoLancamento(null);
     setModalFinanceiroAberto(true);
   }
 
-  async function onChangeStatusOrcamento(novoStatus: StatusOrc) {
-    if (statusBloqueado) {
-      return;
-    }
+  function abrirLancamentoDaLista(orc: Orcamento) {
+    const lancamentoExistente = lancamentosFinanceiros.find(
+      (l) => l.orcamentoId === orc.id
+    ) ?? null;
+    navigate("/financeiro", {
+      state: { novoLancamentoOrcamento: orc, lancamentoExistente },
+    });
+  }
+  function onChangePercentualComissaoLancamento(novoPercentual: string) {
+    setOrigemComissaoLancamento("percentual");
+    setPercentualComissaoLancamento(novoPercentual);
+    const valorBase = formatarMoedaInput(calcularTotalOrcamentoAtual());
+    const sincronizado = sincronizarComissaoComValor(valorBase, "percentual", novoPercentual, valorComissaoLancamento);
+    setValorComissaoLancamento(sincronizado.valorComissao);
+  }
 
+  function onChangeValorComissaoLancamento(novoValorComissao: string) {
+    const valorFormatado = aplicarMascaraMoeda(novoValorComissao);
+    setOrigemComissaoLancamento("valor");
+    setValorComissaoLancamento(valorFormatado);
+    const valorBase = formatarMoedaInput(calcularTotalOrcamentoAtual());
+    const sincronizado = sincronizarComissaoComValor(valorBase, "valor", percentualComissaoLancamento, valorFormatado);
+    setPercentualComissaoLancamento(sincronizado.percentualComissao);
+  }
+
+  async function onChangeStatusOrcamento(novoStatus: StatusOrc) {
     const eraAprovado = form.status === "Aprovado";
     setForm((prev) => ({ ...prev, status: novoStatus }));
 
@@ -655,10 +766,15 @@ export default function Orcamentos() {
     setErroLancamento(null);
 
     try {
+      const percentualComissaoNum = parseNumeroInput(percentualComissaoLancamento);
+      const valorComissaoNum = parseMoedaInput(valorComissaoLancamento);
+
       await criarLancamentoFinanceiro({
         tipo: "receita",
         descricao: `Receita do orçamento #${form.numero} - ${form.cliente}`,
         valor: Math.abs(valorTotal),
+        comissaoPercentual: percentualComissaoNum ?? null,
+        comissaoValor: valorComissaoNum ?? null,
         data: dataLancamento,
         oculto: false,
         orcamentoPago: quitadoLancamento,
@@ -668,7 +784,6 @@ export default function Orcamentos() {
       });
 
       setModalFinanceiroAberto(false);
-      setStatusBloqueado(true);
     } catch (error) {
       setErroLancamento(error instanceof Error ? error.message : "Erro ao salvar lançamento financeiro.");
     } finally {
@@ -679,8 +794,12 @@ export default function Orcamentos() {
   async function carregarOrcamentos() {
     setErro(null);
     try {
-      const listaApi = await listarOrcamentos();
+      const [listaApi, lancamentos] = await Promise.all([
+        listarOrcamentos(),
+        listarLancamentosFinanceiros(),
+      ]);
       setLista(listaApi);
+      setLancamentosFinanceiros(lancamentos);
     } catch (error) {
       setErro(error instanceof Error ? error.message : "Erro ao carregar orçamentos.");
     } finally {
@@ -723,6 +842,7 @@ export default function Orcamentos() {
 
   // Handle state params from ResumoOrcamentos and sessionStorage
   useEffect(() => {
+    if (tela === "form") return; // Já está editando, não re-abre
     const state = location.state as any;
     const sessionStorageId = sessionStorage.getItem('editOrcamentoId');
     
@@ -740,7 +860,7 @@ export default function Orcamentos() {
         sessionStorage.removeItem('editOrcamentoId');
       }
     }
-  }, [location.state, lista, location.pathname, navigate]);
+  }, [location.state, lista, location.pathname, navigate, tela]);
 
   // Detect form changes - only set to true after initial load
   useEffect(() => {
@@ -814,12 +934,11 @@ export default function Orcamentos() {
     setHouveAlteracoes(false);
     formularioCarregadoRef.current = false;
     setPassageiroSelecionado("");
-    setStatusBloqueado(false);
     setSection("Pacotes");
     setTela("form");
   }
 
-  async function abrirEdicao(o: Orcamento) {
+  function abrirEdicao(o: Orcamento) {
     setEditando(o);
     setErro(null);
     setForm(o);
@@ -855,7 +974,6 @@ export default function Orcamentos() {
     formularioCarregadoRef.current = false;
     setPassageiroSelecionado("");
     setSection("Pacotes");
-    await verificarReceitaLancada(o.id);
     setTela("form");
   }
 
@@ -1734,17 +1852,11 @@ export default function Orcamentos() {
                         value={form.status}
                         onChange={(e) => void onChangeStatusOrcamento(e.target.value as StatusOrc)}
                         className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
-                        disabled={statusBloqueado}
                     >
                       {allStatus.map((s) => (
                           <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
-                    {statusBloqueado && (
-                        <p className="mt-1 text-xs text-gray-500">
-                          Status bloqueado após lançamento financeiro vinculado.
-                        </p>
-                    )}
                   </div>
                   {form.status === "Aprovado" && (
                       <div>
@@ -2285,119 +2397,6 @@ export default function Orcamentos() {
                 )}
               </Card>
 
-          {modalFinanceiroAberto && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-                <div className="absolute inset-0 bg-black/50" onClick={() => setModalFinanceiroAberto(false)} />
-                <div className="relative z-10 w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900">Novo lançamento financeiro</h2>
-                    <button
-                        onClick={() => setModalFinanceiroAberto(false)}
-                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                        aria-label="Fechar modal"
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
-                  </div>
-
-                  {erroLancamento && (
-                      <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{erroLancamento}</p>
-                  )}
-
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Orçamento</Label>
-                      <Input value={`${form.numero} - ${form.cliente}`} className="mt-1" disabled />
-                    </div>
-
-                    <div>
-                      <Label>Descrição</Label>
-                      <Input value={`Receita do orçamento #${form.numero} - ${form.cliente}`} className="mt-1" disabled />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Valor</Label>
-                        <Input value={calcularTotalOrcamentoAtual().toFixed(2)} className="mt-1" disabled />
-                      </div>
-                      <div>
-                        <Label htmlFor="data-lancamento-orc">Data</Label>
-                        <Input
-                            id="data-lancamento-orc"
-                            type="date"
-                            value={dataLancamento}
-                            onChange={(e) => setDataLancamento(e.target.value)}
-                            className="mt-1"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <Label htmlFor="quitado-orc">Quitado</Label>
-                        <select
-                            id="quitado-orc"
-                            value={quitadoLancamento ? "sim" : "nao"}
-                            onChange={(e) => {
-                              const quitado = e.target.value === "sim";
-                              setQuitadoLancamento(quitado);
-                              if (!quitado) {
-                                setFormaPagamentoLancamento("");
-                                setParcelasLancamento("1");
-                              }
-                            }}
-                            className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                        >
-                          <option value="nao">Não</option>
-                          <option value="sim">Sim</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="forma-orc">Forma de pagamento</Label>
-                        <select
-                            id="forma-orc"
-                            value={formaPagamentoLancamento}
-                            onChange={(e) => setFormaPagamentoLancamento(e.target.value)}
-                            className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                            disabled={!quitadoLancamento}
-                        >
-                          <option value="">Selecione</option>
-                          <option value="pix">PIX</option>
-                          <option value="cartao_credito">Cartão de crédito</option>
-                          <option value="cartao_debito">Cartão de débito</option>
-                          <option value="boleto">Boleto</option>
-                          <option value="transferencia">Transferência</option>
-                          <option value="dinheiro">Dinheiro</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="parcelas-orc">Parcelas</Label>
-                        <Input
-                            id="parcelas-orc"
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={parcelasLancamento}
-                            onChange={(e) => setParcelasLancamento(e.target.value)}
-                            className="mt-1"
-                            disabled={!quitadoLancamento}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setModalFinanceiroAberto(false)}>Cancelar</Button>
-                    <Button onClick={() => void salvarLancamentoVinculado()} disabled={salvandoLancamento}>
-                      {salvandoLancamento ? "Salvando..." : "Salvar lançamento"}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-          )}
-
           {popupAprovadoAberto && (
               <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
                 <div className="absolute inset-0 bg-black/50" onClick={() => setPopupAprovadoAberto(false)} />
@@ -2425,6 +2424,7 @@ export default function Orcamentos() {
 
   // ============ TELA LISTA ============
   return (
+      <>
       <div className="px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -2515,6 +2515,18 @@ export default function Orcamentos() {
                       <p className="font-bold text-lg text-indigo-700">{moeda(total)}</p>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
+                      {(() => {
+                        const temLancamento = lancamentosFinanceiros.some((l) => l.orcamentoId === orc.id);
+                        return (
+                          <button
+                            onClick={() => abrirLancamentoDaLista(orc)}
+                            title={temLancamento ? "Editar lançamento financeiro" : "Criar lançamento financeiro"}
+                            className={`p-1.5 rounded transition-colors ${temLancamento ? "text-emerald-600 hover:bg-emerald-50" : "text-orange-400 hover:bg-orange-50"}`}
+                          >
+                            <DollarSign className="w-4 h-4" />
+                          </button>
+                        );
+                      })()}
                       <button onClick={() => abrirResumo(orc)} title="Orçamento" className="p-1.5 rounded text-blue-600 hover:bg-blue-50 transition-colors"><FileText className="w-4 h-4" /></button>
                       <button onClick={() => abrirEdicao(orc)} title="Editar" className="p-1.5 rounded text-blue-600 hover:bg-blue-50 transition-colors"><Edit2 className="w-4 h-4" /></button>
                       <button
@@ -2592,5 +2604,6 @@ export default function Orcamentos() {
             </div>
         )}
       </div>
+      </>
   );
 }
