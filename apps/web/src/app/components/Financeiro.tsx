@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import { DollarSign, TrendingUp, TrendingDown, Wallet, Plus, X, Pencil, Eye, EyeOff, ChevronDown, ChevronUp, Search } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
@@ -152,8 +153,10 @@ function sincronizarComissaoComValor(
 }
 
 export default function Financeiro() {
+  const navigate = useNavigate();
   const [lancamentos, setLancamentos] = useState<LancamentoFinanceiro[]>([]);
   const [orcamentosAprovados, setOrcamentosAprovados] = useState<Orcamento[]>([]);
+  const [todosOrcamentos, setTodosOrcamentos] = useState<Orcamento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -197,6 +200,7 @@ export default function Financeiro() {
         ]);
 
         setLancamentos(listaFinanceiro);
+        setTodosOrcamentos(listaOrcamentos);
         setOrcamentosAprovados(listaOrcamentos.filter((orcamento) => orcamento.status === "Aprovado"));
       } catch (error) {
         setErro(error instanceof Error ? error.message : "Erro ao carregar dados do financeiro.");
@@ -502,6 +506,65 @@ export default function Financeiro() {
     setPercentualComissao(comissaoSincronizada.percentualComissao);
   }
 
+  function renderDescricao(transaction: LancamentoFinanceiro) {
+    // Sempre tenta encontrar "#numero" na descrição
+    const partes = transaction.descricao.split(/(#\d+)/);
+    const temNumeroNaDescricao = partes.length > 1;
+
+    if (!temNumeroNaDescricao && !transaction.orcamentoId) {
+      return <p className="font-medium text-gray-900 text-sm">{transaction.descricao}</p>;
+    }
+
+    const irParaOrcamento = (numeroExtraido?: string) => {
+      if (transaction.orcamentoId) {
+        navigate("/financeiro/orcamentos", { state: { editId: transaction.orcamentoId } });
+        return;
+      }
+      // Tenta encontrar o orçamento pelo número nos já carregados
+      const num = numeroExtraido?.replace("#", "") ?? transaction.orcamentoNumero;
+      const encontrado = todosOrcamentos.find(
+        (o) => String(o.numero) === String(num)
+      );
+      if (encontrado) {
+        navigate("/financeiro/orcamentos", { state: { editId: encontrado.id } });
+      } else {
+        navigate("/financeiro/orcamentos");
+      }
+    };
+
+    if (temNumeroNaDescricao) {
+      return (
+        <p className="font-medium text-gray-900 text-sm">
+          {partes.map((parte, i) =>
+            /^#\d+$/.test(parte) ? (
+              <button
+                key={i}
+                type="button"
+                onClick={() => irParaOrcamento(parte)}
+                className="text-blue-600 hover:underline font-semibold"
+              >
+                {parte}
+              </button>
+            ) : (
+              <span key={i}>{parte}</span>
+            )
+          )}
+        </p>
+      );
+    }
+
+    // Tem orcamentoId mas sem "#numero" na descrição — adiciona link ao final
+    const labelNumero = transaction.orcamentoNumero ? `#${transaction.orcamentoNumero}` : "ver orçamento";
+    return (
+      <p className="font-medium text-gray-900 text-sm">
+        {transaction.descricao}{" "}
+        <button type="button" onClick={() => irParaOrcamento()} className="text-blue-600 hover:underline font-semibold">
+          {labelNumero}
+        </button>
+      </p>
+    );
+  }
+
   async function salvarLancamento() {
     if (!editandoId && tipo === "receita" && !orcamentoId) {
       setErro("Selecione um orçamento aprovado para lançar a receita.");
@@ -751,7 +814,7 @@ export default function Financeiro() {
                         return (
                           <tr key={transaction.id} className={`border-b last:border-b-0 ${transaction.oculto ? "opacity-50" : ""}`}>
                             <td className="py-3 pr-4">
-                              <p className="font-medium text-gray-900">{transaction.descricao}</p>
+                              {renderDescricao(transaction)}
                               {transaction.oculto && <p className="text-xs text-amber-600 mt-0.5">Oculta (não entra na soma)</p>}
                               {transaction.orcamentoNumero && (
                                 <p className="text-xs text-gray-500 mt-0.5">Orçamento #{transaction.orcamentoNumero} - {transaction.cliente}</p>
@@ -806,7 +869,7 @@ export default function Financeiro() {
                     return (
                       <div key={transaction.id} className={`rounded-lg border p-3 ${transaction.oculto ? "opacity-50 bg-gray-50" : "bg-white"}`}>
                         <div className="flex items-start justify-between gap-2 mb-1">
-                          <p className="font-medium text-gray-900 text-sm leading-snug flex-1">{transaction.descricao}</p>
+                          <div className="flex-1">{renderDescricao(transaction)}</div>
                           <span className={`font-semibold text-sm whitespace-nowrap ${positivo ? "text-green-600" : "text-red-600"}`}>
                             {positivo ? "+" : "-"}{formatarMoeda(transaction.valor)}
                           </span>
@@ -859,10 +922,16 @@ export default function Financeiro() {
 
       {modalAberto && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={fecharModal} />
-          <div className="relative z-10 w-full sm:max-w-3xl rounded-t-2xl sm:rounded-lg bg-white shadow-xl flex flex-col max-h-[92dvh]">
+          <div className="absolute inset-0 bg-black/50 touch-none" onClick={fecharModal} />
+          <div className="relative z-10 w-full sm:max-w-3xl rounded-t-2xl sm:rounded-lg bg-white shadow-xl flex flex-col max-h-[92dvh] sm:max-h-[90vh] pb-[env(safe-area-inset-bottom)]">
+
+            {/* Drag handle — mobile only */}
+            <div className="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
+              <div className="w-10 h-1 rounded-full bg-gray-300" />
+            </div>
+
             {/* Header fixo */}
-            <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
+            <div className="flex items-center justify-between px-5 py-3 sm:py-4 border-b shrink-0">
               <h2 className="text-base font-semibold text-gray-900">{editandoId ? "Editar lançamento" : "Novo lançamento"}</h2>
               <button onClick={fecharModal} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" aria-label="Fechar modal">
                 <X className="h-5 w-5" />
@@ -877,7 +946,7 @@ export default function Financeiro() {
                   id="tipo-lancamento"
                   value={tipo}
                   onChange={(e) => onChangeTipo(e.target.value as TipoLancamento)}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-input-background px-3 py-2 text-base sm:text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 >
                   <option value="receita">Receita</option>
                   <option value="despesa">Despesa</option>
@@ -886,12 +955,12 @@ export default function Financeiro() {
 
               <div>
                 <Label htmlFor="descricao-lancamento">Descrição</Label>
-                <Input id="descricao-lancamento" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex.: Pagamento de cliente" className="mt-1" disabled={camposPreenchidosPorOrcamento} />
+                <Input id="descricao-lancamento" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex.: Pagamento de cliente" className="mt-1 h-10 text-base sm:text-sm" disabled={camposPreenchidosPorOrcamento} />
               </div>
 
               <div>
                 <Label htmlFor="orcamento-lancamento">Orçamento aprovado</Label>
-                <Input id="orcamento-lancamento" list="orcamentos-aprovados" value={orcamentoBusca} onChange={(e) => selecionarOrcamento(e.target.value)} placeholder="Buscar por número ou cliente" className="mt-1" disabled={tipo !== "receita"} />
+                <Input id="orcamento-lancamento" list="orcamentos-aprovados" value={orcamentoBusca} onChange={(e) => selecionarOrcamento(e.target.value)} placeholder="Buscar por número ou cliente" className="mt-1 h-10 text-base sm:text-sm" disabled={tipo !== "receita"} />
                 <datalist id="orcamentos-aprovados">
                   {orcamentosAprovados.map((orcamento) => (
                     <option key={orcamento.id} value={`${orcamento.numero} - ${orcamento.cliente}`} />
@@ -902,39 +971,39 @@ export default function Financeiro() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="valor-lancamento">Valor</Label>
-                  <Input id="valor-lancamento" type="text" inputMode="numeric" value={valor} onChange={(e) => onChangeValor(e.target.value)} placeholder="0,00" className="mt-1" disabled={camposPreenchidosPorOrcamento} />
+                  <Input id="valor-lancamento" type="text" inputMode="decimal" value={valor} onChange={(e) => onChangeValor(e.target.value)} placeholder="0,00" className="mt-1 h-10 text-base sm:text-sm" disabled={camposPreenchidosPorOrcamento} />
                 </div>
                 <div>
                   <Label htmlFor="data-lancamento">Data</Label>
-                  <Input id="data-lancamento" type="date" value={data} onChange={(e) => setData(e.target.value)} className="mt-1" disabled={camposPreenchidosPorOrcamento} />
+                  <Input id="data-lancamento" type="date" value={data} onChange={(e) => setData(e.target.value)} className="mt-1 h-10 text-base sm:text-sm" disabled={camposPreenchidosPorOrcamento} />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="percentual-comissao">% Comissão</Label>
-                  <Input id="percentual-comissao" list="percentuais-comissao" type="number" min="0" step="0.01" value={percentualComissao} onChange={(e) => onChangePercentualComissao(e.target.value)} placeholder="0,00" className="mt-1" />
+                  <Input id="percentual-comissao" list="percentuais-comissao" type="number" inputMode="decimal" min="0" step="0.01" value={percentualComissao} onChange={(e) => onChangePercentualComissao(e.target.value)} placeholder="0,00" className="mt-1 h-10 text-base sm:text-sm" />
                   <datalist id="percentuais-comissao">
                     <option value="5" /><option value="10" /><option value="15" /><option value="20" /><option value="25" /><option value="30" />
                   </datalist>
                 </div>
                 <div>
                   <Label htmlFor="valor-comissao">Valor Comissão</Label>
-                  <Input id="valor-comissao" type="text" inputMode="numeric" value={valorComissao} onChange={(e) => onChangeValorComissao(e.target.value)} placeholder="0,00" className="mt-1" />
+                  <Input id="valor-comissao" type="text" inputMode="decimal" value={valorComissao} onChange={(e) => onChangeValorComissao(e.target.value)} placeholder="0,00" className="mt-1 h-10 text-base sm:text-sm" />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <Label htmlFor="orcamento-pago">Quitado</Label>
-                  <select id="orcamento-pago" value={orcamentoPago ? "sim" : "nao"} onChange={(e) => { const pago = e.target.value === "sim"; setOrcamentoPago(pago); if (!pago) { setFormaPagamento(""); setParcelas("1"); } }} className="mt-1 flex h-10 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50">
+                  <select id="orcamento-pago" value={orcamentoPago ? "sim" : "nao"} onChange={(e) => { const pago = e.target.value === "sim"; setOrcamentoPago(pago); if (!pago) { setFormaPagamento(""); setParcelas("1"); } }} className="mt-1 flex h-10 w-full rounded-md border border-input bg-input-background px-3 py-2 text-base sm:text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50">
                     <option value="nao">Não</option>
                     <option value="sim">Sim</option>
                   </select>
                 </div>
                 <div>
                   <Label htmlFor="forma-pagamento">Forma de pagamento</Label>
-                  <select id="forma-pagamento" value={formaPagamento} onChange={(e) => setFormaPagamento(e.target.value)} className="mt-1 flex h-10 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50" disabled={!habilitarDadosPagamento}>
+                  <select id="forma-pagamento" value={formaPagamento} onChange={(e) => setFormaPagamento(e.target.value)} className="mt-1 flex h-10 w-full rounded-md border border-input bg-input-background px-3 py-2 text-base sm:text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50" disabled={!habilitarDadosPagamento}>
                     <option value="">Selecione</option>
                     <option value="pix">PIX</option>
                     <option value="cartao_credito">Cartão de crédito</option>
@@ -946,15 +1015,15 @@ export default function Financeiro() {
                 </div>
                 <div>
                   <Label htmlFor="parcelas">Parcelado em</Label>
-                  <Input id="parcelas" type="number" min="1" step="1" value={parcelas} onChange={(e) => setParcelas(e.target.value)} placeholder="Ex.: 1" className="mt-1" disabled={!habilitarDadosPagamento} />
+                  <Input id="parcelas" type="number" inputMode="numeric" min="1" step="1" value={parcelas} onChange={(e) => setParcelas(e.target.value)} placeholder="Ex.: 1" className="mt-1 h-10 text-base sm:text-sm" disabled={!habilitarDadosPagamento} />
                 </div>
               </div>
             </div>
 
             {/* Footer fixo */}
             <div className="px-5 py-4 border-t flex gap-2 shrink-0">
-              <Button variant="outline" onClick={fecharModal} className="flex-1 sm:flex-none">Cancelar</Button>
-              <Button onClick={salvarLancamento} disabled={salvando} className="flex-1 sm:flex-none">
+              <Button variant="outline" onClick={fecharModal} className="flex-1 sm:flex-none h-11 sm:h-9 text-base sm:text-sm">Cancelar</Button>
+              <Button onClick={salvarLancamento} disabled={salvando} className="flex-1 sm:flex-none h-11 sm:h-9 text-base sm:text-sm">
                 {salvando ? "Salvando..." : editandoId ? "Atualizar" : "Salvar"}
               </Button>
             </div>
