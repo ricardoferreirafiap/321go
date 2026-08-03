@@ -2603,7 +2603,7 @@ app.get('/api/clientes', ensureDb, async (req, res) => {
         const result = await pool.query(
               `SELECT id, nome, sobrenome, nome_completo, email, telefone, cep, endereco, numero, complemento, cidade, estado, status, cpf_cnpj, rg, data_nascimento, documento_nome
        FROM public.clientes
-       ORDER BY nome ASC`
+       ORDER BY COALESCE(NULLIF(TRIM(nome_completo), ''), NULLIF(TRIM(nome), ''), '') ASC`
         );
 
         res.json(result.rows.map(mapCliente));

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { DollarSign, TrendingUp, TrendingDown, Wallet, Plus, X, Pencil, Eye, EyeOff } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Wallet, Plus, X, Pencil, Eye, EyeOff, ChevronDown, ChevronUp, Search } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -55,6 +55,48 @@ function formatarNumeroInput(valor: number, casasDecimais = 2) {
   return Number(valor.toFixed(casasDecimais)).toString();
 }
 
+/**
+ * Converte string com máscara BRL (ex: "R$ 1.234,56") para número.
+ * Também aceita formato simples "1234.56" ou "1234,56".
+ */
+function parseMoedaInput(valor: string): number | null {
+  if (!valor) return null;
+  // Remove "R$", espaços e pontos de milhar, substitui vírgula decimal por ponto
+  const limpo = valor
+    .replace(/R\$\s*/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".")
+    .trim();
+  if (!limpo) return null;
+  const numero = Number(limpo);
+  return Number.isFinite(numero) ? numero : null;
+}
+
+/**
+ * Formata um número como moeda BRL para exibição nos inputs (sem o símbolo "R$").
+ * Usa vírgula como separador decimal e ponto como separador de milhar, ex: "1.234,56".
+ */
+function formatarMoedaInput(valor: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(valor);
+}
+
+/**
+ * Handler para inputs de moeda: aceita dígitos e vírgula/ponto,
+ * armazena como string formatada BRL (ex: "1.234,56").
+ */
+function aplicarMascaraMoeda(texto: string): string {
+  // Remove tudo que não for dígito
+  const apenasDigitos = texto.replace(/\D/g, "");
+  if (!apenasDigitos) return "";
+  // Interpreta como centavos
+  const centavos = parseInt(apenasDigitos, 10);
+  const reais = centavos / 100;
+  return formatarMoedaInput(reais);
+}
+
 type OrigemComissao = "percentual" | "valor" | null;
 
 function sincronizarComissaoComValor(
@@ -63,9 +105,10 @@ function sincronizarComissaoComValor(
   percentualTexto: string,
   valorComissaoTexto: string
 ) {
-  const valorBase = parseNumeroInput(valorBaseTexto);
+  // Campos de valor usam máscara BRL; percentual usa formato numérico simples
+  const valorBase = parseMoedaInput(valorBaseTexto);
   const percentual = parseNumeroInput(percentualTexto);
-  const valorComissao = parseNumeroInput(valorComissaoTexto);
+  const valorComissao = parseMoedaInput(valorComissaoTexto);
 
   if (!valorBase || valorBase <= 0) {
     return {
@@ -77,7 +120,7 @@ function sincronizarComissaoComValor(
   if (origem === "percentual") {
     return {
       percentualComissao: percentualTexto,
-      valorComissao: percentual === null ? "" : formatarNumeroInput((valorBase * percentual) / 100),
+      valorComissao: percentual === null ? "" : formatarMoedaInput((valorBase * percentual) / 100),
     };
   }
 
@@ -91,7 +134,7 @@ function sincronizarComissaoComValor(
   if (percentual !== null) {
     return {
       percentualComissao: percentualTexto,
-      valorComissao: formatarNumeroInput((valorBase * percentual) / 100),
+      valorComissao: formatarMoedaInput((valorBase * percentual) / 100),
     };
   }
 
@@ -125,10 +168,21 @@ export default function Financeiro() {
   const [orcamentoBusca, setOrcamentoBusca] = useState("");
   const [orcamentoId, setOrcamentoId] = useState<number | null>(null);
   const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [orcamentoIdOriginalEdicao, setOrcamentoIdOriginalEdicao] = useState<number | null>(null);
+  const [orcamentoBuscaOriginalEdicao, setOrcamentoBuscaOriginalEdicao] = useState<string>("");
   const [editandoOculto, setEditandoOculto] = useState(false);
   const [orcamentoPago, setOrcamentoPago] = useState(false);
   const [formaPagamento, setFormaPagamento] = useState("");
   const [parcelas, setParcelas] = useState("1");
+
+  // Filtros da tabela de transações
+  const [filtroTexto, setFiltroTexto] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState<"todos" | "receita" | "despesa">("todos");
+  const [filtroDataDe, setFiltroDataDe] = useState("");
+  const [filtroDataAte, setFiltroDataAte] = useState("");
+  const [filtroPeriodo, setFiltroPeriodo] = useState<"todos" | "hoje" | "semana" | "mes" | "3meses" | "6meses" | "ano" | "personalizado">("todos");
+  const [tabelaMinimizada, setTabelaMinimizada] = useState(false);
+  const [resumoMinimizado, setResumoMinimizado] = useState(false);
 
   const camposPreenchidosPorOrcamento = tipo === "receita";
   const habilitarDadosPagamento = orcamentoPago;
@@ -170,11 +224,68 @@ export default function Financeiro() {
     };
   }, [lancamentos]);
 
-  const ultimosLancamentos = useMemo(() => {
+  const periodoParaDatas = useMemo(() => {
+    const hoje = new Date();
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    if (filtroPeriodo === "hoje") {
+      const s = fmt(hoje);
+      return { de: s, ate: s };
+    }
+    if (filtroPeriodo === "semana") {
+      const inicio = new Date(hoje);
+      inicio.setDate(hoje.getDate() - 6);
+      return { de: fmt(inicio), ate: fmt(hoje) };
+    }
+    if (filtroPeriodo === "mes") {
+      const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      return { de: fmt(inicio), ate: fmt(hoje) };
+    }
+    if (filtroPeriodo === "3meses") {
+      const inicio = new Date(hoje);
+      inicio.setMonth(hoje.getMonth() - 3);
+      return { de: fmt(inicio), ate: fmt(hoje) };
+    }
+    if (filtroPeriodo === "6meses") {
+      const inicio = new Date(hoje);
+      inicio.setMonth(hoje.getMonth() - 6);
+      return { de: fmt(inicio), ate: fmt(hoje) };
+    }
+    if (filtroPeriodo === "ano") {
+      const inicio = new Date(hoje.getFullYear(), 0, 1);
+      return { de: fmt(inicio), ate: fmt(hoje) };
+    }
+    return { de: filtroDataDe, ate: filtroDataAte };
+  }, [filtroPeriodo, filtroDataDe, filtroDataAte]);
+
+  const transacoesFiltradas = useMemo(() => {
+    const { de, ate } = periodoParaDatas;
     return [...lancamentos]
-      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
-      .slice(0, 8);
-  }, [lancamentos]);
+      .filter((item) => {
+        if (filtroTipo !== "todos" && item.tipo !== filtroTipo) return false;
+        if (filtroTexto.trim()) {
+          const busca = filtroTexto.trim().toLowerCase();
+          const textoItem = `${item.descricao} ${item.orcamentoNumero || ""} ${item.cliente || ""}`.toLowerCase();
+          if (!textoItem.includes(busca)) return false;
+        }
+        if (de && item.data < de) return false;
+        if (ate && item.data > ate) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+  }, [lancamentos, filtroTipo, filtroTexto, periodoParaDatas]);
+
+  const totaisFiltrados = useMemo(() => {
+    const receitas = transacoesFiltradas
+      .filter((i) => i.tipo === "receita" && !i.oculto)
+      .reduce((acc, i) => acc + i.valor, 0);
+    const despesas = transacoesFiltradas
+      .filter((i) => i.tipo === "despesa" && !i.oculto)
+      .reduce((acc, i) => acc + i.valor, 0);
+    const totalComissao = transacoesFiltradas
+      .filter((i) => !i.oculto && i.comissaoValor !== null)
+      .reduce((acc, i) => acc + (i.comissaoValor ?? 0), 0);
+    return { receitas, despesas, saldo: receitas - despesas, totalComissao };
+  }, [transacoesFiltradas]);
 
   const financialData = [
     {
@@ -225,6 +336,8 @@ export default function Financeiro() {
     setOrcamentoPago(false);
     setFormaPagamento("");
     setParcelas("1");
+    setOrcamentoIdOriginalEdicao(null);
+    setOrcamentoBuscaOriginalEdicao("");
   }
 
   function abrirModal() {
@@ -245,6 +358,11 @@ export default function Financeiro() {
     );
 
     if (!encontrado) {
+      // Se estiver editando e o texto digitado corresponde ao orçamento original (fora da lista de aprovados), preserva o ID
+      if (orcamentoIdOriginalEdicao && valorDigitado === orcamentoBuscaOriginalEdicao) {
+        setOrcamentoId(orcamentoIdOriginalEdicao);
+        return;
+      }
       setOrcamentoId(null);
       setDescricao("");
       setValor("");
@@ -256,7 +374,7 @@ export default function Financeiro() {
     }
 
     const totalOrcamento = calcularTotalOrcamento(encontrado);
-    const novoValor = totalOrcamento.toFixed(2);
+    const novoValor = formatarMoedaInput(totalOrcamento);
     const comissaoSincronizada = sincronizarComissaoComValor(novoValor, origemComissao, percentualComissao, valorComissao);
     setOrcamentoId(encontrado.id);
     setDescricao(`Receita do orçamento #${encontrado.numero} - ${encontrado.cliente}`);
@@ -292,11 +410,11 @@ export default function Financeiro() {
     setEditandoId(lancamento.id);
     setTipo(lancamento.tipo);
     setDescricao(lancamento.descricao);
-    setValor(String(lancamento.valor));
+    setValor(formatarMoedaInput(lancamento.valor));
     setPercentualComissao(
       lancamento.comissaoPercentual === null ? "" : formatarNumeroInput(lancamento.comissaoPercentual)
     );
-    setValorComissao(lancamento.comissaoValor === null ? "" : formatarNumeroInput(lancamento.comissaoValor));
+    setValorComissao(lancamento.comissaoValor === null ? "" : formatarMoedaInput(lancamento.comissaoValor));
     setOrigemComissao(
       lancamento.comissaoPercentual !== null ? "percentual" : lancamento.comissaoValor !== null ? "valor" : null
     );
@@ -308,15 +426,22 @@ export default function Financeiro() {
 
     if (lancamento.tipo === "receita" && lancamento.orcamentoId) {
       const relacionado = orcamentosAprovados.find((orcamento) => orcamento.id === lancamento.orcamentoId);
+      let buscaTexto = "";
       if (relacionado) {
-        setOrcamentoBusca(`${relacionado.numero} - ${relacionado.cliente}`);
-      } else {
-        setOrcamentoBusca("");
+        buscaTexto = `${relacionado.numero} - ${relacionado.cliente}`;
+      } else if (lancamento.orcamentoNumero) {
+        // Orçamento não está mais na lista de aprovados, mas mantém a referência original
+        buscaTexto = `${lancamento.orcamentoNumero} - ${lancamento.cliente}`;
       }
+      setOrcamentoBusca(buscaTexto);
       setOrcamentoId(lancamento.orcamentoId);
+      setOrcamentoIdOriginalEdicao(lancamento.orcamentoId);
+      setOrcamentoBuscaOriginalEdicao(buscaTexto);
     } else {
       setOrcamentoBusca("");
       setOrcamentoId(null);
+      setOrcamentoIdOriginalEdicao(null);
+      setOrcamentoBuscaOriginalEdicao("");
     }
 
     setModalAberto(true);
@@ -346,10 +471,11 @@ export default function Financeiro() {
   }
 
   function onChangeValor(novoValor: string) {
-    setValor(novoValor);
+    const valorFormatado = aplicarMascaraMoeda(novoValor);
+    setValor(valorFormatado);
 
     const comissaoSincronizada = sincronizarComissaoComValor(
-      novoValor,
+      valorFormatado,
       origemComissao,
       percentualComissao,
       valorComissao
@@ -368,22 +494,23 @@ export default function Financeiro() {
   }
 
   function onChangeValorComissao(novoValorComissao: string) {
+    const valorFormatado = aplicarMascaraMoeda(novoValorComissao);
     setOrigemComissao("valor");
-    setValorComissao(novoValorComissao);
+    setValorComissao(valorFormatado);
 
-    const comissaoSincronizada = sincronizarComissaoComValor(valor, "valor", percentualComissao, novoValorComissao);
+    const comissaoSincronizada = sincronizarComissaoComValor(valor, "valor", percentualComissao, valorFormatado);
     setPercentualComissao(comissaoSincronizada.percentualComissao);
   }
 
   async function salvarLancamento() {
-    if (tipo === "receita" && !orcamentoId) {
+    if (!editandoId && tipo === "receita" && !orcamentoId) {
       setErro("Selecione um orçamento aprovado para lançar a receita.");
       return;
     }
 
-    const valorNumerico = Number(valor.replace(",", "."));
+    const valorNumerico = parseMoedaInput(valor) ?? 0;
     const percentualComissaoNumerico = parseNumeroInput(percentualComissao);
-    const valorComissaoNumerico = parseNumeroInput(valorComissao);
+    const valorComissaoNumerico = parseMoedaInput(valorComissao);
     const parcelasNumero = Number(parcelas);
     if (!descricao.trim() || !valorNumerico || !data) {
       return;
@@ -435,120 +562,322 @@ export default function Financeiro() {
 
   return (
     <div>
-      <div className="mb-8 flex items-start justify-between gap-3">
+      {/* Cabeçalho */}
+      <div className="mb-6 flex items-start justify-between gap-3">
         <div>
-          <h1 className="mb-2">Financeiro</h1>
-          <p className="text-gray-600">Visão geral das finanças</p>
+          <h1 className="mb-1">Financeiro</h1>
+          <p className="text-sm text-gray-600">Visão geral das finanças</p>
         </div>
-        <Button onClick={abrirModal} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+        <Button onClick={abrirModal} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white shrink-0">
           <Plus className="h-4 w-4" />
-          Criar receita/despesa
+          <span className="hidden sm:inline">Criar receita/despesa</span>
+          <span className="sm:hidden">Novo</span>
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {financialData.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Card key={item.title} className="p-6">
-              <div className="flex items-start justify-between mb-3">
-                <div className={`w-12 h-12 rounded-lg ${item.bgColor} flex items-center justify-center`}>
-                  <Icon className={`w-6 h-6 ${item.color}`} />
-                </div>
-              </div>
-              <p className="text-sm text-gray-600 mb-1">{item.title}</p>
-              <p className="text-2xl font-semibold text-gray-900">{item.value}</p>
-              <p className="mt-2 text-xs text-gray-500">{item.subtitle}</p>
-            </Card>
-          );
-        })}
+      {/* Cards de resumo */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Resumo</h3>
+          <button
+            onClick={() => setResumoMinimizado((v) => !v)}
+            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+            title={resumoMinimizado ? "Maximizar" : "Minimizar"}
+          >
+            {resumoMinimizado ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
+          </button>
+        </div>
+        {!resumoMinimizado && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {financialData.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Card key={item.title} className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`w-8 h-8 rounded-lg ${item.bgColor} flex items-center justify-center shrink-0`}>
+                      <Icon className={`w-4 h-4 ${item.color}`} />
+                    </div>
+                    <p className="text-xs text-gray-600 font-medium">{item.title}</p>
+                  </div>
+                  <p className="text-lg font-semibold text-gray-900 leading-tight">{item.value}</p>
+                  <p className="mt-1 text-xs text-gray-500">{item.subtitle}</p>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+        {resumoMinimizado && (
+          <div className="flex flex-wrap gap-3">
+            {financialData.map((item) => (
+              <span key={item.title} className="text-sm text-gray-600">
+                <span className="font-medium text-gray-800">{item.title}:</span> {item.value}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
-      {erro && <p className="mb-6 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+      {erro && <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
 
       {/* Módulos financeiros */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         {/* Financial modules - Orçamentos moved to top menu */}
       </div>
 
-      <Card className="p-6">
-        <h3 className="font-semibold text-gray-900 mb-4">Últimas Transações</h3>
-        {carregando ? (
-          <p className="text-sm text-gray-500">Carregando transações...</p>
-        ) : ultimosLancamentos.length === 0 ? (
-          <p className="text-sm text-gray-500">Nenhuma transação cadastrada.</p>
-        ) : (
-          <div className="space-y-4">
-            {ultimosLancamentos.map((transaction) => {
-              const positivo = transaction.tipo === "receita";
-              return (
-                <div key={transaction.id} className="flex items-center justify-between py-3 border-b last:border-b-0">
-                  <div className={transaction.oculto ? "opacity-50" : ""}>
-                    <p className="font-medium text-gray-900">{transaction.descricao}</p>
-                    <p className="text-sm text-gray-500">{formatarData(transaction.data)}</p>
-                    {transaction.oculto && (
-                      <p className="text-xs text-amber-600 mt-1">Transação oculta (não entra na soma)</p>
-                    )}
-                    {transaction.orcamentoNumero && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Orçamento #{transaction.orcamentoNumero} - {transaction.cliente}
-                      </p>
-                    )}
+      <Card className="p-4">
+        {/* Cabeçalho da card */}
+        <div className="flex items-start justify-between mb-4 gap-2">
+          <div>
+            <h3 className="font-semibold text-gray-900">Transações</h3>
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+              <span className="text-xs text-green-700 font-medium">+{formatarMoeda(totaisFiltrados.receitas)}</span>
+              <span className="text-xs text-red-600 font-medium">-{formatarMoeda(totaisFiltrados.despesas)}</span>
+              <span className={`text-xs font-semibold ${totaisFiltrados.saldo >= 0 ? "text-blue-700" : "text-red-700"}`}>
+                Saldo: {formatarMoeda(totaisFiltrados.saldo)}
+              </span>
+              {totaisFiltrados.totalComissao > 0 && (
+                <span className="text-xs text-gray-500">Comissões: {formatarMoeda(totaisFiltrados.totalComissao)}</span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => setTabelaMinimizada((v) => !v)}
+            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors shrink-0"
+            title={tabelaMinimizada ? "Maximizar" : "Minimizar"}
+          >
+            {tabelaMinimizada ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
+          </button>
+        </div>
+
+        {!tabelaMinimizada && (
+          <>
+            {/* Filtros */}
+            <div className="flex flex-col gap-2 mb-4">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Buscar por descrição ou cliente..."
+                  value={filtroTexto}
+                  onChange={(e) => setFiltroTexto(e.target.value)}
+                  className="w-full pl-8 h-9 rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                />
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={filtroTipo}
+                  onChange={(e) => setFiltroTipo(e.target.value as "todos" | "receita" | "despesa")}
+                  className="flex-1 h-9 rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                >
+                  <option value="todos">Todos os tipos</option>
+                  <option value="receita">Receitas</option>
+                  <option value="despesa">Despesas</option>
+                </select>
+                <select
+                  value={filtroPeriodo}
+                  onChange={(e) => setFiltroPeriodo(e.target.value as typeof filtroPeriodo)}
+                  className="flex-1 h-9 rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                >
+                  <option value="todos">Todo período</option>
+                  <option value="hoje">Hoje</option>
+                  <option value="semana">7 dias</option>
+                  <option value="mes">Este mês</option>
+                  <option value="3meses">3 meses</option>
+                  <option value="6meses">6 meses</option>
+                  <option value="ano">Este ano</option>
+                  <option value="personalizado">Personalizado</option>
+                </select>
+              </div>
+              {filtroPeriodo === "personalizado" && (
+                <div className="flex gap-2">
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <label className="text-xs text-gray-500 whitespace-nowrap">De:</label>
+                    <input
+                      type="date"
+                      value={filtroDataDe}
+                      onChange={(e) => setFiltroDataDe(e.target.value)}
+                      className="flex-1 h-9 rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    />
                   </div>
-                  <p className={`font-semibold ${positivo ? "text-green-600" : "text-red-600"}`}>
-                    {positivo ? "+ " : "- "}
-                    {formatarMoeda(transaction.valor)}
-                  </p>
-                  <div className="ml-3 flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => abrirModalEdicao(transaction)}
-                      title="Editar transação"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8 text-gray-600 hover:text-gray-800"
-                      onClick={() => alternarOcultarLancamento(transaction)}
-                      title={transaction.oculto ? "Reexibir transação" : "Ocultar transação"}
-                    >
-                      {transaction.oculto ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                    </Button>
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <label className="text-xs text-gray-500 whitespace-nowrap">Até:</label>
+                    <input
+                      type="date"
+                      value={filtroDataAte}
+                      onChange={(e) => setFiltroDataAte(e.target.value)}
+                      className="flex-1 h-9 rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    />
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              )}
+            </div>
+
+            {/* Contador e limpar filtros */}
+            {(filtroTexto || filtroTipo !== "todos" || filtroPeriodo !== "todos") && (
+              <div className="mb-3 flex items-center gap-2 text-sm text-gray-500">
+                <span>{transacoesFiltradas.length} resultado(s)</span>
+                <button
+                  onClick={() => { setFiltroTexto(""); setFiltroTipo("todos"); setFiltroPeriodo("todos"); setFiltroDataDe(""); setFiltroDataAte(""); }}
+                  className="text-blue-600 hover:underline"
+                >
+                  Limpar filtros
+                </button>
+              </div>
+            )}
+
+            {/* Conteúdo */}
+            {carregando ? (
+              <p className="text-sm text-gray-500">Carregando transações...</p>
+            ) : transacoesFiltradas.length === 0 ? (
+              <p className="text-sm text-gray-500">Nenhuma transação encontrada.</p>
+            ) : (
+              <>
+                {/* Tabela — desktop */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-xs text-gray-500 uppercase tracking-wide">
+                        <th className="pb-2 text-left font-medium">Descrição</th>
+                        <th className="pb-2 text-left font-medium">Data</th>
+                        <th className="pb-2 text-right font-medium">Valor</th>
+                        <th className="pb-2 text-right font-medium">% Comissão</th>
+                        <th className="pb-2 text-right font-medium">Valor Comissão</th>
+                        <th className="pb-2 text-right font-medium">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transacoesFiltradas.map((transaction) => {
+                        const positivo = transaction.tipo === "receita";
+                        return (
+                          <tr key={transaction.id} className={`border-b last:border-b-0 ${transaction.oculto ? "opacity-50" : ""}`}>
+                            <td className="py-3 pr-4">
+                              <p className="font-medium text-gray-900">{transaction.descricao}</p>
+                              {transaction.oculto && <p className="text-xs text-amber-600 mt-0.5">Oculta (não entra na soma)</p>}
+                              {transaction.orcamentoNumero && (
+                                <p className="text-xs text-gray-500 mt-0.5">Orçamento #{transaction.orcamentoNumero} - {transaction.cliente}</p>
+                              )}
+                            </td>
+                            <td className="py-3 pr-4 text-gray-500 whitespace-nowrap">{formatarData(transaction.data)}</td>
+                            <td className={`py-3 pr-4 text-right font-semibold whitespace-nowrap ${positivo ? "text-green-600" : "text-red-600"}`}>
+                              {positivo ? "+ " : "- "}{formatarMoeda(transaction.valor)}
+                            </td>
+                            <td className="py-3 pr-4 text-right text-gray-700 whitespace-nowrap">
+                              {transaction.comissaoPercentual !== null ? `${transaction.comissaoPercentual}%` : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="py-3 pr-4 text-right text-gray-700 whitespace-nowrap">
+                              {transaction.comissaoValor !== null ? formatarMoeda(transaction.comissaoValor) : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="py-3 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => abrirModalEdicao(transaction)} title="Editar">
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button variant="outline" size="icon" className="h-8 w-8 text-gray-600" onClick={() => alternarOcultarLancamento(transaction)} title={transaction.oculto ? "Reexibir" : "Ocultar"}>
+                                  {transaction.oculto ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-gray-200 bg-gray-50 font-semibold text-sm">
+                        <td colSpan={2} className="py-3 pr-4 text-gray-700">Total ({transacoesFiltradas.length})</td>
+                        <td className="py-3 pr-4 text-right">
+                          <span className="text-green-600">+{formatarMoeda(totaisFiltrados.receitas)}</span>
+                          <span className="text-gray-400 mx-1">/</span>
+                          <span className="text-red-600">-{formatarMoeda(totaisFiltrados.despesas)}</span>
+                        </td>
+                        <td className="py-3 pr-4 text-right text-gray-400">—</td>
+                        <td className="py-3 pr-4 text-right text-gray-700">
+                          {totaisFiltrados.totalComissao > 0 ? formatarMoeda(totaisFiltrados.totalComissao) : <span className="text-gray-400">—</span>}
+                        </td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                {/* Cards — mobile */}
+                <div className="md:hidden space-y-3">
+                  {transacoesFiltradas.map((transaction) => {
+                    const positivo = transaction.tipo === "receita";
+                    return (
+                      <div key={transaction.id} className={`rounded-lg border p-3 ${transaction.oculto ? "opacity-50 bg-gray-50" : "bg-white"}`}>
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="font-medium text-gray-900 text-sm leading-snug flex-1">{transaction.descricao}</p>
+                          <span className={`font-semibold text-sm whitespace-nowrap ${positivo ? "text-green-600" : "text-red-600"}`}>
+                            {positivo ? "+" : "-"}{formatarMoeda(transaction.valor)}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-gray-500 mb-2">
+                          <span>{formatarData(transaction.data)}</span>
+                          {transaction.orcamentoNumero && <span>· Orç. #{transaction.orcamentoNumero}</span>}
+                          {transaction.oculto && <span className="text-amber-600">· Oculta</span>}
+                        </div>
+                        {(transaction.comissaoPercentual !== null || transaction.comissaoValor !== null) && (
+                          <p className="text-xs text-gray-500 mb-2">
+                            Comissão:{" "}
+                            {transaction.comissaoPercentual !== null && `${transaction.comissaoPercentual}%`}
+                            {transaction.comissaoPercentual !== null && transaction.comissaoValor !== null && " · "}
+                            {transaction.comissaoValor !== null && formatarMoeda(transaction.comissaoValor)}
+                          </p>
+                        )}
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => abrirModalEdicao(transaction)}>
+                            <Pencil className="h-3 w-3 mr-1" /> Editar
+                          </Button>
+                          <Button variant="outline" size="sm" className="flex-1 h-8 text-xs text-gray-600" onClick={() => alternarOcultarLancamento(transaction)}>
+                            {transaction.oculto ? <><Eye className="h-3 w-3 mr-1" />Reexibir</> : <><EyeOff className="h-3 w-3 mr-1" />Ocultar</>}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="rounded-lg border bg-gray-50 p-3 text-sm font-semibold">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">{transacoesFiltradas.length} transações</span>
+                      <div className="flex gap-3">
+                        <span className="text-green-600">+{formatarMoeda(totaisFiltrados.receitas)}</span>
+                        <span className="text-red-600">-{formatarMoeda(totaisFiltrados.despesas)}</span>
+                      </div>
+                    </div>
+                    {totaisFiltrados.totalComissao > 0 && (
+                      <div className="flex justify-between mt-1 text-xs text-gray-500 font-normal">
+                        <span>Total comissões</span>
+                        <span>{formatarMoeda(totaisFiltrados.totalComissao)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </>
         )}
       </Card>
 
       {modalAberto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={fecharModal} />
-          <div className="relative z-10 w-full max-w-3xl rounded-lg bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">{editandoId ? "Editar lançamento" : "Novo lançamento"}</h2>
-              <button
-                onClick={fecharModal}
-                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                aria-label="Fechar modal"
-              >
+          <div className="relative z-10 w-full sm:max-w-3xl rounded-t-2xl sm:rounded-lg bg-white shadow-xl flex flex-col max-h-[92dvh]">
+            {/* Header fixo */}
+            <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
+              <h2 className="text-base font-semibold text-gray-900">{editandoId ? "Editar lançamento" : "Novo lançamento"}</h2>
+              <button onClick={fecharModal} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" aria-label="Fechar modal">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="space-y-4">
+            {/* Corpo com scroll */}
+            <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
               <div>
                 <Label htmlFor="tipo-lancamento">Tipo</Label>
                 <select
                   id="tipo-lancamento"
                   value={tipo}
                   onChange={(e) => onChangeTipo(e.target.value as TipoLancamento)}
-                  className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 >
                   <option value="receita">Receita</option>
                   <option value="despesa">Despesa</option>
@@ -557,27 +886,12 @@ export default function Financeiro() {
 
               <div>
                 <Label htmlFor="descricao-lancamento">Descrição</Label>
-                <Input
-                  id="descricao-lancamento"
-                  value={descricao}
-                  onChange={(e) => setDescricao(e.target.value)}
-                  placeholder="Ex.: Pagamento de cliente"
-                  className="mt-1"
-                  disabled={camposPreenchidosPorOrcamento}
-                />
+                <Input id="descricao-lancamento" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex.: Pagamento de cliente" className="mt-1" disabled={camposPreenchidosPorOrcamento} />
               </div>
 
               <div>
                 <Label htmlFor="orcamento-lancamento">Orçamento aprovado</Label>
-                <Input
-                  id="orcamento-lancamento"
-                  list="orcamentos-aprovados"
-                  value={orcamentoBusca}
-                  onChange={(e) => selecionarOrcamento(e.target.value)}
-                  placeholder="Buscar orçamento aprovado por número ou cliente"
-                  className="mt-1"
-                  disabled={tipo !== "receita"}
-                />
+                <Input id="orcamento-lancamento" list="orcamentos-aprovados" value={orcamentoBusca} onChange={(e) => selecionarOrcamento(e.target.value)} placeholder="Buscar por número ou cliente" className="mt-1" disabled={tipo !== "receita"} />
                 <datalist id="orcamentos-aprovados">
                   {orcamentosAprovados.map((orcamento) => (
                     <option key={orcamento.id} value={`${orcamento.numero} - ${orcamento.cliente}`} />
@@ -585,93 +899,42 @@ export default function Financeiro() {
                 </datalist>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="valor-lancamento">Valor</Label>
-                  <Input
-                    id="valor-lancamento"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={valor}
-                    onChange={(e) => onChangeValor(e.target.value)}
-                    placeholder="0,00"
-                    className="mt-1"
-                    disabled={camposPreenchidosPorOrcamento}
-                  />
+                  <Input id="valor-lancamento" type="text" inputMode="numeric" value={valor} onChange={(e) => onChangeValor(e.target.value)} placeholder="0,00" className="mt-1" disabled={camposPreenchidosPorOrcamento} />
                 </div>
-
-                <div>
-                  <Label htmlFor="percentual-comissao">Porcentagem da comissão</Label>
-                  <Input
-                    id="percentual-comissao"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={percentualComissao}
-                    onChange={(e) => onChangePercentualComissao(e.target.value)}
-                    placeholder="0,00"
-                    className="mt-1"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="valor-comissao">Valor da comissão</Label>
-                  <Input
-                    id="valor-comissao"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={valorComissao}
-                    onChange={(e) => onChangeValorComissao(e.target.value)}
-                    placeholder="0,00"
-                    className="mt-1"
-                  />
-                </div>
-
                 <div>
                   <Label htmlFor="data-lancamento">Data</Label>
-                  <Input
-                    id="data-lancamento"
-                    type="date"
-                    value={data}
-                    onChange={(e) => setData(e.target.value)}
-                    className="mt-1"
-                    disabled={camposPreenchidosPorOrcamento}
-                  />
+                  <Input id="data-lancamento" type="date" value={data} onChange={(e) => setData(e.target.value)} className="mt-1" disabled={camposPreenchidosPorOrcamento} />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="percentual-comissao">% Comissão</Label>
+                  <Input id="percentual-comissao" list="percentuais-comissao" type="number" min="0" step="0.01" value={percentualComissao} onChange={(e) => onChangePercentualComissao(e.target.value)} placeholder="0,00" className="mt-1" />
+                  <datalist id="percentuais-comissao">
+                    <option value="5" /><option value="10" /><option value="15" /><option value="20" /><option value="25" /><option value="30" />
+                  </datalist>
+                </div>
+                <div>
+                  <Label htmlFor="valor-comissao">Valor Comissão</Label>
+                  <Input id="valor-comissao" type="text" inputMode="numeric" value={valorComissao} onChange={(e) => onChangeValorComissao(e.target.value)} placeholder="0,00" className="mt-1" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <Label htmlFor="orcamento-pago">Quitado</Label>
-                  <select
-                    id="orcamento-pago"
-                    value={orcamentoPago ? "sim" : "nao"}
-                    onChange={(e) => {
-                      const pago = e.target.value === "sim";
-                      setOrcamentoPago(pago);
-                      if (!pago) {
-                        setFormaPagamento("");
-                        setParcelas("1");
-                      }
-                    }}
-                    className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                  >
+                  <select id="orcamento-pago" value={orcamentoPago ? "sim" : "nao"} onChange={(e) => { const pago = e.target.value === "sim"; setOrcamentoPago(pago); if (!pago) { setFormaPagamento(""); setParcelas("1"); } }} className="mt-1 flex h-10 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50">
                     <option value="nao">Não</option>
                     <option value="sim">Sim</option>
                   </select>
                 </div>
-
                 <div>
                   <Label htmlFor="forma-pagamento">Forma de pagamento</Label>
-                  <select
-                    id="forma-pagamento"
-                    value={formaPagamento}
-                    onChange={(e) => setFormaPagamento(e.target.value)}
-                    className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                    disabled={!habilitarDadosPagamento}
-                  >
+                  <select id="forma-pagamento" value={formaPagamento} onChange={(e) => setFormaPagamento(e.target.value)} className="mt-1 flex h-10 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50" disabled={!habilitarDadosPagamento}>
                     <option value="">Selecione</option>
                     <option value="pix">PIX</option>
                     <option value="cartao_credito">Cartão de crédito</option>
@@ -681,27 +944,19 @@ export default function Financeiro() {
                     <option value="dinheiro">Dinheiro</option>
                   </select>
                 </div>
-
                 <div>
                   <Label htmlFor="parcelas">Parcelado em</Label>
-                  <Input
-                    id="parcelas"
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={parcelas}
-                    onChange={(e) => setParcelas(e.target.value)}
-                    placeholder="Ex.: 1"
-                    className="mt-1"
-                    disabled={!habilitarDadosPagamento}
-                  />
+                  <Input id="parcelas" type="number" min="1" step="1" value={parcelas} onChange={(e) => setParcelas(e.target.value)} placeholder="Ex.: 1" className="mt-1" disabled={!habilitarDadosPagamento} />
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 flex justify-end gap-2">
-              <Button variant="outline" onClick={fecharModal}>Cancelar</Button>
-              <Button onClick={salvarLancamento} disabled={salvando}>{salvando ? "Salvando..." : editandoId ? "Atualizar" : "Salvar"}</Button>
+            {/* Footer fixo */}
+            <div className="px-5 py-4 border-t flex gap-2 shrink-0">
+              <Button variant="outline" onClick={fecharModal} className="flex-1 sm:flex-none">Cancelar</Button>
+              <Button onClick={salvarLancamento} disabled={salvando} className="flex-1 sm:flex-none">
+                {salvando ? "Salvando..." : editandoId ? "Atualizar" : "Salvar"}
+              </Button>
             </div>
           </div>
         </div>
