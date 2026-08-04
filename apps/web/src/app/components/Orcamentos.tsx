@@ -607,7 +607,7 @@ export default function Orcamentos() {
   const [passageiroSelecionado, setPassageiroSelecionado] = useState("");
   const [secoesOrcamentoMinimizadas, setSecoesOrcamentoMinimizadas] = useState(true);
   const [vendasMinimizadas, setVendasMinimizadas] = useState(true);
-  const [detalhesMinimizados, setDetalhesMinimizados] = useState(true);
+
   const [resumoMinimizado, setResumoMinimizado] = useState(true);
   const [cardsResumoMinimizados, setCardsResumoMinimizados] = useState(false);
   const [orcamentoResumoMinimizado, setOrcamentoResumoMinimizado] = useState(true);
@@ -1089,7 +1089,6 @@ export default function Orcamentos() {
     setCategoriasPerfilMinimizadas(todasCategoriasMinimizadas);
     setSecoesOrcamentoMinimizadas(true);
     setVendasMinimizadas(true);
-    setDetalhesMinimizados(true);
     setResumoMinimizado(true);
     setOrcamentoResumoMinimizado(true);
     setRoteiroMinimizado(true);
@@ -1128,7 +1127,6 @@ export default function Orcamentos() {
     setCategoriasPerfilMinimizadas({});
     setSecoesOrcamentoMinimizadas(true);
     setVendasMinimizadas(true);
-    setDetalhesMinimizados(true);
     setResumoMinimizado(true);
     setOrcamentoResumoMinimizado(true);
     setRoteiroMinimizado(true);
@@ -1798,6 +1796,12 @@ export default function Orcamentos() {
                 {!dadosClienteMinimizados && (
                     <>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 relative">
+                      <div className="flex flex-col md:col-span-1">
+                        <Label>Número</Label>
+                        <Input value={form.numero} readOnly disabled className="mt-1 font-mono bg-gray-100 cursor-not-allowed" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 relative mt-3">
                       <div className="flex flex-col">
                         <Label htmlFor="cliente">Cliente *</Label>
                         <select
@@ -1920,6 +1924,45 @@ export default function Orcamentos() {
                         )}
                       </div>
                     </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+                      <div className="flex flex-col">
+                        <Label htmlFor="dataCriacao">Data de emissão</Label>
+                        <Input id="dataCriacao" type="date" value={form.dataCriacao} onChange={(e) => {
+                          const emissao = e.target.value;
+                          const validade = emissao ? new Date(new Date(emissao).getTime() + 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] : form.dataValidade;
+                          setForm({ ...form, dataCriacao: emissao, dataValidade: validade });
+                        }} className="mt-1" />
+                      </div>
+                      <div className="flex flex-col">
+                        <Label htmlFor="dataValidade">Válido até</Label>
+                        <Input id="dataValidade" type="date" value={form.dataValidade} onChange={(e) => setForm({ ...form, dataValidade: e.target.value })} className="mt-1" />
+                      </div>
+                      <div className="flex flex-col">
+                        <Label>Status do Orçamento</Label>
+                        <select
+                            value={form.status}
+                            onChange={(e) => void onChangeStatusOrcamento(e.target.value as StatusOrc)}
+                            className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                        >
+                          {allStatus.map((s) => (
+                              <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex flex-col">
+                        <Label>Status da Viagem</Label>
+                        <select
+                            value={form.statusViagem || ""}
+                            onChange={(e) => setForm({ ...form, statusViagem: e.target.value as StatusViagem | undefined })}
+                            className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                        >
+                          <option value="">Selecione...</option>
+                          <option value="Não Iniciada">Não Iniciada</option>
+                          <option value="Em Andamento">Em Andamento</option>
+                          <option value="Finalizada">Finalizada</option>
+                        </select>
+                      </div>
+                    </div>
                     <button
                         type="button"
                         onClick={() => setDadosClienteMinimizados(true)}
@@ -1929,114 +1972,6 @@ export default function Orcamentos() {
                       <ChevronUp className="h-4 w-4" />
                     </button>
                     </>
-                )}
-              </Card>
-
-              {/* Detalhes */}
-              <Card className="p-3 sm:p-6">
-                <div className="mb-4 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => setDetalhesMinimizados((prev) => !prev)}>
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-500" /> Detalhes</h3>
-                  <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => { e.stopPropagation(); setDetalhesMinimizados((prev) => !prev); }}
-                      className="h-8 px-2 text-gray-600"
-                  >
-                    {detalhesMinimizados ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                    <span className="ml-1">{detalhesMinimizados ? " " : " "}</span>
-                  </Button>
-                </div>
-                {!detalhesMinimizados && (
-                <>
-                <div className="space-y-4 relative">
-                  <div>
-                    <Label>Número</Label>
-                    <Input value={form.numero} readOnly disabled className="mt-1 font-mono bg-gray-100 cursor-not-allowed" />
-                  </div>
-                  <div>
-                    <Label htmlFor="dataCriacao">Data de emissão</Label>
-                    <Input id="dataCriacao" type="date" value={form.dataCriacao} onChange={(e) => setForm({ ...form, dataCriacao: e.target.value })} className="mt-1" />
-                  </div>
-                  <div>
-                    <Label htmlFor="dataValidade">Válido até</Label>
-                    <Input id="dataValidade" type="date" value={form.dataValidade} onChange={(e) => setForm({ ...form, dataValidade: e.target.value })} className="mt-1" />
-                  </div>
-                  <div>
-                    <Label htmlFor="formaPagamento">Forma de pagamento</Label>
-                    <select
-                        id="formaPagamento"
-                        value={form.formaPagamento || ""}
-                        onChange={(e) => setForm({ ...form, formaPagamento: e.target.value })}
-                        className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                    >
-                      <option value="">Selecione</option>
-                      <option value="pix">PIX</option>
-                      <option value="cartao_credito">Cartão de crédito</option>
-                      <option value="cartao_debito">Cartão de débito</option>
-                      <option value="boleto">Boleto</option>
-                      <option value="transferencia">Transferência</option>
-                      <option value="dinheiro">Dinheiro</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="orcamento-parcelado">Parcelado?</Label>
-                    <select
-                        id="orcamento-parcelado"
-                        value={(form.parcelas || 1) > 1 ? "sim" : "nao"}
-                        onChange={(e) => {
-                          const parcelado = e.target.value === "sim";
-                          setForm({ ...form, parcelas: parcelado ? Math.max(2, Number(form.parcelas) || 2) : 1 });
-                        }}
-                        className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                    >
-                      <option value="nao">Não</option>
-                      <option value="sim">Sim</option>
-                    </select>
-                  </div>
-                  {(form.parcelas || 1) > 1 && (
-                      <div>
-                        <Label htmlFor="orcamento-parcelas">Qtd. de parcelas</Label>
-                        <Input
-                            id="orcamento-parcelas"
-                            type="number"
-                            min="2"
-                            step="1"
-                            value={form.parcelas || 2}
-                            onChange={(e) => setForm({ ...form, parcelas: Math.max(2, Number(e.target.value) || 2) })}
-                            className="mt-1"
-                        />
-                      </div>
-                  )}
-                  <div>
-                    <Label>Status do Orçamento</Label>
-                    <select
-                        value={form.status}
-                        onChange={(e) => void onChangeStatusOrcamento(e.target.value as StatusOrc)}
-                        className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
-                    >
-                      {allStatus.map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {form.status === "Aprovado" && (
-                      <div>
-                        <Label>Status da Viagem</Label>
-                        <select
-                            value={form.statusViagem || ""}
-                            onChange={(e) => setForm({ ...form, statusViagem: e.target.value as StatusViagem | undefined })}
-                            className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
-                        >
-                          <option value="">Selecione...</option>
-                          <option value="Não Iniciada">Não Iniciada</option>
-                          <option value="Em Andamento">Em Andamento</option>
-                          <option value="Finalizada">Finalizada</option>
-                        </select>
-                      </div>
-                  )}
-                </div>
-                </>
                 )}
               </Card>
 
@@ -2183,14 +2118,14 @@ export default function Orcamentos() {
 
               {/* Seções do orçamento (sub-páginas) */}
               <Card className="p-3 sm:p-6">
-                <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="mb-4 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => setSecoesOrcamentoMinimizadas((prev) => !prev)}>
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-500" /> Seções do Orçamento</h3>
                   <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => setSecoesOrcamentoMinimizadas((prev) => !prev)}
-                      className="h-8 px-2 text-gray-600"
+                      onClick={(e) => { e.stopPropagation(); setSecoesOrcamentoMinimizadas((prev) => !prev); }}
+                      className="h-8 px-2 text-gray-600 cursor-pointer"
                   >
                     {secoesOrcamentoMinimizadas ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
                     <span className="ml-1">{secoesOrcamentoMinimizadas ? " " : " "}</span>
@@ -2206,7 +2141,8 @@ export default function Orcamentos() {
                                   key={s}
                                   type="button"
                                   onClick={() => setSection(s)}
-                                  className={`shrink-0 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs sm:text-sm ${section === s ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'}`}
+                                  style={{ cursor: 'pointer' }}
+                                  className={`shrink-0 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs sm:text-sm cursor-pointer ${section === s ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'}`}
                               >
                                 {s}
                               </button>
@@ -2525,14 +2461,14 @@ export default function Orcamentos() {
 
               {/* Roteiro */}
               <Card className="p-3 sm:p-6">
-                <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="mb-4 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => setRoteiroMinimizado((prev) => !prev)}>
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2"><MapPin className="w-4 h-4 text-indigo-500" /> Roteiro</h3>
                   <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => setRoteiroMinimizado((prev) => !prev)}
-                      className="h-8 px-2 text-gray-600"
+                      onClick={(e) => { e.stopPropagation(); setRoteiroMinimizado((prev) => !prev); }}
+                      className="h-8 px-2 text-gray-600 cursor-pointer"
                   >
                     {roteiroMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
                     <span className="ml-1">{roteiroMinimizado ? " " : " "}</span>
