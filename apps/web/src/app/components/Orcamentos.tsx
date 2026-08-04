@@ -533,11 +533,14 @@ function gerarNumero(lista: Orcamento[]) {
 
 type Tela = "lista" | "form";
 
-const orcVazio = (): OrcamentoPayload => ({
-  numero: "", cliente: "", email: "", destino: "", agenteViagem: "", status: "Rascunho",
-  dataCriacao: new Date().toISOString().split("T")[0], itens: [],
-
-});
+const orcVazio = (): OrcamentoPayload => {
+  const hoje = new Date().toISOString().split("T")[0];
+  const validade = new Date(new Date().getTime() + 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  return {
+    numero: "", cliente: "", email: "", destino: "", agenteViagem: "", status: "Rascunho",
+    dataCriacao: hoje, dataValidade: validade, statusViagem: "Não Iniciada", itens: [],
+  };
+};
 
 export default function Orcamentos() {
   const navigate = useNavigate();
