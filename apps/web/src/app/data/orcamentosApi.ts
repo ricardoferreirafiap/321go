@@ -37,6 +37,7 @@ export interface Orcamento {
   status: StatusOrc;
   statusViagem?: StatusViagem;
   dataCriacao: string;
+  dataValidade?: string;
 
   itens?: ItemOrc[];
   pacotes?: any[];
