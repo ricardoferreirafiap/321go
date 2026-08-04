@@ -35,6 +35,7 @@ import {
 import {
   type Pacote,
   criarLancamentoFinanceiro,
+  atualizarLancamentoFinanceiro,
   listarLancamentosFinanceiros,
   type LancamentoFinanceiro,
 } from "../data/financeiroApi";
@@ -579,6 +580,24 @@ export default function Orcamentos() {
   const [valorComissaoLancamento, setValorComissaoLancamento] = useState("");
   const [origemComissaoLancamento, setOrigemComissaoLancamento] = useState<OrigemComissao>(null);
   const [popupAprovadoAberto, setPopupAprovadoAberto] = useState(false);
+
+  // Estados do modal de lançamento financeiro da tela de lista
+  const [modalListaLancamentoAberto, setModalListaLancamentoAberto] = useState(false);
+  const [orcamentoListaModal, setOrcamentoListaModal] = useState<Orcamento | null>(null);
+  const [editandoIdLancamentoLista, setEditandoIdLancamentoLista] = useState<number | null>(null);
+  const [tipoLancamentoLista, setTipoLancamentoLista] = useState<"receita" | "despesa">("receita");
+  const [descricaoLancamentoLista, setDescricaoLancamentoLista] = useState("");
+  const [valorLancamentoLista, setValorLancamentoLista] = useState("");
+  const [dataLancamentoLista, setDataLancamentoLista] = useState("");
+  const [percentualComissaoLista, setPercentualComissaoLista] = useState("");
+  const [valorComissaoLista, setValorComissaoLista] = useState("");
+  const [origemComissaoLista, setOrigemComissaoLista] = useState<OrigemComissao>(null);
+  const [orcamentoPagoLista, setOrcamentoPagoLista] = useState(false);
+  const [formaPagamentoLista, setFormaPagamentoLista] = useState("");
+  const [parcelasLista, setParcelasLista] = useState("1");
+  const [editandoOcultoLista, setEditandoOcultoLista] = useState(false);
+  const [salvandoLancamentoLista, setSalvandoLancamentoLista] = useState(false);
+  const [erroLancamentoLista, setErroLancamentoLista] = useState<string | null>(null);
   const [orcamentoDuplicacaoPendente, setOrcamentoDuplicacaoPendente] = useState<Orcamento | null>(null);
   const [dadosClienteMinimizados, setDadosClienteMinimizados] = useState(true);
   const [perfilViagemMinimizado, setPerfilViagemMinimizado] = useState(true);
@@ -590,6 +609,7 @@ export default function Orcamentos() {
   const [vendasMinimizadas, setVendasMinimizadas] = useState(true);
   const [detalhesMinimizados, setDetalhesMinimizados] = useState(true);
   const [resumoMinimizado, setResumoMinimizado] = useState(true);
+  const [cardsResumoMinimizados, setCardsResumoMinimizados] = useState(false);
   const [orcamentoResumoMinimizado, setOrcamentoResumoMinimizado] = useState(true);
   const [roteiroMinimizado, setRoteiroMinimizado] = useState(true);
   const [houveAlteracoes, setHouveAlteracoes] = useState(false);
@@ -691,10 +711,152 @@ export default function Orcamentos() {
     const lancamentoExistente = lancamentosFinanceiros.find(
       (l) => l.orcamentoId === orc.id
     ) ?? null;
-    navigate("/financeiro", {
-      state: { novoLancamentoOrcamento: orc, lancamentoExistente },
-    });
+
+    setErroLancamentoLista(null);
+    setOrcamentoListaModal(orc);
+
+    if (lancamentoExistente) {
+      // Modo edição — pré-preenche com os dados do lançamento existente
+      setEditandoIdLancamentoLista(lancamentoExistente.id);
+      setTipoLancamentoLista(lancamentoExistente.tipo);
+      setDescricaoLancamentoLista(lancamentoExistente.descricao);
+      setValorLancamentoLista(formatarMoedaInput(lancamentoExistente.valor));
+      setDataLancamentoLista(lancamentoExistente.data);
+      setPercentualComissaoLista(
+        lancamentoExistente.comissaoPercentual === null
+          ? ""
+          : formatarNumeroInput(lancamentoExistente.comissaoPercentual)
+      );
+      setValorComissaoLista(
+        lancamentoExistente.comissaoValor === null
+          ? ""
+          : formatarMoedaInput(lancamentoExistente.comissaoValor)
+      );
+      setOrigemComissaoLista(
+        lancamentoExistente.comissaoPercentual !== null
+          ? "percentual"
+          : lancamentoExistente.comissaoValor !== null
+          ? "valor"
+          : null
+      );
+      setOrcamentoPagoLista(lancamentoExistente.orcamentoPago);
+      setFormaPagamentoLista(lancamentoExistente.formaPagamento || "");
+      setParcelasLista(String(lancamentoExistente.parcelas ?? 1));
+      setEditandoOcultoLista(lancamentoExistente.oculto);
+    } else {
+      // Modo criação — pré-preenche com dados do orçamento
+      const totalOrcamento = calcTotalOrcamento(orc);
+      setEditandoIdLancamentoLista(null);
+      setTipoLancamentoLista("receita");
+      setDescricaoLancamentoLista(`Receita do orçamento #${orc.numero} - ${orc.cliente}`);
+      setValorLancamentoLista(formatarMoedaInput(totalOrcamento));
+      setDataLancamentoLista(orc.dataCriacao || new Date().toISOString().slice(0, 10));
+      setPercentualComissaoLista("");
+      setValorComissaoLista("");
+      setOrigemComissaoLista(null);
+      setOrcamentoPagoLista(false);
+      setFormaPagamentoLista("");
+      setParcelasLista("1");
+      setEditandoOcultoLista(false);
+    }
+
+    setModalListaLancamentoAberto(true);
   }
+
+  async function salvarLancamentoListaModal() {
+    if (!orcamentoListaModal) return;
+
+    const valorNumerico = parseMoedaInput(valorLancamentoLista) ?? 0;
+    const percentualComissaoNum = parseNumeroInput(percentualComissaoLista);
+    const valorComissaoNum = parseMoedaInput(valorComissaoLista);
+    const parcelasNum = Number(parcelasLista);
+    const habilitarPagamento = orcamentoPagoLista;
+
+    if (!descricaoLancamentoLista.trim()) {
+      setErroLancamentoLista("Descrição é obrigatória.");
+      return;
+    }
+    if (!valorNumerico || valorNumerico <= 0) {
+      setErroLancamentoLista("Informe um valor maior que zero.");
+      return;
+    }
+    if (!dataLancamentoLista) {
+      setErroLancamentoLista("Data é obrigatória.");
+      return;
+    }
+    if (habilitarPagamento && !formaPagamentoLista.trim()) {
+      setErroLancamentoLista("Selecione a forma de pagamento.");
+      return;
+    }
+    if (habilitarPagamento && (!Number.isInteger(parcelasNum) || parcelasNum <= 0)) {
+      setErroLancamentoLista("Informe a quantidade de parcelas válida.");
+      return;
+    }
+
+    setSalvandoLancamentoLista(true);
+    setErroLancamentoLista(null);
+
+    try {
+      const payload = {
+        tipo: tipoLancamentoLista,
+        descricao: descricaoLancamentoLista.trim(),
+        valor: Math.abs(valorNumerico),
+        comissaoPercentual: percentualComissaoNum === null ? null : Math.abs(percentualComissaoNum),
+        comissaoValor: valorComissaoNum === null ? null : Math.abs(valorComissaoNum),
+        data: dataLancamentoLista,
+        oculto: editandoIdLancamentoLista ? editandoOcultoLista : false,
+        orcamentoPago: orcamentoPagoLista,
+        formaPagamento: habilitarPagamento ? formaPagamentoLista.trim() : "",
+        parcelas: habilitarPagamento ? parcelasNum : null,
+        orcamentoId: orcamentoListaModal.id,
+      };
+
+      if (editandoIdLancamentoLista) {
+        const atualizado = await atualizarLancamentoFinanceiro(editandoIdLancamentoLista, payload);
+        setLancamentosFinanceiros((prev) =>
+          prev.map((l) => (l.id === editandoIdLancamentoLista ? atualizado : l))
+        );
+      } else {
+        const novo = await criarLancamentoFinanceiro(payload);
+        setLancamentosFinanceiros((prev) => [novo, ...prev]);
+      }
+
+      setModalListaLancamentoAberto(false);
+    } catch (error) {
+      setErroLancamentoLista(error instanceof Error ? error.message : "Erro ao salvar lançamento financeiro.");
+    } finally {
+      setSalvandoLancamentoLista(false);
+    }
+  }
+
+  function fecharModalListaLancamento() {
+    setModalListaLancamentoAberto(false);
+    setErroLancamentoLista(null);
+  }
+
+  function onChangePercentualComissaoLista(novoPercentual: string) {
+    setOrigemComissaoLista("percentual");
+    setPercentualComissaoLista(novoPercentual);
+    const valorBase = parseMoedaInput(valorLancamentoLista) ?? 0;
+    const valorBaseTexto = formatarMoedaInput(valorBase);
+    const sincronizado = sincronizarComissaoComValor(valorBaseTexto, "percentual", novoPercentual, valorComissaoLista);
+    setValorComissaoLista(sincronizado.valorComissao);
+  }
+
+  function onChangeValorComissaoLista(novoValorComissao: string) {
+    const valorFormatado = aplicarMascaraMoeda(novoValorComissao);
+    setOrigemComissaoLista("valor");
+    setValorComissaoLista(valorFormatado);
+    const valorBase = parseMoedaInput(valorLancamentoLista) ?? 0;
+    const valorBaseTexto = formatarMoedaInput(valorBase);
+    const sincronizado = sincronizarComissaoComValor(valorBaseTexto, "valor", percentualComissaoLista, valorFormatado);
+    setPercentualComissaoLista(sincronizado.percentualComissao);
+  }
+
+  function onChangeValorLancamentoLista(novoValor: string) {
+    setValorLancamentoLista(aplicarMascaraMoeda(novoValor));
+  }
+
   function onChangePercentualComissaoLancamento(novoPercentual: string) {
     setOrigemComissaoLancamento("percentual");
     setPercentualComissaoLancamento(novoPercentual);
@@ -2437,19 +2599,32 @@ export default function Orcamentos() {
         </div>
 
         {/* Cards de resumo */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <Card className="p-3 sm:p-6 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center"><DollarSign className="w-5 h-5 text-indigo-600" /></div>
-            <div><p className="text-xs text-gray-500">Volume Total</p><p className="text-xl font-bold text-gray-900">{moeda(totais.total)}</p></div>
-          </Card>
-          <Card className="p-3 sm:p-6 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center"><Check className="w-5 h-5 text-green-600" /></div>
-            <div><p className="text-xs text-gray-500">Aprovados</p><p className="text-xl font-bold text-gray-900">{moeda(totais.aprovados)}</p></div>
-          </Card>
-          <Card className="p-3 sm:p-6 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center"><Send className="w-5 h-5 text-blue-600" /></div>
-            <div><p className="text-xs text-gray-500">Aguardando retorno</p><p className="text-xl font-bold text-gray-900">{totais.pendentes} orçamento{totais.pendentes !== 1 ? "s" : ""}</p></div>
-          </Card>
+        <div className="mb-4 sm:mb-6">
+          <div className="flex items-center justify-end mb-1">
+            <button
+              onClick={() => setCardsResumoMinimizados((v) => !v)}
+              className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded"
+              title={cardsResumoMinimizados ? "Maximizar" : "Minimizar"}
+            >
+              {cardsResumoMinimizados ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </button>
+          </div>
+          {!cardsResumoMinimizados && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <Card className="p-3 sm:p-6 flex items-center gap-4">
+                <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0"><DollarSign className="w-5 h-5 text-indigo-600" /></div>
+                <div><p className="text-xs text-gray-500">Volume Total</p><p className="text-xl font-bold text-gray-900">{moeda(totais.total)}</p></div>
+              </Card>
+              <Card className="p-3 sm:p-6 flex items-center gap-4">
+                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0"><Check className="w-5 h-5 text-green-600" /></div>
+                <div><p className="text-xs text-gray-500">Aprovados</p><p className="text-xl font-bold text-gray-900">{moeda(totais.aprovados)}</p></div>
+              </Card>
+              <Card className="p-3 sm:p-6 flex items-center gap-4">
+                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0"><Send className="w-5 h-5 text-blue-600" /></div>
+                <div><p className="text-xs text-gray-500">Aguardando retorno</p><p className="text-xl font-bold text-gray-900">{totais.pendentes} orçamento{totais.pendentes !== 1 ? "s" : ""}</p></div>
+              </Card>
+            </div>
+          )}
         </div>
 
         {/* Filtros */}
@@ -2602,6 +2777,198 @@ export default function Orcamentos() {
                 </div>
               </div>
             </div>
+        )}
+
+        {/* Modal de lançamento financeiro — tela lista */}
+        {modalListaLancamentoAberto && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+            <div className="absolute inset-0 bg-black/50 touch-none" onClick={fecharModalListaLancamento} />
+            <div className="relative z-10 w-full sm:max-w-3xl rounded-t-2xl sm:rounded-lg bg-white shadow-xl flex flex-col max-h-[92dvh] sm:max-h-[90vh] pb-[env(safe-area-inset-bottom)]">
+
+              {/* Drag handle — mobile only */}
+              <div className="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
+                <div className="w-10 h-1 rounded-full bg-gray-300" />
+              </div>
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-3 sm:py-4 border-b shrink-0">
+                <h2 className="text-base font-semibold text-gray-900">
+                  {editandoIdLancamentoLista ? "Editar lançamento financeiro" : "Novo lançamento financeiro"}
+                </h2>
+                <button onClick={fecharModalListaLancamento} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" aria-label="Fechar modal">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Corpo */}
+              <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+                <div>
+                  <Label htmlFor="lista-tipo-lancamento">Tipo</Label>
+                  <select
+                    id="lista-tipo-lancamento"
+                    value={tipoLancamentoLista}
+                    onChange={(e) => setTipoLancamentoLista(e.target.value as "receita" | "despesa")}
+                    className="mt-1 flex h-10 w-full rounded-md border border-input bg-input-background px-3 py-2 text-base sm:text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  >
+                    <option value="receita">Receita</option>
+                    <option value="despesa">Despesa</option>
+                  </select>
+                </div>
+
+                <div>
+                  <Label htmlFor="lista-descricao-lancamento">Descrição</Label>
+                  <Input
+                    id="lista-descricao-lancamento"
+                    value={descricaoLancamentoLista}
+                    onChange={(e) => setDescricaoLancamentoLista(e.target.value)}
+                    placeholder="Ex.: Pagamento de cliente"
+                    className="mt-1 h-10 text-base sm:text-sm"
+                  />
+                </div>
+
+                {orcamentoListaModal && (
+                  <div>
+                    <Label>Orçamento</Label>
+                    <Input
+                      value={`${orcamentoListaModal.numero} - ${orcamentoListaModal.cliente}`}
+                      disabled
+                      className="mt-1 h-10 text-base sm:text-sm bg-gray-50"
+                    />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="lista-valor-lancamento">Valor</Label>
+                    <Input
+                      id="lista-valor-lancamento"
+                      type="text"
+                      inputMode="decimal"
+                      value={valorLancamentoLista}
+                      onChange={(e) => onChangeValorLancamentoLista(e.target.value)}
+                      placeholder="0,00"
+                      className="mt-1 h-10 text-base sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="lista-data-lancamento">Data</Label>
+                    <Input
+                      id="lista-data-lancamento"
+                      type="date"
+                      value={dataLancamentoLista}
+                      onChange={(e) => setDataLancamentoLista(e.target.value)}
+                      className="mt-1 h-10 text-base sm:text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="lista-percentual-comissao">% Comissão</Label>
+                    <Input
+                      id="lista-percentual-comissao"
+                      list="lista-percentuais-comissao"
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      value={percentualComissaoLista}
+                      onChange={(e) => onChangePercentualComissaoLista(e.target.value)}
+                      placeholder="0,00"
+                      className="mt-1 h-10 text-base sm:text-sm"
+                    />
+                    <datalist id="lista-percentuais-comissao">
+                      <option value="5" /><option value="10" /><option value="15" /><option value="20" /><option value="25" /><option value="30" />
+                    </datalist>
+                  </div>
+                  <div>
+                    <Label htmlFor="lista-valor-comissao">Valor Comissão</Label>
+                    <Input
+                      id="lista-valor-comissao"
+                      type="text"
+                      inputMode="decimal"
+                      value={valorComissaoLista}
+                      onChange={(e) => onChangeValorComissaoLista(e.target.value)}
+                      placeholder="0,00"
+                      className="mt-1 h-10 text-base sm:text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <Label htmlFor="lista-orcamento-pago">Quitado</Label>
+                    <select
+                      id="lista-orcamento-pago"
+                      value={orcamentoPagoLista ? "sim" : "nao"}
+                      onChange={(e) => {
+                        const pago = e.target.value === "sim";
+                        setOrcamentoPagoLista(pago);
+                        if (!pago) { setFormaPagamentoLista(""); setParcelasLista("1"); }
+                      }}
+                      className="mt-1 flex h-10 w-full rounded-md border border-input bg-input-background px-3 py-2 text-base sm:text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    >
+                      <option value="nao">Não</option>
+                      <option value="sim">Sim</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="lista-forma-pagamento">Forma de pagamento</Label>
+                    <select
+                      id="lista-forma-pagamento"
+                      value={formaPagamentoLista}
+                      onChange={(e) => setFormaPagamentoLista(e.target.value)}
+                      disabled={!orcamentoPagoLista}
+                      className="mt-1 flex h-10 w-full rounded-md border border-input bg-input-background px-3 py-2 text-base sm:text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    >
+                      <option value="">Selecione</option>
+                      <option value="pix">PIX</option>
+                      <option value="cartao_credito">Cartão de crédito</option>
+                      <option value="cartao_debito">Cartão de débito</option>
+                      <option value="boleto">Boleto</option>
+                      <option value="transferencia">Transferência</option>
+                      <option value="dinheiro">Dinheiro</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="lista-parcelas">Parcelado em</Label>
+                    <Input
+                      id="lista-parcelas"
+                      type="number"
+                      inputMode="numeric"
+                      min="1"
+                      step="1"
+                      value={parcelasLista}
+                      onChange={(e) => setParcelasLista(e.target.value)}
+                      placeholder="Ex.: 1"
+                      disabled={!orcamentoPagoLista}
+                      className="mt-1 h-10 text-base sm:text-sm"
+                    />
+                  </div>
+                </div>
+
+                {erroLancamentoLista && (
+                  <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {erroLancamentoLista}
+                  </p>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-5 py-4 border-t flex gap-2 shrink-0">
+                <Button variant="outline" onClick={fecharModalListaLancamento} className="flex-1 sm:flex-none h-11 sm:h-9 text-base sm:text-sm">
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={() => void salvarLancamentoListaModal()}
+                  disabled={salvandoLancamentoLista}
+                  className="flex-1 sm:flex-none h-11 sm:h-9 text-base sm:text-sm"
+                >
+                  {salvandoLancamentoLista ? "Salvando..." : editandoIdLancamentoLista ? "Atualizar" : "Salvar"}
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
       </>
