@@ -746,6 +746,24 @@ export default function RoteiroOrcamento() {
       setCarregando(true);
       setErroCarregamento(null);
 
+      // Tenta carregar do localStorage imediatamente enquanto aguarda a API
+      // (evita tela em branco quando a aba abre e o dado já foi gravado)
+      let carregouDoLocal = false;
+      const localImediato = localStorage.getItem(`orc_${numero}`);
+      if (localImediato) {
+        try {
+          const parsed = JSON.parse(localImediato);
+          if (active) {
+            setOrc(parsed);
+            setCarregando(false);
+            carregouDoLocal = true;
+          }
+          // Continua para tentar atualizar via API em background
+        } catch {
+          // segue para carregar da API
+        }
+      }
+
       try {
         const orcamentoApi = await buscarOrcamentoPublico(numero);
         if (active) {
@@ -755,11 +773,46 @@ export default function RoteiroOrcamento() {
         }
         return;
       } catch (error) {
+        // Se já carregou do localStorage acima, mantém sem mostrar erro
+        if (carregouDoLocal) {
+          return;
+        }
+
+        // Tenta pelo identificador exato da URL (pode ser publicToken ou numero)
         const stored = localStorage.getItem(`orc_${numero}`);
 
         if (stored) {
           try {
             const parsed = JSON.parse(stored);
+            if (active) {
+              setOrc(parsed);
+              setCarregando(false);
+            }
+            return;
+          } catch {
+            // segue para tentativa adicional abaixo
+          }
+        }
+
+        // Varredura no localStorage: quando a URL usa publicToken, o dado pode ter sido
+        // gravado com a chave orc_{numero} pelo gerarRoteiro. Procura a entrada cujo
+        // publicToken ou numero coincida com o parâmetro recebido.
+        const chaveEncontrada = Object.keys(localStorage).find((chave) => {
+          if (!chave.startsWith("orc_")) return false;
+          try {
+            const candidato = JSON.parse(localStorage.getItem(chave) || "");
+            return (
+              candidato?.publicToken === numero ||
+              String(candidato?.numero) === numero
+            );
+          } catch {
+            return false;
+          }
+        });
+
+        if (chaveEncontrada) {
+          try {
+            const parsed = JSON.parse(localStorage.getItem(chaveEncontrada) || "");
             if (active) {
               setOrc(parsed);
               setCarregando(false);

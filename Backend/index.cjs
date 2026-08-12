@@ -365,22 +365,14 @@ async function backfillOrcamentosPublicToken() {
         ensureOrcamentosPublicTokenBackfillPromise = (async () => {
             await ensureOrcamentosPublicTokenColumn();
 
-            const result = await pool.query(
-                `SELECT id
-                   FROM public.orcamentos
+            // Atualiza todos os orçamentos sem token em uma única query,
+            // usando gen_random_uuid() do PostgreSQL para evitar loop serial
+            await pool.query(
+                `UPDATE public.orcamentos
+                    SET public_token = gen_random_uuid()::text,
+                        atualizado_em = NOW()
                   WHERE public_token IS NULL OR btrim(public_token) = ''`
             );
-
-            for (const row of result.rows) {
-                await pool.query(
-                    `UPDATE public.orcamentos
-                        SET public_token = $1,
-                            atualizado_em = NOW()
-                      WHERE id = $2
-                        AND (public_token IS NULL OR btrim(public_token) = '')`,
-                    [crypto.randomUUID(), row.id]
-                );
-            }
         })().catch((error) => {
             ensureOrcamentosPublicTokenBackfillPromise = null;
             throw error;

@@ -1342,6 +1342,30 @@ export default function Orcamentos() {
     await duplicar(orc);
   }
 
+  // Remove dados pesados (base64 de PDFs/imagens e URLs de localhost) antes de salvar
+  // no localStorage para evitar QuotaExceededError (limite ~5MB por origem)
+  function sanitizarParaStorage(obj: any): any {
+    if (Array.isArray(obj)) return obj.map(sanitizarParaStorage);
+    if (obj && typeof obj === "object") {
+      const resultado: Record<string, any> = {};
+      for (const [chave, valor] of Object.entries(obj)) {
+        if (chave === "arquivo" && typeof valor === "string" && valor.startsWith("data:")) {
+          resultado[chave] = "";
+        } else if (
+          (chave === "hospedagemFoto" || chave === "foto") &&
+          typeof valor === "string" &&
+          valor.includes("localhost")
+        ) {
+          resultado[chave] = "";
+        } else {
+          resultado[chave] = sanitizarParaStorage(valor);
+        }
+      }
+      return resultado;
+    }
+    return obj;
+  }
+
   function gerarRoteiro(orc: Orcamento | null = null) {
     const orcParaAbrir = orc || (editando ? editando : null);
     if (!orcParaAbrir) return;
@@ -1367,9 +1391,25 @@ export default function Orcamentos() {
     };
 
     // Store in localStorage to access from new tab
-    localStorage.setItem(`orc_${orcComSecoes.numero}`, JSON.stringify(orcComSecoes));
-    // Open roteiro in new tab using numero (not id)
-    window.open(`/financeiro/orcamentos/roteiro/${orcComSecoes.publicToken || orcComSecoes.numero}`, "_blank");
+    try {
+      const orcJson = JSON.stringify(sanitizarParaStorage(orcComSecoes));
+      localStorage.setItem(`orc_${orcComSecoes.numero}`, orcJson);
+      // Se houver publicToken, grava também com ele para que o fallback funcione
+      if (orcComSecoes.publicToken) {
+        localStorage.setItem(`orc_${orcComSecoes.publicToken}`, orcJson);
+      }
+    } catch {
+      // QuotaExceededError: localStorage cheio — segue sem cache local,
+      // a página do roteiro vai carregar direto da API
+    }
+
+    // Sempre usa o numero como identificador interno (garante consistência com o localStorage)
+    const roteiroPath = `/financeiro/orcamentos/roteiro/${orcComSecoes.numero}`;
+    // Tenta abrir em nova aba; se o popup for bloqueado, navega na aba atual
+    const novaAba = window.open(roteiroPath, "_blank");
+    if (!novaAba) {
+      navigate(roteiroPath);
+    }
   }
 
   function abrirResumo(orc: Orcamento | null = null) {
@@ -1395,9 +1435,16 @@ export default function Orcamentos() {
       promptPerfilViagemIA: usandoEstadoFormulario ? promptPerfilViagemIA : (orcParaAbrir.promptPerfilViagemIA || ""),
     };
 
-    // Armazena no localStorage para acessar na nova aba
-    localStorage.setItem(`orc_${orcComSecoes.numero}`, JSON.stringify(orcComSecoes));
-    window.open(`/financeiro/orcamentos/resumo/${orcComSecoes.publicToken || orcComSecoes.numero}`, "_blank");
+    // Armazena no localStorage para acessar na nova aba (sem base64 para não estourar quota)
+    try {
+      localStorage.setItem(`orc_${orcComSecoes.numero}`, JSON.stringify(sanitizarParaStorage(orcComSecoes)));
+    } catch {
+      // QuotaExceededError: segue sem cache local
+    }
+    const novaAbaResumo = window.open(`/financeiro/orcamentos/resumo/${orcComSecoes.publicToken || orcComSecoes.numero}`, "_blank");
+    if (!novaAbaResumo) {
+      navigate(`/financeiro/orcamentos/resumo/${orcComSecoes.publicToken || orcComSecoes.numero}`);
+    }
   }
 
   // --- itens do form ---
@@ -2645,9 +2692,8 @@ export default function Orcamentos() {
                       <button onClick={() => abrirEdicao(orc)} title="Editar" className="p-1.5 rounded text-blue-600 hover:bg-blue-50 transition-colors"><Edit2 className="w-4 h-4" /></button>
                       <button
                           onClick={() => gerarRoteiro(orc)}
-                          disabled={orc.status !== "Aprovado"}
-                          title={orc.status !== "Aprovado" ? "O orçamento precisa estar Aprovado" : "Roteiro"}
-                          className="p-1.5 rounded text-green-600 hover:bg-green-50 transition-colors disabled:text-gray-300 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                          title="Roteiro"
+                          className="p-1.5 rounded text-green-600 hover:bg-green-50 transition-colors"
                       ><MapPin className="w-4 h-4" /></button>
                       <button onClick={() => confirmarDuplicacao(orc)} title="Duplicar" className="p-1.5 rounded text-gray-500 hover:bg-gray-100 transition-colors"><Copy className="w-4 h-4" /></button>
                       <button onClick={() => toggleFavorito(orc.id)} title={favoritos.includes(orc.id) ? "Remover dos favoritos" : "Adicionar aos favoritos"} className={`p-1.5 rounded transition-colors ${favoritos.includes(orc.id) ? 'text-yellow-400 hover:text-yellow-500' : 'text-gray-300 hover:text-yellow-400'}`}>
