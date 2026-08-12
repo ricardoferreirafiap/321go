@@ -156,6 +156,12 @@ const statusConfig: Record<StatusOrc, { bg: string; cor: string }> = {
   Cancelado: { bg: "bg-orange-100", cor: "text-orange-600" },
 };
 
+const statusViagemConfig: Record<StatusViagem, { bg: string; cor: string }> = {
+  "Não Iniciada": { bg: "bg-slate-100",  cor: "text-slate-600" },
+  "Em Andamento": { bg: "bg-sky-100",    cor: "text-sky-700" },
+  "Finalizada":   { bg: "bg-teal-100",   cor: "text-teal-700" },
+};
+
 const allStatus: StatusOrc[] = ["Rascunho", "Enviado", "Aprovado", "Rejeitado", "Cancelado"];
 const secoesOrcamento = ["Pacotes", "Roteiro", "Day by Day", "Transporte", "Restaurante", "Experiências", "Seguro", "Vendas"] as const;
 type SecaoOrcamento = typeof secoesOrcamento[number];
@@ -2661,11 +2667,15 @@ export default function Orcamentos() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-base font-semibold text-gray-900">{orc.cliente}</p>
+                        {orc.destino && <span className="flex items-center gap-1 text-sm text-gray-500"><MapPin className="w-3.5 h-3.5" />{orc.destino}</span>}
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap mt-0.5">
                         <span className="font-mono text-sm font-bold text-indigo-700">{orc.numero}</span>
                         <Badge className={`${cfg.bg} ${cfg.cor} hover:${cfg.bg}`}>{orc.status}</Badge>
+                        {orc.statusViagem && (() => { const cfgV = statusViagemConfig[orc.statusViagem]; return <Badge className={`${cfgV.bg} ${cfgV.cor} hover:${cfgV.bg}`}>{orc.statusViagem}</Badge>; })()}
                         {vencido && <span className="text-xs text-red-500 font-semibold">⚠ Vencido</span>}
                       </div>
-                      <p className="text-sm font-medium text-gray-800 mt-0.5">{orc.cliente}</p>
                       <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                         <span className="flex items-center gap-1 text-xs text-gray-400"><Calendar className="w-3 h-3" />Emissão: {fmtData(orc.dataCriacao)}</span>
                         {orc.dataValidade && <span className="flex items-center gap-1 text-xs text-gray-400"><Calendar className="w-3 h-3" />Validade: {fmtData(orc.dataValidade)}</span>}
