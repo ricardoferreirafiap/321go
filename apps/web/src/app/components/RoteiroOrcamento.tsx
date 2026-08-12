@@ -671,7 +671,7 @@ function formatarDataVooCurta(data?: string | null) {
   }).format(date);
 }
 
-function Countdown({ targetDate }: { targetDate: string }) {
+function Countdown({ targetDate, checkoutDate }: { targetDate: string; checkoutDate?: string | null }) {
   const calcularDiferenca = (referencia: number) => {
     const alvo = +new Date(targetDate + 'T00:00:00');
     const diff = Math.abs(referencia - alvo);
@@ -696,12 +696,25 @@ function Countdown({ targetDate }: { targetDate: string }) {
   const timeLeft = calcularDiferenca(agora);
   const timerComponents = Object.entries(timeLeft);
 
+  if (jaPassou) {
+    const checkinFormatado = new Date(targetDate + 'T00:00:00').toLocaleDateString('pt-BR');
+    const checkoutFormatado = checkoutDate
+      ? new Date(checkoutDate + 'T00:00:00').toLocaleDateString('pt-BR')
+      : null;
+    return (
+      <div className="py-2 text-center">
+        <p className="text-sm font-semibold text-white/90">
+          Viagem realizada em {checkinFormatado}
+          {checkoutFormatado ? ` até ${checkoutFormatado}` : ''}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div>
       <p className="mb-3 text-center text-sm font-semibold text-white/80">
-        {jaPassou
-          ? `Viagem realizada em ${new Date(targetDate + 'T00:00:00').toLocaleDateString('pt-BR')}`
-          : `Falta para sua viagem:`}
+        Falta para sua viagem:
       </p>
       <div className="grid grid-cols-5 gap-2 sm:gap-3">
         {timerComponents.map(([interval, value]) => (
@@ -1110,7 +1123,7 @@ export default function RoteiroOrcamento() {
       <Card className="p-4 mb-6 text-center" style={{ backgroundColor: COR_PRINCIPAL, color: "white" }}>
         <h2 className="font-bold mb-3" style={{ color: COR_DESTAQUE }}>Sr(a) {orc.cliente || "Cliente"}</h2>
         {dataViagemPrincipal ? (
-          <Countdown targetDate={dataViagemPrincipal} />
+          <Countdown targetDate={dataViagemPrincipal} checkoutDate={dataCheckoutPrincipal} />
         ) : (
           <p className="text-sm text-white/70">Data da viagem ainda não definida.</p>
         )}
@@ -1149,24 +1162,119 @@ export default function RoteiroOrcamento() {
           </div>
           <div className="bg-[#0b0635] p-4 sm:p-5 space-y-4">
             {orc.pacotes.map((pacote: any, idx: number) => {
-              const textoDescricao = (pacote.descricao || gerarResumoPacote(pacote as any)).replace(/AgaxTur\s*/gi, '');
-              const paragrafos = textoDescricao
-                .split('\n')
-                .flatMap((linha: string) =>
-                  linha.split(/(?<=\.)\s+/)
-                )
-                .map((p: string) => p.trim())
-                .filter((p: string) => p.length > 0);
+              // Verifica se há campos estruturados preenchidos
+              const temEstrutura = pacote.operador || pacote.destino || pacote.origem ||
+                pacote.reserva || pacote.informacoesAdicionais ||
+                pacote.politicaAlteracoesCancelamentos || pacote.dadosCliente ||
+                pacote.link || pacote.urlOperador?.length > 0 || pacote.documentos?.length > 0;
+
+              // Descrição livre usada apenas quando não há campos estruturados
+              // OU quando contém texto além do gerado automaticamente pelo gerarResumoPacote
+              const descricaoOriginal = (pacote.descricao || "").replace(/AgaxTur\s*/gi, "").trim();
+              const resumoGerado = gerarResumoPacote(pacote as any).replace(/AgaxTur\s*/gi, "").trim();
+              const descricaoExtra = descricaoOriginal !== resumoGerado ? descricaoOriginal : "";
+
               return (
-                <div key={pacote.id || idx} className="rounded-[22px] bg-[#1c1848] px-4 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-5 sm:py-5">
-                  <div className="mt-1 space-y-2 text-[14px] leading-7 text-white/82">
-                    {paragrafos.map((paragrafo: string, pIdx: number) => (
-                      <div key={pIdx} className="flex items-start gap-2">
-                        <span className="mt-2 inline-flex h-2 w-2 shrink-0 rounded-full bg-[#ff8b1f]" aria-hidden="true" />
-                        <span>{paragrafo}</span>
-                      </div>
-                    ))}
-                  </div>
+                <div key={pacote.id || idx} className="rounded-[22px] bg-[#1c1848] px-4 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-5 sm:py-5 space-y-3">
+
+                  {/* Operador / Destino / Reserva */}
+                  {(pacote.operador || pacote.destino || pacote.origem || pacote.reserva) && (
+                    <div className="flex flex-wrap gap-x-6 gap-y-2 pb-3 border-b border-white/10">
+                      {pacote.operador && (
+                        <div>
+                          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/40">Operador</p>
+                          <p className="mt-0.5 text-sm font-bold text-white">{pacote.operador}</p>
+                        </div>
+                      )}
+                      {(pacote.origem || pacote.destino) && (
+                        <div>
+                          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/40">Destino</p>
+                          <p className="mt-0.5 text-sm font-bold text-white">
+                            {pacote.origem && pacote.destino ? `${pacote.origem} → ${pacote.destino}` : pacote.destino || pacote.origem}
+                          </p>
+                        </div>
+                      )}
+                      {pacote.reserva && (
+                        <div>
+                          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/40">Nº Reserva</p>
+                          <p className="mt-0.5 text-sm font-mono font-bold text-white">{pacote.reserva}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Dados do cliente */}
+                  {pacote.dadosCliente && (
+                    <div>
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/40 mb-1">Dados do Cliente</p>
+                      <p className="text-xs text-white/75 leading-5 whitespace-pre-wrap">{pacote.dadosCliente}</p>
+                    </div>
+                  )}
+
+                  {/* Informações adicionais */}
+                  {pacote.informacoesAdicionais && (
+                    <div>
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/40 mb-1">Informações Adicionais</p>
+                      <p className="text-xs text-white/75 leading-5 whitespace-pre-wrap">{pacote.informacoesAdicionais}</p>
+                    </div>
+                  )}
+
+                  {/* Descrição livre (somente quando diferente do resumo gerado automaticamente) */}
+                  {!temEstrutura && descricaoOriginal && (
+                    <div className="space-y-1.5">
+                      {descricaoOriginal
+                        .split('\n')
+                        .flatMap((linha: string) => linha.split(/(?<=\.)\s+/))
+                        .map((p: string) => p.trim())
+                        .filter((p: string) => p.length > 0)
+                        .map((paragrafo: string, pIdx: number) => (
+                          <div key={pIdx} className="flex items-start gap-2">
+                            <span className="mt-2 inline-flex h-2 w-2 shrink-0 rounded-full bg-[#ff8b1f]" aria-hidden="true" />
+                            <span className="text-[14px] leading-7 text-white/82">{paragrafo}</span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                  {temEstrutura && descricaoExtra && (
+                    <div>
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/40 mb-1">Observações</p>
+                      <p className="text-xs text-white/75 leading-5 whitespace-pre-wrap">{descricaoExtra}</p>
+                    </div>
+                  )}
+
+                  {/* Links e documentos */}
+                  {(pacote.link || pacote.urlOperador?.length > 0 || pacote.documentos?.length > 0) && (
+                    <div className="pt-2 border-t border-white/10 flex flex-col gap-1">
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/40 mb-1">Arquivos Anexados</p>
+                      {pacote.link && (
+                        <a href={pacote.link} target="_blank" rel="noopener noreferrer"
+                          className="text-xs text-indigo-300 hover:text-indigo-100 underline">
+                          🔗 {pacote.link}
+                        </a>
+                      )}
+                      {(pacote.urlOperador || []).map((url: string, uIdx: number) => (
+                        <a key={uIdx} href={url} target="_blank" rel="noopener noreferrer"
+                          className="text-xs text-indigo-300 hover:text-indigo-100 underline break-all">
+                          🔗 {url}
+                        </a>
+                      ))}
+                      {(pacote.documentos || []).map((doc: any, dIdx: number) => (
+                        <button key={dIdx} onClick={() => abrirVoucherPdf(doc.arquivo)}
+                          className="text-xs text-indigo-300 hover:text-indigo-100 underline text-left">
+                          📎 {doc.nome || `Documento ${dIdx + 1}`}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Política de cancelamento */}
+                  {pacote.politicaAlteracoesCancelamentos && (
+                    <div className="pt-2 border-t border-white/10">
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/40 mb-1">Política de Cancelamento</p>
+                      <p className="text-xs text-white/75 leading-5 whitespace-pre-wrap">{pacote.politicaAlteracoesCancelamentos}</p>
+                    </div>
+                  )}
+
                 </div>
               );
             })}
@@ -1801,6 +1909,34 @@ export default function RoteiroOrcamento() {
                     📎 Ver voucher
                   </button>
                 )}
+                {t.documentos && t.documentos.length > 0 && (
+                  <div className="mt-1 flex flex-col gap-0.5">
+                    {t.documentos.map((doc: any, dIdx: number) => (
+                      <button
+                        key={dIdx}
+                        onClick={() => abrirVoucherPdf(doc.arquivo)}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 underline text-left"
+                      >
+                        📎 {doc.nome || `Documento ${dIdx + 1}`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {t.urlOperador && t.urlOperador.length > 0 && (
+                  <div className="mt-1 flex flex-col gap-0.5">
+                    {t.urlOperador.map((url: string, uIdx: number) => (
+                      <a
+                        key={uIdx}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:text-blue-800 underline break-all"
+                      >
+                        🔗 {url}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1910,10 +2046,108 @@ export default function RoteiroOrcamento() {
           <div className="p-3" style={{ backgroundColor: COR_PRINCIPAL }}>
             <TituloSecao titulo="Seguro" />
           </div>
-          <div className="p-4 space-y-3 text-sm text-gray-600">
+          <div className="p-4 space-y-3">
             {orc.seguro.map((s: any, idx: number) => (
-              <div key={idx} className="p-3 bg-gray-50 rounded-lg">
-                <p>{s.tipo}: {s.detalhes}</p>
+              <div key={idx} className="p-3 bg-gray-50 rounded-lg space-y-1.5">
+
+                {/* Cabeçalho: tipo + seguradora */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {s.tipo && <span className="font-semibold text-gray-900 text-sm">{s.tipo}</span>}
+                  {s.seguradora && (
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">{s.seguradora}</span>
+                  )}
+                  {s.areaCobertura && (
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">{s.areaCobertura}</span>
+                  )}
+                </div>
+
+                {/* Apólice / Certificado */}
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                  {s.apolice && <span>Apólice: <span className="font-mono font-semibold text-gray-700">{s.apolice}</span></span>}
+                  {s.nrCertificado && <span>Certificado: <span className="font-mono font-semibold text-gray-700">{s.nrCertificado}</span></span>}
+                </div>
+
+                {/* Vigência */}
+                {(s.dataInicio || s.dataFim) && (
+                  <p className="text-xs text-gray-500">
+                    Vigência:{" "}
+                    {s.dataInicio ? new Date(s.dataInicio + "T00:00:00").toLocaleDateString("pt-BR") : "?"}
+                    {" → "}
+                    {s.dataFim ? new Date(s.dataFim + "T00:00:00").toLocaleDateString("pt-BR") : "?"}
+                    {s.prazoCarencia && <span className="ml-2 text-gray-400">• Carência: {s.prazoCarencia}</span>}
+                  </p>
+                )}
+
+                {/* Valores */}
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                  {s.valor > 0 && <span className="font-semibold text-indigo-600">{formatarMoeda(s.valor)}</span>}
+                  {s.limiteCobertura && <span>Limite: <span className="font-medium text-gray-700">{s.limiteCobertura}</span></span>}
+                  {s.franquia && <span>Franquia: <span className="font-medium text-gray-700">{s.franquia}</span></span>}
+                </div>
+
+                {/* Cobertura */}
+                {s.cobertura && (
+                  <p className="text-xs text-gray-600">
+                    <span className="text-gray-400">Cobertura: </span>{s.cobertura}
+                  </p>
+                )}
+
+                {/* Beneficiários */}
+                {s.beneficiarios && (
+                  <p className="text-xs text-gray-600">
+                    <span className="text-gray-400">Beneficiários: </span>{s.beneficiarios}
+                  </p>
+                )}
+
+                {/* Contato / Sinistro */}
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                  {s.assistencia24h && <span>Assistência 24h: <span className="font-medium text-gray-700">{s.assistencia24h}</span></span>}
+                  {s.telefoneEmergencia && <span>Tel. emergência: <span className="font-medium text-gray-700">{s.telefoneEmergencia}</span></span>}
+                  {s.contatoEmergencia && <span>Contato: <span className="font-medium text-gray-700">{s.contatoEmergencia}</span></span>}
+                  {s.emailSinistro && (
+                    <a href={`mailto:${s.emailSinistro}`} className="text-blue-600 hover:underline">
+                      {s.emailSinistro}
+                    </a>
+                  )}
+                  {s.siteSinistro && (
+                    <a href={s.siteSinistro.startsWith("http") ? s.siteSinistro : `https://${s.siteSinistro}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline">
+                      🔗 {s.siteSinistro}
+                    </a>
+                  )}
+                </div>
+
+                {/* Observações */}
+                {s.observacoes && (
+                  <p className="text-xs text-gray-500 italic">{s.observacoes}</p>
+                )}
+
+                {/* Voucher principal */}
+                {s.voucher && (
+                  <button
+                    onClick={() => abrirVoucherPdf(s.voucher)}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 underline mt-1 inline-block"
+                  >
+                    📎 {s.voucherNome || "Ver voucher"}
+                  </button>
+                )}
+
+                {/* Documentos anexados */}
+                {s.documentos && s.documentos.length > 0 && (
+                  <div className="mt-1 flex flex-col gap-0.5">
+                    {s.documentos.map((doc: any, dIdx: number) => (
+                      <button
+                        key={dIdx}
+                        onClick={() => abrirVoucherPdf(doc.arquivo)}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 underline text-left"
+                      >
+                        📎 {doc.nome || `Documento ${dIdx + 1}`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
               </div>
             ))}
           </div>
