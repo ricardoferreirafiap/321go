@@ -200,6 +200,8 @@ let ensureOrcamentosPublicTokenColumnPromise = null;
 let ensureOrcamentosPublicTokenBackfillPromise = null;
 let ensureFuncionariosSaudacoesColumnPromise = null;
 let ensureFinanceiroComissaoColumnsPromise = null;
+let ensureOrcamentosObservacoesColumnPromise = null;
+let ensureOrcamentosStatusViagemColumnPromise = null;
 
 async function ensureOrcamentosDestinoColumn() {
     if (!pool) {
@@ -382,8 +384,20 @@ async function backfillOrcamentosPublicToken() {
     await ensureOrcamentosPublicTokenBackfillPromise;
 }
 
-let ensureOrcamentosStatusViagemColumnPromise = null;
 let ensureClientesSobrenomeColumnPromise = null;
+
+async function ensureOrcamentosObservacoesColumn() {
+    if (!pool) return;
+    if (!ensureOrcamentosObservacoesColumnPromise) {
+        ensureOrcamentosObservacoesColumnPromise = pool
+            .query('ALTER TABLE public.orcamentos ADD COLUMN IF NOT EXISTS observacoes TEXT')
+            .catch((error) => {
+                ensureOrcamentosObservacoesColumnPromise = null;
+                throw error;
+            });
+    }
+    await ensureOrcamentosObservacoesColumnPromise;
+}
 
 async function ensureOrcamentosStatusViagemColumn() {
     if (!pool) {
@@ -3368,6 +3382,8 @@ app.get('/api/orcamentos', ensureDb, async (req, res) => {
         await ensureOrcamentosPromptPerfilIaColumn();
         await ensureOrcamentosPromptRoteiroIaColumn();
         await backfillOrcamentosPublicToken();
+        await ensureOrcamentosObservacoesColumn();
+        await ensureOrcamentosStatusViagemColumn();
 
         const result = await pool.query(
             `SELECT id, numero, public_token, cliente, email, destino, agente_viagem, status, data_criacao, data_validade, observacoes,
@@ -3401,6 +3417,8 @@ app.get('/api/orcamentos/numero/:numero', ensureDb, async (req, res) => {
         await ensureOrcamentosPromptPerfilIaColumn();
         await ensureOrcamentosPromptRoteiroIaColumn();
         await backfillOrcamentosPublicToken();
+        await ensureOrcamentosObservacoesColumn();
+        await ensureOrcamentosStatusViagemColumn();
 
         const result = await pool.query(
             `SELECT id, numero, public_token, cliente, email, destino, agente_viagem, status, data_criacao, data_validade, observacoes,
@@ -3440,6 +3458,8 @@ app.get('/api/orcamentos/public/:publicToken', ensureDb, async (req, res) => {
         await ensureOrcamentosPromptPerfilIaColumn();
         await ensureOrcamentosPromptRoteiroIaColumn();
         await backfillOrcamentosPublicToken();
+        await ensureOrcamentosObservacoesColumn();
+        await ensureOrcamentosStatusViagemColumn();
 
         const result = await pool.query(
             `SELECT id, numero, public_token, cliente, email, destino, agente_viagem, status, data_criacao, data_validade, observacoes,
@@ -3479,6 +3499,7 @@ app.post('/api/orcamentos', ensureDb, async (req, res) => {
         await ensureOrcamentosPromptPerfilIaColumn();
         await ensureOrcamentosPromptRoteiroIaColumn();
         await ensureOrcamentosPublicTokenColumn();
+        await ensureOrcamentosObservacoesColumn();
         await ensureOrcamentosStatusViagemColumn();
 
         const publicToken = crypto.randomUUID();
@@ -3558,6 +3579,7 @@ app.put('/api/orcamentos/:id', ensureDb, async (req, res) => {
         await ensureOrcamentosPromptPerfilIaColumn();
         await ensureOrcamentosPromptRoteiroIaColumn();
         await ensureOrcamentosPublicTokenColumn();
+        await ensureOrcamentosObservacoesColumn();
         await ensureOrcamentosStatusViagemColumn();
         const existing = await pool.query('SELECT public_token FROM public.orcamentos WHERE id = $1', [id]);
         const existingToken = existing.rows[0]?.public_token || crypto.randomUUID();

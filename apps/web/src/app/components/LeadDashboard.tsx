@@ -28,7 +28,7 @@ interface CotacaoDolar {
 }
 
 function DolarWidget() {
-  const [expandido, setExpandido] = useState(true);
+  const [expandido, setExpandido] = useState(false);
   // Cotação comercial
   const [cotacao, setCotacao] = useState<CotacaoDolar | null>(null);
   // Cotação turismo
@@ -184,6 +184,11 @@ function DolarWidget() {
                 </div>
               </>
             ) : null}
+
+            {/* Conversor de Moedas — no final do quadro Dólar */}
+            <div className="mt-4 border-t border-green-200 pt-4">
+              <ConversorMoedas />
+            </div>
           </div>
         )}
       </CardContent>
@@ -454,7 +459,7 @@ import { listarLeads, type Lead } from "../data/leadsApi";
 import { listarLancamentosFinanceiros, type LancamentoFinanceiro } from "../data/financeiroApi";
 import { listarOrcamentos, type Orcamento } from "../data/orcamentosApi";
 
-const periodFilters = ["Mês", "3m", "6m", "12m", "Tudo"];
+const periodFilters = ["Hoje", "Mês", "Mês Passado", "3m", "6m", "12m", "Tudo", "Personalizado"];
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
@@ -462,13 +467,30 @@ const MESES_LABEL = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Se
 
 type CardKey =
   | "totalLeads"
+  | "leadsNovo"
+  | "leadsEmContato"
+  | "leadsQualificado"
+  | "leadsVendido"
+  | "crmNovoLead"
+  | "crmQualificacao"
+  | "crmReuniao"
+  | "crmFollowUps"
+  | "crmFinalizados"
+  | "orcamentosTotal"
+  | "orcamentosRascunho"
+  | "orcamentosAprovado"
+  | "viagensAndamento"
+  | "viagensFinalizadas"
+  | "finReceitas"
+  | "finDespesas"
+  | "finComissao"
+  | "finSaldo"
+  | "receitaRoteiros"
+  // legado (usado nos gráficos)
   | "leadsPeriodo"
   | "fechamentos"
   | "churnInativos"
-  | "receitaRoteiros"
-  | "viagensAndamento"
-  | "semFollowUp"
-  | "viagensFinalizadas";
+  | "semFollowUp";
 
 type BarPoint = { name: string; value: number };
 type PiePoint = { name: string; value: number };
@@ -498,28 +520,50 @@ function formatarMoeda(valor: number) {
   }).format(valor);
 }
 
-function resolverDataInicialPorFiltro(activeFilter: string, hoje: Date) {
-  const dataBase = new Date(hoje);
+function resolverDataInicialPorFiltro(activeFilter: string, hoje: Date): { inicio: Date | null; fim: Date } {
+  const fim = new Date(hoje);
+  fim.setHours(23, 59, 59, 999);
+
+  if (activeFilter === "Hoje") {
+    const inicio = new Date(hoje);
+    inicio.setHours(0, 0, 0, 0);
+    return { inicio, fim };
+  }
 
   if (activeFilter === "Mês") {
-    dataBase.setDate(1);
-    dataBase.setHours(0, 0, 0, 0);
-    return dataBase;
+    const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    inicio.setHours(0, 0, 0, 0);
+    return { inicio, fim };
+  }
+
+  if (activeFilter === "Mês Passado") {
+    const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+    inicio.setHours(0, 0, 0, 0);
+    const fimMesPassado = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
+    fimMesPassado.setHours(23, 59, 59, 999);
+    return { inicio, fim: fimMesPassado };
   }
 
   if (activeFilter === "3m") {
-    dataBase.setMonth(dataBase.getMonth() - 2);
-  } else if (activeFilter === "6m") {
-    dataBase.setMonth(dataBase.getMonth() - 5);
-  } else if (activeFilter === "12m") {
-    dataBase.setMonth(dataBase.getMonth() - 11);
-  } else {
-    return null;
+    const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 2, 1);
+    inicio.setHours(0, 0, 0, 0);
+    return { inicio, fim };
   }
 
-  dataBase.setDate(1);
-  dataBase.setHours(0, 0, 0, 0);
-  return dataBase;
+  if (activeFilter === "6m") {
+    const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 5, 1);
+    inicio.setHours(0, 0, 0, 0);
+    return { inicio, fim };
+  }
+
+  if (activeFilter === "12m") {
+    const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 11, 1);
+    inicio.setHours(0, 0, 0, 0);
+    return { inicio, fim };
+  }
+
+  // "Tudo" e "Personalizado" retornam inicio null (tratado externamente)
+  return { inicio: null, fim };
 }
 
 function montarSerieMeses(startDate: Date, endDate: Date, leads: Lead[]) {
@@ -610,9 +654,47 @@ function montarSerieMesesValor(startDate: Date, endDate: Date, itens: Array<{ da
   }));
 }
 
+function normalizarDataStr(valor: any): string | null {
+  if (!valor || typeof valor !== "string") return null;
+  const d = new Date(`${valor}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : valor.slice(0, 10);
+}
+
+function extrairDatasViagem(orc: Orcamento): { checkin: string | null; checkout: string | null } {
+  const datas: string[] = [];
+
+  for (const pacote of (orc.pacotes ?? []) as any[]) {
+    const ci = normalizarDataStr(pacote.hospedagemCheckin) ?? normalizarDataStr(pacote.dataIda);
+    const co = normalizarDataStr(pacote.hospedagemCheckout) ?? normalizarDataStr(pacote.dataVolta);
+    if (ci) datas.push(ci);
+    if (co) datas.push(co);
+  }
+
+  for (const hosp of (orc.hospedagem ?? []) as any[]) {
+    const ci = normalizarDataStr(hosp.checkin) ?? normalizarDataStr(hosp.checkinHotel) ?? normalizarDataStr(hosp.dataCheckin);
+    const co = normalizarDataStr(hosp.checkout) ?? normalizarDataStr(hosp.checkoutHotel) ?? normalizarDataStr(hosp.dataCheckout);
+    if (ci) datas.push(ci);
+    if (co) datas.push(co);
+  }
+
+  const voos = (orc.voos ?? []) as any[];
+  const vooIda = voos.find((v: any) => v.tipoTrecho === "IDA" || voos.indexOf(v) === 0);
+  const vooVolta = voos.find((v: any) => v.tipoTrecho === "VOLTA" || (voos.indexOf(v) === voos.length - 1 && voos.length > 1));
+  const ciVoo = normalizarDataStr(vooIda?.data);
+  const coVoo = normalizarDataStr(vooVolta?.data);
+  if (ciVoo) datas.push(ciVoo);
+  if (coVoo) datas.push(coVoo);
+
+  if (!datas.length) return { checkin: null, checkout: null };
+  datas.sort();
+  return { checkin: datas[0], checkout: datas[datas.length - 1] };
+}
+
 export default function LeadDashboard() {
   const [expandidoVisaoGeral, setExpandidoVisaoGeral] = useState(true);
   const [activeFilter, setActiveFilter] = useState("Mês");
+  const [customDataInicio, setCustomDataInicio] = useState("");
+  const [customDataFim, setCustomDataFim] = useState("");
   const [activeCard, setActiveCard] = useState<CardKey>("totalLeads");
   const [leads, setLeads] = useState<Lead[]>([]);
   const [lancamentos, setLancamentos] = useState<LancamentoFinanceiro[]>([]);
@@ -647,34 +729,42 @@ export default function LeadDashboard() {
     const hoje = new Date();
     hoje.setHours(23, 59, 59, 999);
 
-    const inicioFiltro = resolverDataInicialPorFiltro(activeFilter, hoje);
+    const { inicio: inicioFiltroBase, fim: fimFiltroBase } = resolverDataInicialPorFiltro(activeFilter, hoje);
+
+    // Para filtro personalizado, usa as datas digitadas; caso incompleto cai no comportamento de "Tudo"
+    const inicioFiltro: Date | null =
+      activeFilter === "Personalizado" && customDataInicio
+        ? (() => { const d = new Date(`${customDataInicio}T00:00:00`); return Number.isNaN(d.getTime()) ? null : d; })()
+        : inicioFiltroBase;
+
+    const fimFiltro: Date =
+      activeFilter === "Personalizado" && customDataFim
+        ? (() => { const d = new Date(`${customDataFim}T23:59:59:999`); return Number.isNaN(d.getTime()) ? fimFiltroBase : d; })()
+        : fimFiltroBase;
 
     const leadsNoPeriodo = leads.filter((lead) => {
       const dataLead = parseDate(lead.criadoEm);
       if (!dataLead) return false;
-      if (!inicioFiltro) return true;
-      return dataLead >= inicioFiltro && dataLead <= hoje;
+      if (!inicioFiltro) return dataLead <= fimFiltro;
+      return dataLead >= inicioFiltro && dataLead <= fimFiltro;
     });
 
     const inicioGrafico = inicioFiltro || (() => {
       if (!leads.length) {
         return new Date(hoje.getFullYear(), hoje.getMonth(), 1);
       }
-
       const datasValidas = leads
         .map((lead) => parseDate(lead.criadoEm))
         .filter((data): data is Date => data !== null)
         .sort((a, b) => a.getTime() - b.getTime());
-
       if (!datasValidas.length) {
         return new Date(hoje.getFullYear(), hoje.getMonth(), 1);
       }
-
       const menorData = datasValidas[0];
       return new Date(menorData.getFullYear(), menorData.getMonth(), 1);
     })();
 
-    const leadsPorPeriodoData = montarSerieMeses(inicioGrafico, hoje, leads);
+    const leadsPorPeriodoData = montarSerieMeses(inicioGrafico, fimFiltro, leads);
 
     const leadsValidos = leads
       .map((lead) => ({
@@ -697,49 +787,77 @@ export default function LeadDashboard() {
       }))
       .filter((orc): orc is Orcamento & { dataCriacaoDate: Date } => orc.dataCriacaoDate !== null);
 
-    const orcamentosAprovadosValidos = orcamentosValidos.filter((orc) => orc.status === "Aprovado");
+    // Filtra todos os dados pelo período selecionado
+    const leadsValidosPeriodo = leadsValidos.filter((lead) =>
+      (!inicioFiltro || lead.criadoDate >= inicioFiltro) && lead.criadoDate <= fimFiltro
+    );
+    const lancamentosValidosPeriodo = lancamentosValidos.filter((item) =>
+      (!inicioFiltro || item.dataDate >= inicioFiltro) && item.dataDate <= fimFiltro
+    );
+    const orcamentosValidosPeriodo = orcamentosValidos.filter((orc) =>
+      (!inicioFiltro || orc.dataCriacaoDate >= inicioFiltro) && orc.dataCriacaoDate <= fimFiltro
+    );
+    const orcamentosAprovadosValidos = orcamentosValidosPeriodo.filter((orc) => orc.status === "Aprovado");
 
     const statusLeadsMap = new Map<string, number>();
-    leads.forEach((lead) => {
+    leadsValidosPeriodo.forEach((lead) => {
       statusLeadsMap.set(lead.status, (statusLeadsMap.get(lead.status) || 0) + 1);
     });
-
     const statusLeadsData = Array.from(statusLeadsMap.entries()).map(([name, value]) => ({ name, value }));
 
-    const fechamentos = leads.filter((lead) => lead.status === "Vendido").length;
-    const churnInativos = leads.filter((lead) => lead.status === "Perdido").length;
-    const semFollowUp = leads.filter((lead) => lead.status === "Novo").length;
-    const followUpsCrm = leads.filter((lead) => lead.statusCrm === "Follow-ups").length;
-    const taxaChurn = leads.length > 0 ? ((churnInativos / leads.length) * 100).toFixed(1) : "0";
+    const fechamentos = leadsValidosPeriodo.filter((lead) => lead.status === "Vendido").length;
+    const churnInativos = leadsValidosPeriodo.filter((lead) => lead.status === "Perdido").length;
+    const semFollowUp = leadsValidosPeriodo.filter((lead) => lead.status === "Novo").length;
+    const followUpsCrm = leadsValidosPeriodo.filter((lead) => lead.statusCrm === "Follow-ups").length;
+    const taxaChurn = leadsValidosPeriodo.length > 0 ? ((churnInativos / leadsValidosPeriodo.length) * 100).toFixed(1) : "0";
 
-    const receitaRoteiros = lancamentos
-      .filter((item) => item.tipo === "receita" && !item.oculto)
-      .reduce((acc, item) => acc + Number(item.valor || 0), 0);
+    const receitasVisiveis = lancamentosValidosPeriodo.filter((item) => item.tipo === "receita" && !item.oculto);
+    const despesasVisiveis = lancamentosValidosPeriodo.filter((item) => item.tipo === "despesa" && !item.oculto);
 
-    const orcamentosAprovados = orcamentos.filter((orc) => orc.status === "Aprovado");
-    const hojeInicio = new Date();
-    hojeInicio.setHours(0, 0, 0, 0);
-    
-    const viagensEmAndamento = orcamentosAprovados.length;
-    const viagensFinalizadas = 0;
+    const receitaRoteiros = receitasVisiveis.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+    const viagensEmAndamento = orcamentosAprovadosValidos.length;
+    const viagensFinalizadas = orcamentosValidosPeriodo.filter((orc) => orc.statusViagem === "Finalizada").length;
 
     const statusNoPeriodoMap = new Map<string, number>();
     leadsNoPeriodo.forEach((lead) => {
       statusNoPeriodoMap.set(lead.status, (statusNoPeriodoMap.get(lead.status) || 0) + 1);
     });
 
-    const fechamentosLeads = leadsValidos.filter((lead) => lead.status === "Vendido");
-    const churnLeads = leadsValidos.filter((lead) => lead.status === "Perdido");
-    const followUpPendenteLeads = leadsValidos.filter((lead) => lead.status === "Novo");
-
-    const receitasVisiveis = lancamentosValidos.filter((item) => item.tipo === "receita" && !item.oculto);
-    const despesasVisiveis = lancamentosValidos.filter((item) => item.tipo === "despesa" && !item.oculto);
+    const fechamentosLeads = leadsValidosPeriodo.filter((lead) => lead.status === "Vendido");
+    const churnLeads = leadsValidosPeriodo.filter((lead) => lead.status === "Perdido");
+    const followUpPendenteLeads = leadsValidosPeriodo.filter((lead) => lead.status === "Novo");
 
     const viagensAndamentoData = montarSerieMesesContagem(
       inicioGrafico,
-      hoje,
+      fimFiltro,
       orcamentosAprovadosValidos.map((orc) => orc.dataCriacaoDate)
     );
+
+    // Cálculos financeiros usados no chartByCard e nos grupos de cards
+    const comissaoPeriodo = receitasVisiveis
+      .filter((item) => item.comissaoValor !== null)
+      .reduce((acc, item) => acc + (item.comissaoValor ?? 0), 0);
+    const qtdComissoes = receitasVisiveis.filter((item) => item.comissaoValor !== null).length;
+    const mediaComissao = qtdComissoes > 0 ? comissaoPeriodo / qtdComissoes : 0;
+    const mediaComissaoPerc = qtdComissoes > 0
+      ? receitasVisiveis
+          .filter((item) => item.comissaoPercentual !== null)
+          .reduce((acc, item) => acc + (item.comissaoPercentual ?? 0), 0) /
+        receitasVisiveis.filter((item) => item.comissaoPercentual !== null).length
+      : 0;
+    const despesasPeriodo = despesasVisiveis.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+    const saldoPeriodo = comissaoPeriodo - despesasPeriodo;
+
+    // Contagens por status CRM
+    const crmNovoLead    = leadsValidosPeriodo.filter((l) => l.statusCrm === "Novo Lead").length;
+    const crmQualif      = leadsValidosPeriodo.filter((l) => l.statusCrm === "Qualificação").length;
+    const crmReuniao     = leadsValidosPeriodo.filter((l) => l.statusCrm === "Reunião").length;
+    const crmFollowUps   = leadsValidosPeriodo.filter((l) => l.statusCrm === "Follow-ups").length;
+    const crmFinalizados = leadsValidosPeriodo.filter((l) => l.statusCrm === "Finalizados").length;
+
+    // Contagens por status orçamento
+    const orcRascunho  = orcamentosValidosPeriodo.filter((o) => o.status === "Rascunho").length;
+    const orcAprovado  = orcamentosValidosPeriodo.filter((o) => o.status === "Aprovado").length;
 
     const chartByCard: Record<CardKey, Omit<CardChartConfig, "key" | "title" | "value" | "icon">> = {
       totalLeads: {
@@ -749,129 +867,268 @@ export default function LeadDashboard() {
         barName: "Leads",
         pieData: statusLeadsData,
       },
+      leadsNovo: {
+        barTitle: "Leads Novos por Mês",
+        pieTitle: "Leads Novos",
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.status === "Novo").map((l) => l.criadoDate)),
+        barName: "Novo",
+        pieData: [{ name: "Novo", value: leadsValidosPeriodo.filter((l) => l.status === "Novo").length }],
+      },
+      leadsEmContato: {
+        barTitle: "Leads Em Contato por Mês",
+        pieTitle: "Leads Em Contato",
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.status === "Em Contato").map((l) => l.criadoDate)),
+        barName: "Em Contato",
+        pieData: [{ name: "Em Contato", value: leadsValidosPeriodo.filter((l) => l.status === "Em Contato").length }],
+      },
+      leadsQualificado: {
+        barTitle: "Leads Qualificados por Mês",
+        pieTitle: "Leads Qualificados",
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.status === "Qualificado").map((l) => l.criadoDate)),
+        barName: "Qualificado",
+        pieData: [{ name: "Qualificado", value: leadsValidosPeriodo.filter((l) => l.status === "Qualificado").length }],
+      },
+      leadsVendido: {
+        barTitle: "Fechamentos por Mês",
+        pieTitle: "Fechamentos por Atendente",
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, fechamentosLeads.map((lead) => lead.criadoDate)),
+        barName: "Vendido",
+        pieData: (() => {
+          const map = new Map<string, number>();
+          fechamentosLeads.forEach((lead) => { const nome = lead.atendente || "Sem atendente"; map.set(nome, (map.get(nome) || 0) + 1); });
+          return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+        })(),
+      },
+      crmNovoLead: {
+        barTitle: "CRM — Novo Lead por Mês",
+        pieTitle: "Novo Lead",
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.statusCrm === "Novo Lead").map((l) => l.criadoDate)),
+        barName: "Novo Lead",
+        pieData: [{ name: "Novo Lead", value: leadsValidosPeriodo.filter((l) => l.statusCrm === "Novo Lead").length }],
+      },
+      crmQualificacao: {
+        barTitle: "CRM — Qualificação por Mês",
+        pieTitle: "Qualificação",
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.statusCrm === "Qualificação").map((l) => l.criadoDate)),
+        barName: "Qualificação",
+        pieData: [{ name: "Qualificação", value: leadsValidosPeriodo.filter((l) => l.statusCrm === "Qualificação").length }],
+      },
+      crmReuniao: {
+        barTitle: "CRM — Reunião por Mês",
+        pieTitle: "Reunião",
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.statusCrm === "Reunião").map((l) => l.criadoDate)),
+        barName: "Reunião",
+        pieData: [{ name: "Reunião", value: leadsValidosPeriodo.filter((l) => l.statusCrm === "Reunião").length }],
+      },
+      crmFollowUps: {
+        barTitle: "CRM — Follow-ups por Mês",
+        pieTitle: "Follow-ups",
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.statusCrm === "Follow-ups").map((l) => l.criadoDate)),
+        barName: "Follow-ups",
+        pieData: [{ name: "Follow-ups", value: leadsValidosPeriodo.filter((l) => l.statusCrm === "Follow-ups").length }],
+      },
+      crmFinalizados: {
+        barTitle: "CRM — Finalizados por Mês",
+        pieTitle: "Finalizados",
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.statusCrm === "Finalizados").map((l) => l.criadoDate)),
+        barName: "Finalizados",
+        pieData: [{ name: "Finalizados", value: leadsValidosPeriodo.filter((l) => l.statusCrm === "Finalizados").length }],
+      },
+      orcamentosTotal: {
+        barTitle: "Orçamentos por Mês",
+        pieTitle: "Status dos Orçamentos",
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, orcamentosValidosPeriodo.map((o) => o.dataCriacaoDate)),
+        barName: "Orçamentos",
+        pieData: (() => {
+          const map = new Map<string, number>();
+          orcamentosValidosPeriodo.forEach((o) => map.set(o.status, (map.get(o.status) || 0) + 1));
+          return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+        })(),
+      },
+      orcamentosRascunho: {
+        barTitle: "Rascunhos por Mês",
+        pieTitle: "Rascunhos",
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, orcamentosValidosPeriodo.filter((o) => o.status === "Rascunho").map((o) => o.dataCriacaoDate)),
+        barName: "Rascunho",
+        pieData: [{ name: "Rascunho", value: orcamentosValidosPeriodo.filter((o) => o.status === "Rascunho").length }],
+      },
+      orcamentosAprovado: {
+        barTitle: "Aprovados por Mês",
+        pieTitle: "Aprovados",
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, orcamentosAprovadosValidos.map((o) => o.dataCriacaoDate)),
+        barName: "Aprovado",
+        pieData: [{ name: "Aprovado", value: orcamentosAprovadosValidos.length }],
+      },
+      finReceitas: {
+        barTitle: "Receitas por Mês",
+        pieTitle: "Composição Financeira",
+        barData: montarSerieMesesValor(inicioGrafico, fimFiltro, receitasVisiveis.map((item) => ({ data: item.dataDate, valor: Number(item.valor || 0) }))),
+        barName: "Receita (R$)",
+        pieData: [
+          { name: "Receitas", value: receitasVisiveis.reduce((acc, item) => acc + Number(item.valor || 0), 0) },
+          { name: "Despesas", value: despesasVisiveis.reduce((acc, item) => acc + Number(item.valor || 0), 0) },
+        ],
+      },
+      finDespesas: {
+        barTitle: "Despesas por Mês",
+        pieTitle: "Despesas",
+        barData: montarSerieMesesValor(inicioGrafico, fimFiltro, despesasVisiveis.map((item) => ({ data: item.dataDate, valor: Number(item.valor || 0) }))),
+        barName: "Despesa (R$)",
+        pieData: [{ name: "Despesas", value: despesasPeriodo }],
+      },
+      finComissao: {
+        barTitle: "Comissão por Mês",
+        pieTitle: "Comissão",
+        barData: montarSerieMesesValor(inicioGrafico, fimFiltro, receitasVisiveis.filter((i) => i.comissaoValor !== null).map((item) => ({ data: item.dataDate, valor: item.comissaoValor ?? 0 }))),
+        barName: "Comissão (R$)",
+        pieData: [{ name: "Comissão", value: comissaoPeriodo }],
+      },
+      finSaldo: {
+        barTitle: "Saldo (Comissão - Despesas)",
+        pieTitle: "Saldo",
+        barData: [],
+        barName: "Saldo",
+        pieData: [
+          { name: "Comissão", value: comissaoPeriodo },
+          { name: "Despesas", value: despesasPeriodo },
+        ],
+      },
+      receitaRoteiros: {
+        barTitle: "Receita de Roteiros por Mês",
+        pieTitle: "Composição Financeira",
+        barData: montarSerieMesesValor(inicioGrafico, fimFiltro, receitasVisiveis.map((item) => ({ data: item.dataDate, valor: Number(item.valor || 0) }))),
+        barName: "Receita (R$)",
+        pieData: [
+          { name: "Receitas", value: receitasVisiveis.reduce((acc, item) => acc + Number(item.valor || 0), 0) },
+          { name: "Despesas", value: despesasVisiveis.reduce((acc, item) => acc + Number(item.valor || 0), 0) },
+        ],
+      },
+      // legado
       leadsPeriodo: {
         barTitle: "Leads no Filtro por Mês",
         pieTitle: "Status no Período Selecionado",
-        barData: montarSerieMesesContagem(
-          inicioFiltro || inicioGrafico,
-          hoje,
-          leadsNoPeriodo
-            .map((lead) => parseDate(lead.criadoEm))
-            .filter((data): data is Date => data !== null)
-        ),
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsNoPeriodo.map((lead) => parseDate(lead.criadoEm)).filter((data): data is Date => data !== null)),
         barName: "Leads no período",
         pieData: Array.from(statusNoPeriodoMap.entries()).map(([name, value]) => ({ name, value })),
       },
       fechamentos: {
         barTitle: "Fechamentos por Mês",
         pieTitle: "Fechamentos por Atendente",
-        barData: montarSerieMesesContagem(
-          inicioGrafico,
-          hoje,
-          fechamentosLeads.map((lead) => lead.criadoDate)
-        ),
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, fechamentosLeads.map((lead) => lead.criadoDate)),
         barName: "Fechamentos",
         pieData: (() => {
           const map = new Map<string, number>();
-          fechamentosLeads.forEach((lead) => {
-            const nome = lead.atendente || "Sem atendente";
-            map.set(nome, (map.get(nome) || 0) + 1);
-          });
+          fechamentosLeads.forEach((lead) => { const nome = lead.atendente || "Sem atendente"; map.set(nome, (map.get(nome) || 0) + 1); });
           return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
         })(),
       },
       churnInativos: {
         barTitle: "Churn por Mês",
         pieTitle: "Churn por Atendente",
-        barData: montarSerieMesesContagem(
-          inicioGrafico,
-          hoje,
-          churnLeads.map((lead) => lead.criadoDate)
-        ),
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, churnLeads.map((lead) => lead.criadoDate)),
         barName: "Churn",
         pieData: (() => {
           const map = new Map<string, number>();
-          churnLeads.forEach((lead) => {
-            const nome = lead.atendente || "Sem atendente";
-            map.set(nome, (map.get(nome) || 0) + 1);
-          });
+          churnLeads.forEach((lead) => { const nome = lead.atendente || "Sem atendente"; map.set(nome, (map.get(nome) || 0) + 1); });
           return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
         })(),
       },
-      receitaRoteiros: {
-        barTitle: "Receita de Roteiros por Mês",
-        pieTitle: "Composição Financeira",
-        barData: montarSerieMesesValor(
-          inicioGrafico,
-          hoje,
-          receitasVisiveis.map((item) => ({ data: item.dataDate, valor: Number(item.valor || 0) }))
-        ),
-        barName: "Receita (R$)",
+      semFollowUp: {
+        barTitle: "Leads Sem Follow-up por Mês",
+        pieTitle: "Follow-up dos Leads",
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, followUpPendenteLeads.map((lead) => lead.criadoDate)),
+        barName: "Sem follow-up",
         pieData: [
-          {
-            name: "Receitas",
-            value: receitasVisiveis.reduce((acc, item) => acc + Number(item.valor || 0), 0),
-          },
-          {
-            name: "Despesas",
-            value: despesasVisiveis.reduce((acc, item) => acc + Number(item.valor || 0), 0),
-          },
+          { name: "Sem follow-up", value: followUpPendenteLeads.length },
+          { name: "Com follow-up", value: Math.max(leadsValidosPeriodo.length - followUpPendenteLeads.length, 0) },
         ],
       },
       viagensAndamento: {
         barTitle: "Viagens em Andamento (Orçamentos Aprovados) por Mês",
         pieTitle: "Status das Vendas",
-        barData: viagensAndamentoData,
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, orcamentosAprovadosValidos.map((orc) => orc.dataCriacaoDate)),
         barName: "Vendas aprovadas",
         pieData: [
           { name: "Vendas aprovadas", value: orcamentosAprovadosValidos.length },
-          { name: "Outras vendas", value: Math.max(orcamentosValidos.length - orcamentosAprovadosValidos.length, 0) },
-        ],
-      },
-      semFollowUp: {
-        barTitle: "Leads Sem Follow-up por Mês",
-        pieTitle: "Follow-up dos Leads",
-        barData: montarSerieMesesContagem(
-          inicioGrafico,
-          hoje,
-          followUpPendenteLeads.map((lead) => lead.criadoDate)
-        ),
-        barName: "Sem follow-up",
-        pieData: [
-          { name: "Sem follow-up", value: followUpPendenteLeads.length },
-          { name: "Com follow-up", value: Math.max(leads.length - followUpPendenteLeads.length, 0) },
+          { name: "Outras vendas", value: Math.max(orcamentosValidosPeriodo.length - orcamentosAprovadosValidos.length, 0) },
         ],
       },
       viagensFinalizadas: {
         barTitle: "Viagens Finalizadas por Mês",
         pieTitle: "Situação das Vendas",
-        barData: montarSerieMesesContagem(
-          inicioGrafico,
-          hoje,
-          []
-        ),
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, orcamentosValidosPeriodo.filter((orc) => orc.statusViagem === "Finalizada").map((orc) => orc.dataCriacaoDate)),
         barName: "Finalizadas",
         pieData: [
-          { name: "Finalizadas", value: 0 },
+          { name: "Finalizadas", value: viagensFinalizadas },
           { name: "Em andamento", value: orcamentosAprovadosValidos.length },
         ],
       },
     };
 
+    type GrupoCard = {
+      titulo: string;
+      cor: string;
+      corTitulo: string;
+      cards: { key: CardKey; title: string; value: string; subtitle?: string; icon: JSX.Element }[];
+    };
+
+    const gruposCards: GrupoCard[] = [
+      {
+        titulo: "Leads",
+        cor: "border-blue-200 bg-blue-50/40",
+        corTitulo: "text-blue-700",
+        cards: [
+          { key: "totalLeads"      as const, title: "Total",       value: String(leadsValidosPeriodo.length),                                        icon: <Users      className="h-4 w-4 text-blue-500" /> },
+          { key: "leadsNovo"       as const, title: "Novo",        value: String(leadsValidosPeriodo.filter((l) => l.status === "Novo").length),      icon: <UserPlus   className="h-4 w-4 text-sky-500" /> },
+          { key: "leadsEmContato"  as const, title: "Em Contato",  value: String(leadsValidosPeriodo.filter((l) => l.status === "Em Contato").length),icon: <PhoneOff   className="h-4 w-4 text-indigo-500" /> },
+          { key: "leadsQualificado"as const, title: "Qualificado", value: String(leadsValidosPeriodo.filter((l) => l.status === "Qualificado").length),icon: <ClipboardList className="h-4 w-4 text-purple-500" /> },
+          { key: "leadsVendido"    as const, title: "Vendido",     value: String(fechamentos),                                                        icon: <CheckCircle2 className="h-4 w-4 text-green-500" /> },
+        ],
+      },
+      {
+        titulo: "CRM",
+        cor: "border-violet-200 bg-violet-50/40",
+        corTitulo: "text-violet-700",
+        cards: [
+          { key: "crmNovoLead"   as const, title: "Novo Lead",    value: String(crmNovoLead),    icon: <UserPlus     className="h-4 w-4 text-violet-500" /> },
+          { key: "crmQualificacao"as const, title: "Qualificação", value: String(crmQualif),      icon: <ClipboardList className="h-4 w-4 text-violet-500" /> },
+          { key: "crmReuniao"    as const, title: "Reunião",      value: String(crmReuniao),     icon: <Users        className="h-4 w-4 text-violet-500" /> },
+          { key: "crmFollowUps"  as const, title: "Follow-ups",   value: String(crmFollowUps),   icon: <PhoneOff     className="h-4 w-4 text-orange-500" /> },
+          { key: "crmFinalizados"as const, title: "Finalizados",  value: String(crmFinalizados), icon: <CheckCircle2 className="h-4 w-4 text-violet-500" /> },
+        ],
+      },
+      {
+        titulo: "Orçamentos",
+        cor: "border-sky-200 bg-sky-50/40",
+        corTitulo: "text-sky-700",
+        cards: [
+          { key: "orcamentosTotal"    as const, title: "Total",        value: String(orcamentosValidosPeriodo.length), icon: <ClipboardList className="h-4 w-4 text-sky-500" /> },
+          { key: "orcamentosRascunho" as const, title: "Rascunho",     value: String(orcRascunho),                     icon: <UserX         className="h-4 w-4 text-gray-500" /> },
+          { key: "orcamentosAprovado" as const, title: "Aprovado",     value: String(orcAprovado),                     icon: <CheckCircle2  className="h-4 w-4 text-green-500" /> },
+          { key: "viagensAndamento"   as const, title: "Em Andamento", value: String(viagensEmAndamento),               icon: <Plane         className="h-4 w-4 text-sky-500" /> },
+          { key: "viagensFinalizadas" as const, title: "Finalizadas",  value: String(viagensFinalizadas),               icon: <CheckCircle2  className="h-4 w-4 text-teal-500" /> },
+        ],
+      },
+      {
+        titulo: "Financeiro",
+        cor: "border-emerald-200 bg-emerald-50/40",
+        corTitulo: "text-emerald-700",
+        cards: [
+          { key: "finReceitas"   as const, title: "Receitas",  value: formatarMoeda(receitaRoteiros),    icon: <TrendingUp   className="h-4 w-4 text-green-500" /> },
+          { key: "finDespesas"   as const, title: "Despesas",  value: formatarMoeda(despesasPeriodo),    icon: <TrendingDown className="h-4 w-4 text-red-500" /> },
+          { key: "finComissao"   as const, title: "Comissão",  value: formatarMoeda(comissaoPeriodo),    icon: <DollarSign   className="h-4 w-4 text-blue-500" /> },
+          { key: "finSaldo"      as const, title: "Saldo",     value: formatarMoeda(saldoPeriodo),       icon: <DollarSign   className="h-4 w-4 text-emerald-500" /> },
+          { key: "receitaRoteiros"as const, title: "Média Comissão", value: formatarMoeda(mediaComissao), subtitle: mediaComissaoPerc > 0 ? `${mediaComissaoPerc.toFixed(1)}% médio` : undefined, icon: <TrendingUp className="h-4 w-4 text-purple-500" /> },
+        ],
+      },
+    ];
+
     return {
-      cardData: [
-        { key: "totalLeads" as const, title: "Total de Leads", value: String(leads.length), icon: <Users className="h-4 w-4 text-blue-500" /> },
-        { key: "leadsPeriodo" as const, title: "Lead no Período", value: String(leadsNoPeriodo.length), icon: <UserPlus className="h-4 w-4 text-green-500" /> },
-        { key: "fechamentos" as const, title: "Fechamentos", value: `${fechamentos} • R: ${receitasVisiveis.length} D: ${despesasVisiveis.length}`, icon: <DollarSign className="h-4 w-4 text-emerald-500" /> },
-        { key: "churnInativos" as const, title: "Churn Inativos", value: `${churnInativos} (${taxaChurn}%)`, icon: <UserX className="h-4 w-4 text-red-500" /> },
-        { key: "receitaRoteiros" as const, title: "Receita Roteiros", value: formatarMoeda(receitaRoteiros), icon: <ClipboardList className="h-4 w-4 text-purple-500" /> },
-        { key: "viagensAndamento" as const, title: "Viagens em Andamento", value: String(viagensEmAndamento), icon: <Plane className="h-4 w-4 text-sky-500" /> },
-        { key: "semFollowUp" as const, title: "Sem Follow-up", value: `${semFollowUp} • CRM: ${followUpsCrm}`, icon: <PhoneOff className="h-4 w-4 text-orange-500" /> },
-        { key: "viagensFinalizadas" as const, title: "Viagens Finalizadas", value: String(viagensFinalizadas), icon: <CheckCircle2 className="h-4 w-4 text-teal-500" /> },
-      ],
+      cardData: gruposCards.flatMap((g) => g.cards),
+      gruposCards,
       chartByCard,
     };
-  }, [activeFilter, leads, lancamentos, orcamentos]);
+  }, [activeFilter, customDataInicio, customDataFim, leads, lancamentos, orcamentos]);
 
   const activeChart = useMemo(() => {
     return dadosDashboard.chartByCard[activeCard];
@@ -880,13 +1137,29 @@ export default function LeadDashboard() {
   const tableData = useMemo(() => {
     const hoje = new Date();
     hoje.setHours(23, 59, 59, 999);
-    const inicioFiltro = resolverDataInicialPorFiltro(activeFilter, hoje);
+    const { inicio: inicioFiltro, fim: fimFiltro } = resolverDataInicialPorFiltro(activeFilter, hoje);
+
+    const inicioEfetivo: Date | null =
+      activeFilter === "Personalizado" && customDataInicio
+        ? (() => { const d = new Date(`${customDataInicio}T00:00:00`); return Number.isNaN(d.getTime()) ? null : d; })()
+        : inicioFiltro;
+    const fimEfetivo: Date =
+      activeFilter === "Personalizado" && customDataFim
+        ? (() => { const d = new Date(`${customDataFim}T23:59:59`); return Number.isNaN(d.getTime()) ? fimFiltro : d; })()
+        : fimFiltro;
+
+    const dentroDoFiltro = (dataStr: string) => {
+      const d = parseDate(dataStr);
+      if (!d) return false;
+      if (!inicioEfetivo) return d <= fimEfetivo;
+      return d >= inicioEfetivo && d <= fimEfetivo;
+    };
 
     switch (activeCard) {
       case "totalLeads":
         return {
           columns: ["ID", "Cliente", "Status", "Atendente", "Data Criação"],
-          rows: leads.map((lead) => [
+          rows: leads.filter((lead) => dentroDoFiltro(lead.criadoEm)).map((lead) => [
             lead.id.toString(),
             lead.cliente,
             lead.status,
@@ -896,12 +1169,7 @@ export default function LeadDashboard() {
         };
 
       case "leadsPeriodo": {
-        const leadsNoPeriodo = leads.filter((lead) => {
-          const dataLead = parseDate(lead.criadoEm);
-          if (!dataLead) return false;
-          if (!inicioFiltro) return true;
-          return dataLead >= inicioFiltro && dataLead <= hoje;
-        });
+        const leadsNoPeriodo = leads.filter((lead) => dentroDoFiltro(lead.criadoEm));
         return {
           columns: ["ID", "Cliente", "Status", "Atendente", "Data Criação"],
           rows: leadsNoPeriodo.map((lead) => [
@@ -915,10 +1183,9 @@ export default function LeadDashboard() {
       }
 
       case "fechamentos": {
-        const fechamentos = leads.filter((lead) => lead.status === "Vendido");
-        const receitas = lancamentos.filter((item) => item.tipo === "receita" && !item.oculto);
-        const despesas = lancamentos.filter((item) => item.tipo === "despesa" && !item.oculto);
-        
+        const fechamentos = leads.filter((lead) => lead.status === "Vendido" && dentroDoFiltro(lead.criadoEm));
+        const receitas = lancamentos.filter((item) => item.tipo === "receita" && !item.oculto && dentroDoFiltro(item.data));
+        const despesas = lancamentos.filter((item) => item.tipo === "despesa" && !item.oculto && dentroDoFiltro(item.data));
         return {
           columns: ["Tipo", "Quantidade", "Descrição"],
           rows: [
@@ -930,32 +1197,169 @@ export default function LeadDashboard() {
       }
 
       case "churnInativos": {
-        const churn = leads.filter((lead) => lead.status === "Perdido");
+        const churn = leads.filter((lead) => lead.status === "Perdido" && dentroDoFiltro(lead.criadoEm));
+        const totalPeriodo = leads.filter((lead) => dentroDoFiltro(lead.criadoEm)).length;
         return {
           columns: ["Tipo", "Quantidade", "Descrição"],
           rows: [
             ["Churn Inativos", churn.length.toString(), "Leads com status Perdido"],
-            ["Taxa de Churn", `${churn.length > 0 ? ((churn.length / leads.length) * 100).toFixed(1) : 0}%`, "Percentual em relação ao total de leads"],
+            ["Taxa de Churn", `${totalPeriodo > 0 ? ((churn.length / totalPeriodo) * 100).toFixed(1) : 0}%`, "Percentual em relação ao total de leads no período"],
           ],
         };
       }
 
       case "receitaRoteiros": {
-        const receitas = lancamentos.filter((item) => item.tipo === "receita" && !item.oculto);
+        const receitas = lancamentos.filter((item) => item.tipo === "receita" && !item.oculto && dentroDoFiltro(item.data));
         return {
-          columns: ["ID", "Descrição", "Valor", "Data", "Tipo"],
+          columns: ["ID", "Descrição", "Valor", "Comissão", "Data"],
+          rows: receitas.map((item) => [
+            item.id.toString(),
+            item.descricao,
+            formatarMoeda(Number(item.valor || 0)),
+            item.comissaoValor !== null ? formatarMoeda(item.comissaoValor) : "-",
+            new Date(item.data).toLocaleDateString("pt-BR"),
+          ]),
+        };
+      }
+
+      case "finReceitas": {
+        const receitas = lancamentos.filter((item) => item.tipo === "receita" && !item.oculto && dentroDoFiltro(item.data));
+        return {
+          columns: ["ID", "Descrição", "Valor", "Data", "Cliente"],
           rows: receitas.map((item) => [
             item.id.toString(),
             item.descricao,
             formatarMoeda(Number(item.valor || 0)),
             new Date(item.data).toLocaleDateString("pt-BR"),
-            item.tipo,
+            item.cliente || "-",
+          ]),
+        };
+      }
+
+      case "finDespesas": {
+        const despesas = lancamentos.filter((item) => item.tipo === "despesa" && !item.oculto && dentroDoFiltro(item.data));
+        return {
+          columns: ["ID", "Descrição", "Valor", "Data"],
+          rows: despesas.map((item) => [
+            item.id.toString(),
+            item.descricao,
+            formatarMoeda(Number(item.valor || 0)),
+            new Date(item.data).toLocaleDateString("pt-BR"),
+          ]),
+        };
+      }
+
+      case "finComissao": {
+        const comissoes = lancamentos.filter((item) => item.tipo === "receita" && !item.oculto && item.comissaoValor !== null && dentroDoFiltro(item.data));
+        return {
+          columns: ["ID", "Descrição", "Valor Receita", "Comissão", "% Comissão", "Data"],
+          rows: comissoes.map((item) => [
+            item.id.toString(),
+            item.descricao,
+            formatarMoeda(Number(item.valor || 0)),
+            formatarMoeda(item.comissaoValor ?? 0),
+            item.comissaoPercentual !== null ? `${item.comissaoPercentual}%` : "-",
+            new Date(item.data).toLocaleDateString("pt-BR"),
+          ]),
+        };
+      }
+
+      case "finSaldo": {
+        const receitas = lancamentos.filter((item) => item.tipo === "receita" && !item.oculto && dentroDoFiltro(item.data));
+        const despesas = lancamentos.filter((item) => item.tipo === "despesa" && !item.oculto && dentroDoFiltro(item.data));
+        const totalComissao = receitas.filter((i) => i.comissaoValor !== null).reduce((acc, i) => acc + (i.comissaoValor ?? 0), 0);
+        const totalDespesas = despesas.reduce((acc, i) => acc + Number(i.valor || 0), 0);
+        return {
+          columns: ["Tipo", "Valor"],
+          rows: [
+            ["Total Comissões", formatarMoeda(totalComissao)],
+            ["Total Despesas", formatarMoeda(totalDespesas)],
+            ["Saldo (Comissão - Despesas)", formatarMoeda(totalComissao - totalDespesas)],
+          ],
+        };
+      }
+
+      case "totalLeads":
+      case "leadsNovo":
+      case "leadsEmContato":
+      case "leadsQualificado":
+      case "leadsVendido": {
+        const statusMap: Record<string, string> = {
+          totalLeads: "",
+          leadsNovo: "Novo",
+          leadsEmContato: "Em Contato",
+          leadsQualificado: "Qualificado",
+          leadsVendido: "Vendido",
+        };
+        const statusFiltro = statusMap[activeCard];
+        const lista = leads.filter((lead) =>
+          dentroDoFiltro(lead.criadoEm) && (statusFiltro === "" || lead.status === statusFiltro)
+        );
+        return {
+          columns: ["ID", "Nome", "Status", "Atendente", "Data Criação"],
+          rows: lista.map((lead) => [
+            lead.id.toString(),
+            lead.nome,
+            lead.status,
+            lead.atendente || "-",
+            new Date(lead.criadoEm).toLocaleDateString("pt-BR"),
+          ]),
+        };
+      }
+
+      case "crmNovoLead":
+      case "crmQualificacao":
+      case "crmReuniao":
+      case "crmFollowUps":
+      case "crmFinalizados": {
+        const crmMap: Record<string, string> = {
+          crmNovoLead: "Novo Lead",
+          crmQualificacao: "Qualificação",
+          crmReuniao: "Reunião",
+          crmFollowUps: "Follow-ups",
+          crmFinalizados: "Finalizados",
+        };
+        const statusCrm = crmMap[activeCard];
+        const lista = leads.filter((lead) => lead.statusCrm === statusCrm && dentroDoFiltro(lead.criadoEm));
+        return {
+          columns: ["ID", "Nome", "Status Lead", "Status CRM", "Atendente", "Data Criação"],
+          rows: lista.map((lead) => [
+            lead.id.toString(),
+            lead.nome,
+            lead.status,
+            lead.statusCrm,
+            lead.atendente || "-",
+            new Date(lead.criadoEm).toLocaleDateString("pt-BR"),
+          ]),
+        };
+      }
+
+      case "orcamentosTotal":
+      case "orcamentosRascunho":
+      case "orcamentosAprovado": {
+        const statusMap: Record<string, string> = {
+          orcamentosTotal: "",
+          orcamentosRascunho: "Rascunho",
+          orcamentosAprovado: "Aprovado",
+        };
+        const statusFiltro = statusMap[activeCard];
+        const lista = orcamentos.filter((orc) =>
+          dentroDoFiltro(orc.dataCriacao) && (statusFiltro === "" || orc.status === statusFiltro)
+        );
+        return {
+          columns: ["Número", "Cliente", "Destino", "Status", "Data Criação"],
+          rows: lista.map((orc) => [
+            orc.numero,
+            orc.cliente,
+            orc.destino || "-",
+            orc.status,
+            new Date(orc.dataCriacao).toLocaleDateString("pt-BR"),
           ]),
         };
       }
 
       case "viagensAndamento": {
-        const orcamentosAprovados = orcamentos.filter((orc) => orc.status === "Aprovado");
+        const orcamentosAprovados = orcamentos.filter((orc) => orc.status === "Aprovado" && dentroDoFiltro(orc.dataCriacao));
         return {
           columns: ["Número", "Cliente", "Destino", "Status", "Data Criação"],
           rows: orcamentosAprovados.map((orc) => [
@@ -969,8 +1373,8 @@ export default function LeadDashboard() {
       }
 
       case "semFollowUp": {
-        const semFollowUp = leads.filter((lead) => lead.status === "Novo").length;
-        const followUpsCrm = leads.filter((lead) => lead.statusCrm === "Follow-ups").length;
+        const semFollowUp = leads.filter((lead) => lead.status === "Novo" && dentroDoFiltro(lead.criadoEm)).length;
+        const followUpsCrm = leads.filter((lead) => lead.statusCrm === "Follow-ups" && dentroDoFiltro(lead.criadoEm)).length;
         return {
           columns: ["Tipo", "Quantidade", "Descrição"],
           rows: [
@@ -980,11 +1384,24 @@ export default function LeadDashboard() {
         };
       }
 
-      case "viagensFinalizadas":
+      case "viagensFinalizadas": {
+        const finalizadas = orcamentos.filter((orc) => orc.statusViagem === "Finalizada" && dentroDoFiltro(orc.dataCriacao));
         return {
-          columns: ["Mensagem"],
-          rows: [["Nenhuma viagem finalizada registrada. As viagens finalizadas serão exibidas aqui quando disponíveis."]],
+          columns: ["Número", "Cliente", "Destino", "Check-in", "Check-out"],
+          rows: finalizadas.map((orc) => {
+            const { checkin, checkout } = extrairDatasViagem(orc);
+            const fmt = (d: string | null) =>
+              d ? new Date(`${d}T00:00:00`).toLocaleDateString("pt-BR") : "-";
+            return [
+              orc.numero,
+              orc.cliente,
+              orc.destino || "-",
+              fmt(checkin),
+              fmt(checkout),
+            ];
+          }),
         };
+      }
 
       default:
         return {
@@ -992,15 +1409,12 @@ export default function LeadDashboard() {
           rows: [],
         };
     }
-  }, [activeCard, activeFilter, leads, lancamentos, orcamentos]);
+  }, [activeCard, activeFilter, customDataInicio, customDataFim, leads, lancamentos, orcamentos]);
 
   return (
     <div className="flex-1 space-y-4 p-4 sm:p-8 pt-6">
       {/* Cotação do Dólar */}
       <DolarWidget />
-
-      {/* Conversor de Moedas */}
-      <ConversorMoedas />
 
       {/* Visão Geral — card colapsável */}
       <Card className="border border-gray-200">
@@ -1023,6 +1437,29 @@ export default function LeadDashboard() {
                   </Button>
                 ))}
               </div>
+              {/* Inputs de data para filtro personalizado */}
+              {activeFilter === "Personalizado" && (
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  <div className="flex items-center gap-1">
+                    <label className="text-xs text-gray-500 whitespace-nowrap">De:</label>
+                    <input
+                      type="date"
+                      value={customDataInicio}
+                      onChange={(e) => setCustomDataInicio(e.target.value)}
+                      className="h-7 rounded border border-gray-300 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <label className="text-xs text-gray-500 whitespace-nowrap">Até:</label>
+                    <input
+                      type="date"
+                      value={customDataFim}
+                      onChange={(e) => setCustomDataFim(e.target.value)}
+                      className="h-7 rounded border border-gray-300 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
             <button
               onClick={() => setExpandidoVisaoGeral((v) => !v)}
@@ -1035,29 +1472,39 @@ export default function LeadDashboard() {
 
           {/* Conteúdo expandido */}
           {expandidoVisaoGeral && (
-            <div className="mt-4 space-y-4">
-              {/* Cards de Métricas */}
-              <div className="grid gap-3 grid-cols-2 md:grid-cols-2 lg:grid-cols-4">
-                {dadosDashboard.cardData.map((card) => (
-                  <Card
-                    key={card.title}
-                    className={`cursor-pointer transition-all ${activeCard === card.key ? "ring-2 ring-blue-500 bg-blue-50/50" : "hover:shadow-md"}`}
-                    onClick={() => setActiveCard(card.key)}
-                  >
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 pt-3">
-                      <CardTitle className="text-xs sm:text-sm font-medium leading-tight">
-                        {card.title}
-                      </CardTitle>
-                      {card.icon}
-                    </CardHeader>
-                    <CardContent className="px-3 pb-3">
-                      <div className="text-base sm:text-2xl font-bold truncate">
-                        {loading ? "..." : card.value}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+            <div className="mt-4 space-y-5">
+              {/* Grupos de Cards por categoria */}
+              {dadosDashboard.gruposCards.map((grupo) => (
+                <div key={grupo.titulo}>
+                  <h3 className={`text-xs font-semibold uppercase tracking-wider mb-2 ${grupo.corTitulo}`}>
+                    {grupo.titulo}
+                  </h3>
+                  <div className={`grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 rounded-xl border p-2 ${grupo.cor}`}>
+                    {grupo.cards.map((card) => (
+                      <Card
+                        key={card.key}
+                        className={`cursor-pointer transition-all ${activeCard === card.key ? "ring-2 ring-blue-500 bg-blue-50/50" : "hover:shadow-md"}`}
+                        onClick={() => setActiveCard(card.key)}
+                      >
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 px-3 pt-3">
+                          <CardTitle className="text-xs font-medium leading-tight text-muted-foreground">
+                            {card.title}
+                          </CardTitle>
+                          {card.icon}
+                        </CardHeader>
+                        <CardContent className="px-3 pb-3">
+                          <div className="text-base sm:text-xl font-bold truncate">
+                            {loading ? "..." : card.value}
+                          </div>
+                          {!loading && card.subtitle && (
+                            <div className="text-xs text-muted-foreground mt-0.5">{card.subtitle}</div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              ))}
 
               {error && (
                 <Card className="border-red-200 bg-red-50">

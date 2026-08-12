@@ -286,12 +286,16 @@ export default function Financeiro() {
       .filter((item) => item.tipo === "despesa" && !item.oculto)
       .reduce((acc, item) => acc + item.valor, 0);
     const lucro = receitas - despesas;
+    const comissao = lancamentos
+      .filter((item) => item.tipo === "receita" && !item.oculto && item.comissaoValor !== null)
+      .reduce((acc, item) => acc + (item.comissaoValor ?? 0), 0);
 
     return {
       receitas,
       despesas,
       lucro,
-      saldo: lucro,
+      comissao,
+      saldo: comissao - despesas,
     };
   }, [lancamentos]);
 
@@ -377,9 +381,9 @@ export default function Financeiro() {
     },
     {
       icon: TrendingUp,
-      title: "Lucro",
-      value: formatarMoeda(resumo.lucro),
-      subtitle: resumo.lucro >= 0 ? "Resultado positivo" : "Resultado negativo",
+      title: "Comissão",
+      value: formatarMoeda(resumo.comissao),
+      subtitle: "Total de comissões",
       color: "text-blue-600",
       bgColor: "bg-blue-100",
     },
@@ -387,7 +391,7 @@ export default function Financeiro() {
       icon: Wallet,
       title: "Saldo",
       value: formatarMoeda(resumo.saldo),
-      subtitle: "Saldo acumulado",
+      subtitle: "comissão - despesas",
       color: "text-purple-600",
       bgColor: "bg-purple-100",
     },

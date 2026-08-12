@@ -8,6 +8,7 @@ import AIChat from "./AIChat";
 import Agenda from "./Agenda";
 import FavoritosOrcamentos from "./FavoritosOrcamentos";
 import QuickAccessPanel from "./QuickAccessPanel";
+import type { Funcionario } from "../data/funcionariosApi";
 
 const menuItems = [
   { name: "DASHBOARD", path: "/" },
@@ -28,6 +29,17 @@ export default function Root() {
   const [aiChatOpen, setAiChatOpen] = useState(false);
   const [agendaOpen, setAgendaOpen] = useState(false);
   const [favoritosOpen, setFavoritosOpen] = useState(false);
+
+  const [usuario, setUsuario] = useState<Funcionario | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("authFuncionario");
+      if (raw) setUsuario(JSON.parse(raw) as Funcionario);
+    } catch {
+      // sem usuário salvo
+    }
+  }, []);
 
   useEffect(() => {
     setAgendaOpen(false);
@@ -78,7 +90,7 @@ export default function Root() {
     <div className="min-h-screen bg-slate-50">
       {/* Header/Menu Superior */}
       <header className="bg-white shadow-sm border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0">
@@ -101,6 +113,22 @@ export default function Root() {
                   {item.name}
                 </Link>
               ))}
+              {/* Usuário logado */}
+              {usuario && (
+                <div className="ml-3">
+                  {usuario.photo ? (
+                    <img
+                      src={usuario.photo}
+                      alt={usuario.name}
+                      className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <span className="w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-semibold flex items-center justify-center flex-shrink-0">
+                      {usuario.initials || usuario.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+              )}
               <button
                 onClick={handleLogout}
                 className="ml-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors text-red-600 hover:text-red-900 hover:bg-red-100 flex items-center gap-2"
@@ -135,6 +163,22 @@ export default function Root() {
                   {item.name}
                 </Link>
               ))}
+              {/* Usuário logado - Mobile */}
+              {usuario && (
+                <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-100 mt-1">
+                  {usuario.photo ? (
+                    <img
+                      src={usuario.photo}
+                      alt={usuario.name}
+                      className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <span className="w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-semibold flex items-center justify-center flex-shrink-0">
+                      {usuario.initials || usuario.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+              )}
               <button
                 onClick={handleLogout}
                 className="block w-full text-left px-4 py-3 text-sm font-medium rounded-md transition-colors text-red-600 hover:text-red-900 hover:bg-red-100 flex items-center gap-2"
