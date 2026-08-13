@@ -200,6 +200,7 @@ let ensureOrcamentosPublicTokenColumnPromise = null;
 let ensureOrcamentosPublicTokenBackfillPromise = null;
 let ensureFuncionariosSaudacoesColumnPromise = null;
 let ensureFinanceiroComissaoColumnsPromise = null;
+let ensureFinanceiroDesnormalizacaoColumnsPromise = null;
 let ensureOrcamentosObservacoesColumnPromise = null;
 let ensureOrcamentosStatusViagemColumnPromise = null;
 
@@ -271,6 +272,24 @@ async function ensureFinanceiroComissaoColumns() {
     }
 
     await ensureFinanceiroComissaoColumnsPromise;
+}
+
+async function ensureFinanceiroDesnormalizacaoColumns() {
+    if (!pool) {
+        return;
+    }
+
+    if (!ensureFinanceiroDesnormalizacaoColumnsPromise) {
+        ensureFinanceiroDesnormalizacaoColumnsPromise = Promise.all([
+            pool.query('ALTER TABLE public.financeiro ADD COLUMN IF NOT EXISTS orcamento_numero VARCHAR(50)'),
+            pool.query('ALTER TABLE public.financeiro ADD COLUMN IF NOT EXISTS cliente_nome VARCHAR(255)'),
+        ]).catch((error) => {
+            ensureFinanceiroDesnormalizacaoColumnsPromise = null;
+            throw error;
+        });
+    }
+
+    await ensureFinanceiroDesnormalizacaoColumnsPromise;
 }
 
 async function ensureOrcamentosPacotesColumn() {
@@ -644,7 +663,7 @@ function mapLancamentoFinanceiro(row) {
         parcelas: row.parcelas ? Number(row.parcelas) : null,
         orcamentoId: row.orcamento_id ? Number(row.orcamento_id) : null,
         orcamentoNumero: row.orcamento_numero || '',
-        cliente: row.cliente || '',
+        cliente: row.cliente_nome || row.cliente || '',
         statusViagem: row.status_viagem || null,
     };
 }
@@ -3385,9 +3404,12 @@ app.get('/api/orcamentos', ensureDb, async (req, res) => {
         await ensureOrcamentosObservacoesColumn();
         await ensureOrcamentosStatusViagemColumn();
 
+        // Listagem resumida: exclui campos de texto longo de IA (roteiro, prompts)
+        // que só são necessários ao abrir um orçamento individual.
+        // Isso reduz significativamente o volume de dados transferidos do Neon.
         const result = await pool.query(
             `SELECT id, numero, public_token, cliente, email, destino, agente_viagem, status, data_criacao, data_validade, observacoes,
-                            itens, pacotes, voos, hospedagem, roteiro, prompt_roteiro_ia, day_by_day, transporte, restaurante, experiencias, seguro, perfil_viagem, prompt_perfil_ia, passageiros,
+                            itens, pacotes, voos, hospedagem, day_by_day, transporte, restaurante, experiencias, seguro, perfil_viagem, passageiros,
                             forma_pagamento, parcelas, status_viagem
        FROM public.orcamentos
        ORDER BY data_criacao DESC, id DESC`
@@ -3396,6 +3418,47 @@ app.get('/api/orcamentos', ensureDb, async (req, res) => {
         res.json(result.rows.map(mapOrcamento));
     } catch (error) {
         logServerError('Erro ao listar orçamentos:', error);
+        const dbError = resolveDatabaseError(error);
+        res.status(dbError.status).json({ error: dbError.message });
+    }
+});
+
+app.get('/api/orcamentos/:id', ensureDb, async (req, res) => {
+    const id = Number(req.params.id);
+
+    if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ error: 'ID inválido.' });
+    }
+
+    try {
+        await ensureOrcamentosDestinoColumn();
+        await ensureOrcamentosPassageirosColumn();
+        await ensureOrcamentosPagamentoColumns();
+        await ensureOrcamentosPacotesColumn();
+        await ensureOrcamentosPerfilViagemColumn();
+        await ensureOrcamentosPromptPerfilIaColumn();
+        await ensureOrcamentosPromptRoteiroIaColumn();
+        await ensureOrcamentosPublicTokenColumn();
+        await ensureOrcamentosObservacoesColumn();
+        await ensureOrcamentosStatusViagemColumn();
+
+        const result = await pool.query(
+            `SELECT id, numero, public_token, cliente, email, destino, agente_viagem, status, data_criacao, data_validade, observacoes,
+                            itens, pacotes, voos, hospedagem, roteiro, prompt_roteiro_ia, day_by_day, transporte, restaurante, experiencias, seguro, perfil_viagem, prompt_perfil_ia, passageiros,
+                            forma_pagamento, parcelas, status_viagem
+               FROM public.orcamentos
+              WHERE id = $1
+              LIMIT 1`,
+            [id]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Orçamento não encontrado.' });
+        }
+
+        res.json(mapOrcamento(result.rows[0]));
+    } catch (error) {
+        logServerError('Erro ao buscar orçamento por ID:', error);
         const dbError = resolveDatabaseError(error);
         res.status(dbError.status).json({ error: dbError.message });
     }
@@ -3691,11 +3754,11 @@ app.delete('/api/orcamentos/:id', ensureDb, async (req, res) => {
 app.get('/api/financeiro', ensureDb, async (req, res) => {
     try {
         await ensureFinanceiroComissaoColumns();
+        await ensureFinanceiroDesnormalizacaoColumns();
         const result = await pool.query(
-            `SELECT f.id, f.tipo, f.descricao, f.valor, f.comissao_percentual, f.comissao_valor, f.data_lancamento, f.oculto, f.orcamento_pago, f.forma_pagamento, f.parcelas, f.orcamento_id, o.numero AS orcamento_numero, o.cliente
-       FROM public.financeiro f
-       LEFT JOIN public.orcamentos o ON o.id = f.orcamento_id
-       ORDER BY f.data_lancamento DESC, f.id DESC`
+            `SELECT id, tipo, descricao, valor, comissao_percentual, comissao_valor, data_lancamento, oculto, orcamento_pago, forma_pagamento, parcelas, orcamento_id, orcamento_numero, cliente_nome
+       FROM public.financeiro
+       ORDER BY data_lancamento DESC, id DESC`
         );
 
         res.json(result.rows.map(mapLancamentoFinanceiro));
@@ -3723,12 +3786,27 @@ app.post('/api/financeiro', ensureDb, async (req, res) => {
 
     try {
         await ensureFinanceiroComissaoColumns();
+        await ensureFinanceiroDesnormalizacaoColumns();
+
+        // Busca numero e cliente do orçamento para desnormalizar
+        let orcamentoNumero = null;
+        let clienteNome = null;
+        if (payload.orcamentoId) {
+            const orcRow = await pool.query(
+                'SELECT numero, cliente FROM public.orcamentos WHERE id = $1 LIMIT 1',
+                [payload.orcamentoId]
+            );
+            if (orcRow.rowCount > 0) {
+                orcamentoNumero = orcRow.rows[0].numero || null;
+                clienteNome = orcRow.rows[0].cliente || null;
+            }
+        }
 
         let lancamentoId;
         try {
             const result = await pool.query(
-                `INSERT INTO public.financeiro (tipo, descricao, valor, comissao_percentual, comissao_valor, data_lancamento, oculto, orcamento_pago, forma_pagamento, parcelas, orcamento_id)
-       VALUES ($1, $2, $3, $4, $5, NULLIF($6, '')::date, $7, $8, NULLIF($9, ''), $10, $11)
+                `INSERT INTO public.financeiro (tipo, descricao, valor, comissao_percentual, comissao_valor, data_lancamento, oculto, orcamento_pago, forma_pagamento, parcelas, orcamento_id, orcamento_numero, cliente_nome)
+       VALUES ($1, $2, $3, $4, $5, NULLIF($6, '')::date, $7, $8, NULLIF($9, ''), $10, $11, $12, $13)
        RETURNING id`,
                 [
                     payload.tipo,
@@ -3742,6 +3820,8 @@ app.post('/api/financeiro', ensureDb, async (req, res) => {
                     payload.formaPagamento,
                     payload.parcelas,
                     payload.orcamentoId,
+                    orcamentoNumero,
+                    clienteNome,
                 ]
             );
             lancamentoId = result.rows[0].id;
@@ -3760,8 +3840,10 @@ app.post('/api/financeiro', ensureDb, async (req, res) => {
                          orcamento_pago = $8,
                          forma_pagamento = NULLIF($9, ''),
                          parcelas = $10,
+                         orcamento_numero = $11,
+                         cliente_nome = $12,
                          atualizado_em = NOW()
-                     WHERE orcamento_id = $11
+                     WHERE orcamento_id = $13
                      RETURNING id`,
                     [
                         payload.tipo,
@@ -3774,6 +3856,8 @@ app.post('/api/financeiro', ensureDb, async (req, res) => {
                         payload.orcamentoPago,
                         payload.formaPagamento,
                         payload.parcelas,
+                        orcamentoNumero,
+                        clienteNome,
                         payload.orcamentoId,
                     ]
                 );
@@ -3784,10 +3868,9 @@ app.post('/api/financeiro', ensureDb, async (req, res) => {
         }
 
         const enriched = await pool.query(
-            `SELECT f.id, f.tipo, f.descricao, f.valor, f.comissao_percentual, f.comissao_valor, f.data_lancamento, f.oculto, f.orcamento_pago, f.forma_pagamento, f.parcelas, f.orcamento_id, o.numero AS orcamento_numero, o.cliente
-       FROM public.financeiro f
-       LEFT JOIN public.orcamentos o ON o.id = f.orcamento_id
-       WHERE f.id = $1`,
+            `SELECT id, tipo, descricao, valor, comissao_percentual, comissao_valor, data_lancamento, oculto, orcamento_pago, forma_pagamento, parcelas, orcamento_id, orcamento_numero, cliente_nome
+       FROM public.financeiro
+       WHERE id = $1`,
             [lancamentoId]
         );
 
@@ -3825,6 +3908,22 @@ app.put('/api/financeiro/:id', ensureDb, async (req, res) => {
 
     try {
         await ensureFinanceiroComissaoColumns();
+        await ensureFinanceiroDesnormalizacaoColumns();
+
+        // Busca numero e cliente do orçamento para desnormalizar
+        let orcamentoNumero = null;
+        let clienteNome = null;
+        if (payload.orcamentoId) {
+            const orcRow = await pool.query(
+                'SELECT numero, cliente FROM public.orcamentos WHERE id = $1 LIMIT 1',
+                [payload.orcamentoId]
+            );
+            if (orcRow.rowCount > 0) {
+                orcamentoNumero = orcRow.rows[0].numero || null;
+                clienteNome = orcRow.rows[0].cliente || null;
+            }
+        }
+
         const result = await pool.query(
             `UPDATE public.financeiro
           SET tipo = $1,
@@ -3838,8 +3937,10 @@ app.put('/api/financeiro/:id', ensureDb, async (req, res) => {
               forma_pagamento = NULLIF($9, ''),
               parcelas = $10,
               orcamento_id = $11,
+              orcamento_numero = $12,
+              cliente_nome = $13,
               atualizado_em = NOW()
-        WHERE id = $12
+        WHERE id = $14
       RETURNING id`,
             [
                 payload.tipo,
@@ -3853,6 +3954,8 @@ app.put('/api/financeiro/:id', ensureDb, async (req, res) => {
                 payload.formaPagamento,
                 payload.parcelas,
                 payload.orcamentoId,
+                orcamentoNumero,
+                clienteNome,
                 id,
             ]
         );
@@ -3862,10 +3965,9 @@ app.put('/api/financeiro/:id', ensureDb, async (req, res) => {
         }
 
         const updated = await pool.query(
-            `SELECT f.id, f.tipo, f.descricao, f.valor, f.comissao_percentual, f.comissao_valor, f.data_lancamento, f.oculto, f.orcamento_pago, f.forma_pagamento, f.parcelas, f.orcamento_id, o.numero AS orcamento_numero, o.cliente
-       FROM public.financeiro f
-       LEFT JOIN public.orcamentos o ON o.id = f.orcamento_id
-       WHERE f.id = $1`,
+            `SELECT id, tipo, descricao, valor, comissao_percentual, comissao_valor, data_lancamento, oculto, orcamento_pago, forma_pagamento, parcelas, orcamento_id, orcamento_numero, cliente_nome
+       FROM public.financeiro
+       WHERE id = $1`,
             [id]
         );
 

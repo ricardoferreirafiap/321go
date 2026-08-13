@@ -49,6 +49,7 @@ export interface Orcamento {
   restaurante?: any[];
   experiencias?: any[];
   seguro?: any[];
+  observacoes?: string;
 }
 
 export type OrcamentoPayload = Omit<Orcamento, 'id'>;
@@ -104,6 +105,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 export function listarOrcamentos() {
   return request<Orcamento[]>('/orcamentos');
+}
+
+export function buscarOrcamentoPorId(id: number) {
+  return request<Orcamento>(`/orcamentos/${id}`);
 }
 
 export function buscarOrcamentoPorNumero(numero: string) {

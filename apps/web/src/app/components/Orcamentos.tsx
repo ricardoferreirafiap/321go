@@ -23,6 +23,7 @@ import { listarFornecedores, type Fornecedor } from "../data/fornecedoresApi";
 import { listarProdutos, type Produto } from "../data/produtosApi";
 import {
   atualizarOrcamento,
+  buscarOrcamentoPorId,
   criarOrcamento,
   listarOrcamentos,
   type ItemOrc,
@@ -1118,30 +1119,40 @@ export default function Orcamentos() {
     setTela("form");
   }
 
-  function abrirEdicao(o: Orcamento) {
-    setEditando(o);
+  async function abrirEdicao(o: Orcamento) {
     setErro(null);
-    setForm(o);
+
+    // Busca o orçamento completo do servidor (com roteiro e prompts de IA)
+    // para não precisar trafegar esses campos pesados na listagem.
+    let completo: Orcamento = o;
+    try {
+      completo = await buscarOrcamentoPorId(o.id);
+    } catch {
+      // Se falhar, usa o objeto da lista (campos de IA ficarão vazios)
+    }
+
+    setEditando(completo);
+    setForm(completo);
 
     // Carrega os dados das seções para os estados correspondentes
     setPacotes(
-        (o.pacotes || []).map((p: any) => ({ ...p, documentos: p.documentos || [] })),
+        (completo.pacotes || []).map((p: any) => ({ ...p, documentos: p.documentos || [] })),
     );
     setVoos(
         // @ts-ignore
-        o.voos || [],
+        completo.voos || [],
     );
-    setHospedagem(o.hospedagem || []);
-    setRoteiro(o.roteiro || "");
-    setPromptRoteiroIA(typeof o.promptRoteiroIA === "string" ? o.promptRoteiroIA : "");
-    setDayByDay(o.dayByDay || []);
-    setTransporte(o.transporte || []);
-    setRestaurante(o.restaurante || []);
-    setExperiencias(o.experiencias || []);
-    setSeguro(o.seguro || []);
+    setHospedagem(completo.hospedagem || []);
+    setRoteiro(completo.roteiro || "");
+    setPromptRoteiroIA(typeof completo.promptRoteiroIA === "string" ? completo.promptRoteiroIA : "");
+    setDayByDay(completo.dayByDay || []);
+    setTransporte(completo.transporte || []);
+    setRestaurante(completo.restaurante || []);
+    setExperiencias(completo.experiencias || []);
+    setSeguro(completo.seguro || []);
     setDadosClienteMinimizados(true);
-    setPerfilViagemSelecionado(Array.isArray(o.perfilViagem) ? o.perfilViagem.filter((item) => typeof item === "string") : []);
-    setPromptPerfilViagemIA(typeof o.promptPerfilViagemIA === "string" ? o.promptPerfilViagemIA : "");
+    setPerfilViagemSelecionado(Array.isArray(completo.perfilViagem) ? completo.perfilViagem.filter((item) => typeof item === "string") : []);
+    setPromptPerfilViagemIA(typeof completo.promptPerfilViagemIA === "string" ? completo.promptPerfilViagemIA : "");
     setPerfilViagemMinimizado(true);
     setCategoriasPerfilMinimizadas({});
     setSecoesOrcamentoMinimizadas(true);
@@ -2726,7 +2737,7 @@ export default function Orcamentos() {
                           <DollarSign className="w-4 h-4" />
                         </button>
                         <button onClick={() => abrirResumo(orc)} title="Orçamento" className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0"><FileText className="w-4 h-4" /></button>
-                        <button onClick={() => abrirEdicao(orc)} title="Editar" className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0"><Edit2 className="w-4 h-4" /></button>
+                        <button onClick={() => void abrirEdicao(orc)} title="Editar" className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0"><Edit2 className="w-4 h-4" /></button>
                         <button onClick={() => gerarRoteiro(orc)} title="Roteiro" className="p-2 rounded-lg text-green-600 hover:bg-green-50 transition-colors flex-shrink-0"><MapPin className="w-4 h-4" /></button>
                         <button onClick={() => confirmarDuplicacao(orc)} title="Duplicar" className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"><Copy className="w-4 h-4" /></button>
                         <button
