@@ -1054,8 +1054,18 @@ export default function Orcamentos() {
 
   const totais = {
     total: lista.reduce((a, o) => a + calcTotalOrcamento(o), 0),
+    qtdTotal: lista.length,
     aprovados: lista.filter((o) => o.status === "Aprovado").reduce((a, o) => a + calcTotalOrcamento(o), 0),
+    qtdAprovados: lista.filter((o) => o.status === "Aprovado").length,
     pendentes: lista.filter((o) => o.status === "Enviado").length,
+    rascunhos: lista.filter((o) => o.status === "Rascunho").reduce((a, o) => a + calcTotalOrcamento(o), 0),
+    qtdRascunhos: lista.filter((o) => o.status === "Rascunho").length,
+    enviados: lista.filter((o) => o.status === "Enviado").reduce((a, o) => a + calcTotalOrcamento(o), 0),
+    qtdEnviados: lista.filter((o) => o.status === "Enviado").length,
+    rejeitados: lista.filter((o) => o.status === "Rejeitado").reduce((a, o) => a + calcTotalOrcamento(o), 0),
+    qtdRejeitados: lista.filter((o) => o.status === "Rejeitado").length,
+    cancelados: lista.filter((o) => o.status === "Cancelado").reduce((a, o) => a + calcTotalOrcamento(o), 0),
+    qtdCancelados: lista.filter((o) => o.status === "Cancelado").length,
   };
 
   function toggleExpandir(id: number) {
@@ -2602,18 +2612,30 @@ export default function Orcamentos() {
             </button>
           </div>
           {!cardsResumoMinimizados && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-              <Card className="p-3 sm:p-6 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0"><DollarSign className="w-5 h-5 text-indigo-600" /></div>
-                <div><p className="text-xs text-gray-500">Volume Total</p><p className="text-xl font-bold text-gray-900">{moeda(totais.total)}</p></div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+              <Card onClick={() => setFiltroStatus("Todos")} className={`p-3 sm:p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Todos" ? "ring-2 ring-indigo-500" : ""}`}>
+                <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0"><DollarSign className="w-4 h-4 text-indigo-600" /></div>
+                <div><p className="text-xs text-gray-500">Total</p><p className="text-base font-bold text-gray-900">{moeda(totais.total)}</p><p className="text-xs text-gray-400">{totais.qtdTotal} orçamento{totais.qtdTotal !== 1 ? "s" : ""}</p></div>
               </Card>
-              <Card className="p-3 sm:p-6 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0"><Check className="w-5 h-5 text-green-600" /></div>
-                <div><p className="text-xs text-gray-500">Aprovados</p><p className="text-xl font-bold text-gray-900">{moeda(totais.aprovados)}</p></div>
+              <Card onClick={() => setFiltroStatus(filtroStatus === "Rascunho" ? "Todos" : "Rascunho")} className={`p-3 sm:p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Rascunho" ? "ring-2 ring-gray-400" : ""}`}>
+                <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0"><FileText className="w-4 h-4 text-gray-500" /></div>
+                <div><p className="text-xs text-gray-500">Rascunho</p><p className="text-base font-bold text-gray-900">{moeda(totais.rascunhos)}</p><p className="text-xs text-gray-400">{totais.qtdRascunhos} orçamento{totais.qtdRascunhos !== 1 ? "s" : ""}</p></div>
               </Card>
-              <Card className="p-3 sm:p-6 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0"><Send className="w-5 h-5 text-blue-600" /></div>
-                <div><p className="text-xs text-gray-500">Aguardando retorno</p><p className="text-xl font-bold text-gray-900">{totais.pendentes} orçamento{totais.pendentes !== 1 ? "s" : ""}</p></div>
+              <Card onClick={() => setFiltroStatus(filtroStatus === "Enviado" ? "Todos" : "Enviado")} className={`p-3 sm:p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Enviado" ? "ring-2 ring-blue-500" : ""}`}>
+                <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0"><Send className="w-4 h-4 text-blue-600" /></div>
+                <div><p className="text-xs text-gray-500">Enviado</p><p className="text-base font-bold text-gray-900">{moeda(totais.enviados)}</p><p className="text-xs text-gray-400">{totais.qtdEnviados} orçamento{totais.qtdEnviados !== 1 ? "s" : ""}</p></div>
+              </Card>
+              <Card onClick={() => setFiltroStatus(filtroStatus === "Aprovado" ? "Todos" : "Aprovado")} className={`p-3 sm:p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Aprovado" ? "ring-2 ring-green-500" : ""}`}>
+                <div className="w-9 h-9 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0"><Check className="w-4 h-4 text-green-600" /></div>
+                <div><p className="text-xs text-gray-500">Aprovado</p><p className="text-base font-bold text-gray-900">{moeda(totais.aprovados)}</p><p className="text-xs text-gray-400">{totais.qtdAprovados} orçamento{totais.qtdAprovados !== 1 ? "s" : ""}</p></div>
+              </Card>
+              <Card onClick={() => setFiltroStatus(filtroStatus === "Rejeitado" ? "Todos" : "Rejeitado")} className={`p-3 sm:p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Rejeitado" ? "ring-2 ring-red-500" : ""}`}>
+                <div className="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0"><X className="w-4 h-4 text-red-500" /></div>
+                <div><p className="text-xs text-gray-500">Rejeitado</p><p className="text-base font-bold text-gray-900">{moeda(totais.rejeitados)}</p><p className="text-xs text-gray-400">{totais.qtdRejeitados} orçamento{totais.qtdRejeitados !== 1 ? "s" : ""}</p></div>
+              </Card>
+              <Card onClick={() => setFiltroStatus(filtroStatus === "Cancelado" ? "Todos" : "Cancelado")} className={`p-3 sm:p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Cancelado" ? "ring-2 ring-orange-500" : ""}`}>
+                <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0"><X className="w-4 h-4 text-orange-500" /></div>
+                <div><p className="text-xs text-gray-500">Cancelado</p><p className="text-base font-bold text-gray-900">{moeda(totais.cancelados)}</p><p className="text-xs text-gray-400">{totais.qtdCancelados} orçamento{totais.qtdCancelados !== 1 ? "s" : ""}</p></div>
               </Card>
             </div>
           )}
@@ -2626,11 +2648,6 @@ export default function Orcamentos() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input placeholder="Pesquisar por número, cliente, e-mail..." value={busca} onChange={(e) => setBusca(e.target.value)} className="pl-9 pr-9" />
               {busca && <button onClick={() => setBusca("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {(["Todos", ...allStatus] as const).map((s) => (
-                  <button key={s} onClick={() => setFiltroStatus(s as StatusOrc | "Todos")} className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${filtroStatus === s ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"}`}>{s}</button>
-              ))}
             </div>
           </div>
         </Card>
