@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent } from "react";
-import { User, Calendar, Clock, Award, Plus, Edit2, X, Camera, Maximize2, Minimize2 } from "lucide-react";
+import { User, UserCheck, UserX, Plus, Edit2, X, Camera, Maximize2, Minimize2 } from "lucide-react";
 import { Card } from "./ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
 import { Button } from "./ui/button";
@@ -25,20 +25,20 @@ export default function Funcionario() {
   const [erro, setErro] = useState<string | null>(null);
   const [saudacoesExpandido, setSaudacoesExpandido] = useState(false);
 
-  async function carregarFuncionarios() {
+  async function carregarDados() {
     setErro(null);
     try {
       const itens = await listarFuncionarios();
       setFuncionarios(itens);
     } catch (error) {
-      setErro(error instanceof Error ? error.message : "Erro ao carregar funcionários.");
+      setErro(error instanceof Error ? error.message : "Erro ao carregar dados.");
     } finally {
       setCarregando(false);
     }
   }
 
   useEffect(() => {
-    carregarFuncionarios();
+    carregarDados();
   }, []);
 
   function abrirNovo() { setErro(null); setEditando(null); setForm(funcionarioVazio); setSaudacoesExpandido(false); setModalAberto(true); }
@@ -74,7 +74,7 @@ export default function Funcionario() {
         await criarFuncionario(payload);
       }
 
-      await carregarFuncionarios();
+      await carregarDados();
       fecharModal();
     } catch (error) {
       setErro(error instanceof Error ? error.message : "Erro ao salvar funcionário.");
@@ -83,6 +83,14 @@ export default function Funcionario() {
     }
   }
 
+  const totalAprovado = orcamentos
+    .filter((o) => o.status === "Aprovado")
+    .reduce((acc, o) => acc + calcularTotalOrcamento(o), 0);
+
+  const totalNaoAprovado = orcamentos
+    .filter((o) => o.status !== "Aprovado")
+    .reduce((acc, o) => acc + calcularTotalOrcamento(o), 0);
+
   const stats = [
     {
       icon: User,
@@ -90,27 +98,23 @@ export default function Funcionario() {
       value: String(funcionarios.length),
       color: "text-blue-600",
       bgColor: "bg-blue-100",
+      isMoeda: false,
     },
     {
-      icon: Calendar,
-      title: "Aniversariantes do Mês",
-      value: "0",
+      icon: UserCheck,
+      title: "Funcionários Ativos",
+      value: String(funcionarios.filter((f) => f.status === "Ativo").length),
       color: "text-green-600",
       bgColor: "bg-green-100",
+      isMoeda: false,
     },
     {
-      icon: Clock,
-      title: "Em Férias",
-      value: "0",
-      color: "text-orange-600",
-      bgColor: "bg-orange-100",
-    },
-    {
-      icon: Award,
-      title: "Destaques do Mês",
-      value: "0",
-      color: "text-purple-600",
-      bgColor: "bg-purple-100",
+      icon: UserX,
+      title: "Funcionários Inativos",
+      value: String(funcionarios.filter((f) => f.status === "Inativo").length),
+      color: "text-red-600",
+      bgColor: "bg-red-100",
+      isMoeda: false,
     },
   ];
 
@@ -124,7 +128,7 @@ export default function Funcionario() {
         <Button onClick={abrirNovo} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"><Plus className="w-4 h-4" /> Novo Funcionário</Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (

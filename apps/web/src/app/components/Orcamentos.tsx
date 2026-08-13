@@ -2596,7 +2596,7 @@ export default function Orcamentos() {
             <p className="text-sm text-gray-500 mt-1">{lista.length} orçamentos cadastrados</p>
           </div>
           <Button onClick={abrirNovo} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white">
-            <Plus className="w-4 h-4" /> Novo Orçamento
+            <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Novo Orçamento</span><span className="sm:hidden">Novo</span>
           </Button>
         </div>
 
@@ -2612,7 +2612,7 @@ export default function Orcamentos() {
             </button>
           </div>
           {!cardsResumoMinimizados && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
               <Card onClick={() => setFiltroStatus("Todos")} className={`p-3 sm:p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Todos" ? "ring-2 ring-indigo-500" : ""}`}>
                 <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0"><DollarSign className="w-4 h-4 text-indigo-600" /></div>
                 <div><p className="text-xs text-gray-500">Total</p><p className="text-base font-bold text-gray-900">{moeda(totais.total)}</p><p className="text-xs text-gray-400">{totais.qtdTotal} orçamento{totais.qtdTotal !== 1 ? "s" : ""}</p></div>
@@ -2675,80 +2675,98 @@ export default function Orcamentos() {
             const cfg = statusConfig[orc.status];
             const expandido = expandidos.has(orc.id);
             const vencido = orc.dataValidade && new Date(orc.dataValidade) < new Date() && orc.status !== "Aprovado" && orc.status !== "Cancelado" && orc.status !== "Rejeitado";
+            const temLancamento = lancamentosFinanceiros.some((l) => l.orcamentoId === orc.id);
             return (
                 <Card key={orc.id} className="overflow-hidden">
                   {/* Linha principal */}
-                  <div className="p-4 flex items-center gap-4">
-                    <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                      <FileText className="w-4 h-4 text-indigo-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-base font-semibold text-gray-900">{orc.cliente}</p>
-                        {orc.destino && <span className="flex items-center gap-1 text-sm text-gray-500"><MapPin className="w-3.5 h-3.5" />{orc.destino}</span>}
+                  <div className="p-3 sm:p-4">
+                    {/* Topo: ícone + info + valor */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <FileText className="w-4 h-4 text-indigo-600" />
                       </div>
-                      <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                        <span className="font-mono text-sm font-bold text-indigo-700">{orc.numero}</span>
-                        <Badge className={`${cfg.bg} ${cfg.cor} hover:${cfg.bg}`}>{orc.status}</Badge>
-                        {orc.statusViagem && (() => { const cfgV = statusViagemConfig[orc.statusViagem]; return <Badge className={`${cfgV.bg} ${cfgV.cor} hover:${cfgV.bg}`}>{orc.statusViagem}</Badge>; })()}
-                        {vencido && <span className="text-xs text-red-500 font-semibold">⚠ Vencido</span>}
-                      </div>
-                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                        <span className="flex items-center gap-1 text-xs text-gray-400"><Calendar className="w-3 h-3" />Emissão: {fmtData(orc.dataCriacao)}</span>
-                        {orc.dataValidade && <span className="flex items-center gap-1 text-xs text-gray-400"><Calendar className="w-3 h-3" />Validade: {fmtData(orc.dataValidade)}</span>}
-                        <span className="text-xs text-gray-400">{orc.itens.length} item{orc.itens.length !== 1 ? "s" : ""}</span>
+
+                      {/* Bloco central de info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm sm:text-base font-semibold text-gray-900 leading-tight truncate">{orc.cliente}</p>
+                          <p className="font-bold text-base sm:text-lg text-indigo-700 flex-shrink-0 leading-tight">{moeda(total)}</p>
+                        </div>
+
+                        {/* Número + destino */}
+                        <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                          <span className="font-mono text-xs font-bold text-indigo-600">{orc.numero}</span>
+                          {orc.destino && <span className="flex items-center gap-1 text-xs text-gray-500"><MapPin className="w-3 h-3" />{orc.destino}</span>}
+                        </div>
+
+                        {/* Badges de status */}
+                        <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                          <Badge className={`${cfg.bg} ${cfg.cor} hover:${cfg.bg} text-xs`}>{orc.status}</Badge>
+                          {orc.statusViagem && (() => { const cfgV = statusViagemConfig[orc.statusViagem]; return <Badge className={`${cfgV.bg} ${cfgV.cor} hover:${cfgV.bg} text-xs`}>{orc.statusViagem}</Badge>; })()}
+                          {vencido && <span className="text-xs text-red-500 font-semibold">⚠ Vencido</span>}
+                        </div>
+
+                        {/* Datas — linha abaixo em mobile */}
+                        <div className="flex items-center gap-3 mt-1 flex-wrap">
+                          <span className="flex items-center gap-1 text-xs text-gray-400"><Calendar className="w-3 h-3" />{fmtData(orc.dataCriacao)}</span>
+                          {orc.dataValidade && <span className="flex items-center gap-1 text-xs text-gray-400"><Calendar className="w-3 h-3" />Val: {fmtData(orc.dataValidade)}</span>}
+                          <span className="text-xs text-gray-400">{orc.itens.length} item{orc.itens.length !== 1 ? "s" : ""}</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-bold text-lg text-indigo-700">{moeda(total)}</p>
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
-                      {(() => {
-                        const temLancamento = lancamentosFinanceiros.some((l) => l.orcamentoId === orc.id);
-                        return (
-                          <button
-                            onClick={() => abrirLancamentoDaLista(orc)}
-                            title={temLancamento ? "Editar lançamento financeiro" : "Criar lançamento financeiro"}
-                            className={`p-1.5 rounded transition-colors ${temLancamento ? "text-emerald-600 hover:bg-emerald-50" : "text-orange-400 hover:bg-orange-50"}`}
-                          >
-                            <DollarSign className="w-4 h-4" />
-                          </button>
-                        );
-                      })()}
-                      <button onClick={() => abrirResumo(orc)} title="Orçamento" className="p-1.5 rounded text-blue-600 hover:bg-blue-50 transition-colors"><FileText className="w-4 h-4" /></button>
-                      <button onClick={() => abrirEdicao(orc)} title="Editar" className="p-1.5 rounded text-blue-600 hover:bg-blue-50 transition-colors"><Edit2 className="w-4 h-4" /></button>
+
+                    {/* Barra de ações — separada embaixo, scroll horizontal em mobile */}
+                    <div className="mt-2.5 pt-2.5 border-t border-gray-100 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none">
+                        <button
+                          onClick={() => abrirLancamentoDaLista(orc)}
+                          title={temLancamento ? "Editar lançamento financeiro" : "Criar lançamento financeiro"}
+                          className={`p-2 rounded-lg transition-colors flex-shrink-0 ${temLancamento ? "text-emerald-600 hover:bg-emerald-50" : "text-orange-400 hover:bg-orange-50"}`}
+                        >
+                          <DollarSign className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => abrirResumo(orc)} title="Orçamento" className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0"><FileText className="w-4 h-4" /></button>
+                        <button onClick={() => abrirEdicao(orc)} title="Editar" className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0"><Edit2 className="w-4 h-4" /></button>
+                        <button onClick={() => gerarRoteiro(orc)} title="Roteiro" className="p-2 rounded-lg text-green-600 hover:bg-green-50 transition-colors flex-shrink-0"><MapPin className="w-4 h-4" /></button>
+                        <button onClick={() => confirmarDuplicacao(orc)} title="Duplicar" className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"><Copy className="w-4 h-4" /></button>
+                        <button
+                          onClick={() => toggleFavorito(orc.id)}
+                          title={favoritos.includes(orc.id) ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                          className={`p-2 rounded-lg transition-colors flex-shrink-0 ${favoritos.includes(orc.id) ? 'text-yellow-400 hover:text-yellow-500' : 'text-gray-300 hover:text-yellow-400'}`}
+                        >
+                          <Star className={`w-4 h-4 ${favoritos.includes(orc.id) ? 'fill-yellow-400' : ''}`} />
+                        </button>
+                      </div>
                       <button
-                          onClick={() => gerarRoteiro(orc)}
-                          title="Roteiro"
-                          className="p-1.5 rounded text-green-600 hover:bg-green-50 transition-colors"
-                      ><MapPin className="w-4 h-4" /></button>
-                      <button onClick={() => confirmarDuplicacao(orc)} title="Duplicar" className="p-1.5 rounded text-gray-500 hover:bg-gray-100 transition-colors"><Copy className="w-4 h-4" /></button>
-                      <button onClick={() => toggleFavorito(orc.id)} title={favoritos.includes(orc.id) ? "Remover dos favoritos" : "Adicionar aos favoritos"} className={`p-1.5 rounded transition-colors ${favoritos.includes(orc.id) ? 'text-yellow-400 hover:text-yellow-500' : 'text-gray-300 hover:text-yellow-400'}`}>
-                        <Star className={`w-4 h-4 ${favoritos.includes(orc.id) ? 'fill-yellow-400' : ''}`} />
-                      </button>
-                      <button onClick={() => toggleExpandir(orc.id)} className="p-1.5 rounded text-gray-400 hover:bg-gray-100 transition-colors">
+                        onClick={() => toggleExpandir(orc.id)}
+                        className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors flex-shrink-0 ml-1"
+                        title={expandido ? "Recolher" : "Ver detalhes"}
+                      >
                         {expandido ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
 
-                  {/* Itens expandidos */}
+                  {/* Itens expandidos — cards em mobile, tabela em desktop */}
                   {expandido && (
-                      <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
-                        <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Descrição</h4>
+                    <div className="border-t border-gray-100 bg-gray-50 px-3 sm:px-4 py-3">
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Descrição</h4>
+
+                      {/* Tabela — apenas desktop */}
+                      <div className="hidden sm:block overflow-x-auto">
                         <table className="w-full text-xs">
                           <thead>
-                          <tr className="text-gray-400 font-semibold">
-                            <th className="text-left pb-2">Descrição</th>
-                            <th className="text-center pb-2 w-12">Qtd</th>
-                            <th className="text-center pb-2 w-10">Un</th>
-                            <th className="text-right pb-2 w-24">Unit.</th>
-                            <th className="text-right pb-2 w-16">Desc.</th>
-                            <th className="text-right pb-2 w-24">Total</th>
-                          </tr>
+                            <tr className="text-gray-400 font-semibold">
+                              <th className="text-left pb-2">Descrição</th>
+                              <th className="text-center pb-2 w-12">Qtd</th>
+                              <th className="text-center pb-2 w-10">Un</th>
+                              <th className="text-right pb-2 w-24">Unit.</th>
+                              <th className="text-right pb-2 w-16">Desc.</th>
+                              <th className="text-right pb-2 w-24">Total</th>
+                            </tr>
                           </thead>
                           <tbody>
-                          {linhasDescricao.map((item) => (
+                            {linhasDescricao.map((item) => (
                               <tr key={item.id} className="border-t border-gray-200">
                                 <td className="py-1.5 text-gray-700">{item.descricao}</td>
                                 <td className="py-1.5 text-center text-gray-500">{item.quantidade}</td>
@@ -2757,15 +2775,32 @@ export default function Orcamentos() {
                                 <td className="py-1.5 text-right text-orange-500">{item.desconto > 0 ? `${item.desconto}%` : "—"}</td>
                                 <td className="py-1.5 text-right font-semibold text-gray-800">{moeda(calcItem(item))}</td>
                               </tr>
-                          ))}
-                          <tr className="border-t-2 border-indigo-200">
-                            <td colSpan={5} className="py-2 font-bold text-gray-700">Total</td>
-                            <td className="py-2 text-right font-bold text-indigo-700">{moeda(totalDescricao)}</td>
-                          </tr>
+                            ))}
+                            <tr className="border-t-2 border-indigo-200">
+                              <td colSpan={5} className="py-2 font-bold text-gray-700">Total</td>
+                              <td className="py-2 text-right font-bold text-indigo-700">{moeda(totalDescricao)}</td>
+                            </tr>
                           </tbody>
                         </table>
-
                       </div>
+
+                      {/* Cards — apenas mobile */}
+                      <div className="sm:hidden space-y-2">
+                        {linhasDescricao.map((item) => (
+                          <div key={item.id} className="rounded-lg bg-white border border-gray-200 px-3 py-2">
+                            <p className="text-xs font-medium text-gray-800 leading-snug">{item.descricao}</p>
+                            <div className="flex items-center justify-between mt-1.5 gap-2 flex-wrap">
+                              <span className="text-xs text-gray-400">{item.quantidade} {item.unidade} × {moeda(item.valorUnitario)}{item.desconto > 0 ? ` (−${item.desconto}%)` : ""}</span>
+                              <span className="text-xs font-semibold text-gray-800">{moeda(calcItem(item))}</span>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="flex justify-between items-center pt-1 border-t-2 border-indigo-200 mt-1">
+                          <span className="text-xs font-bold text-gray-700">Total</span>
+                          <span className="text-sm font-bold text-indigo-700">{moeda(totalDescricao)}</span>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </Card>
             );
