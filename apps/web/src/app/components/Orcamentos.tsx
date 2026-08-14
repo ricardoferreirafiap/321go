@@ -2683,7 +2683,7 @@ export default function Orcamentos() {
             const total = calcTotalOrcamento(orc);
             const linhasDescricao = montarLinhasDescricao(orc);
             const totalDescricao = calcTotal(linhasDescricao);
-            const cfg = statusConfig[orc.status];
+            const cfg = statusConfig[orc.status] || defaultStatusConfig;
             const expandido = expandidos.has(orc.id);
             const vencido = orc.dataValidade && new Date(orc.dataValidade) < new Date() && orc.status !== "Aprovado" && orc.status !== "Cancelado" && orc.status !== "Rejeitado";
             const temLancamento = lancamentosFinanceiros.some((l) => l.orcamentoId === orc.id);
@@ -2713,7 +2713,7 @@ export default function Orcamentos() {
                         {/* Badges de status */}
                         <div className="flex items-center gap-1.5 flex-wrap mt-1">
                           <Badge className={`${cfg.bg} ${cfg.cor} hover:${cfg.bg} text-xs`}>{orc.status}</Badge>
-                          {orc.statusViagem && (() => { const cfgV = statusViagemConfig[orc.statusViagem]; return <Badge className={`${cfgV.bg} ${cfgV.cor} hover:${cfgV.bg} text-xs`}>{orc.statusViagem}</Badge>; })()}
+                          {orc.statusViagem && (() => { const cfgV = statusViagemConfig[orc.statusViagem] || statusViagemConfig; return <Badge className={`${cfgV.bg} ${cfgV.cor} hover:${cfgV.bg} text-xs`}>{orc.statusViagem}</Badge>; })()}
                           {vencido && <span className="text-xs text-red-500 font-semibold">⚠ Vencido</span>}
                         </div>
 

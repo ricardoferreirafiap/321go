@@ -1,4 +1,4 @@
-ï»¿import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -29,9 +29,9 @@ interface CotacaoDolar {
 
 function DolarWidget() {
   const [expandido, setExpandido] = useState(false);
-  // CotaÃ§Ã£o comercial
+  // Cotação comercial
   const [cotacao, setCotacao] = useState<CotacaoDolar | null>(null);
-  // CotaÃ§Ã£o turismo
+  // Cotação turismo
   const [cotacaoTurismo, setCotacaoTurismo] = useState<CotacaoDolar | null>(null);
   const [loadingCotacao, setLoadingCotacao] = useState(true);
   const [erroCotacao, setErroCotacao] = useState<string | null>(null);
@@ -45,7 +45,7 @@ function DolarWidget() {
         fetch("https://economia.awesomeapi.com.br/last/USD-BRL"),
         fetch("https://economia.awesomeapi.com.br/last/USD-BRLT"),
       ]);
-      if (!resComercial.ok) throw new Error("Falha ao buscar cotaÃ§Ã£o");
+      if (!resComercial.ok) throw new Error("Falha ao buscar cotação");
       const dataComercial = await resComercial.json();
       setCotacao(dataComercial.USDBRL as CotacaoDolar);
       if (resTurismo.ok) {
@@ -54,7 +54,7 @@ function DolarWidget() {
       }
       setUltimaAtualizacao(new Date());
     } catch {
-      setErroCotacao("NÃ£o foi possÃ­vel carregar a cotaÃ§Ã£o do dÃ³lar.");
+      setErroCotacao("Não foi possível carregar a cotação do dólar.");
     } finally {
       setLoadingCotacao(false);
     }
@@ -76,13 +76,13 @@ function DolarWidget() {
   return (
     <Card className="border border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20">
       <CardContent className="py-2 px-4">
-        {/* Barra de tÃ­tulo sempre visÃ­vel */}
+        {/* Barra de título sempre visível */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/40">
               <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
             </div>
-            <span className="text-sm font-medium text-muted-foreground">DÃ³lar Americano (USD / BRL)</span>
+            <span className="text-sm font-medium text-muted-foreground">Dólar Americano (USD / BRL)</span>
             {/* Resumo quando minimizado */}
             {!expandido && cotacao && !loadingCotacao && (
               <span className="ml-3 flex items-center gap-3 text-sm">
@@ -109,7 +109,7 @@ function DolarWidget() {
             title={expandido ? "Minimizar" : "Expandir"}
             className="flex h-7 w-7 items-center justify-center rounded-full border border-green-200 bg-white hover:bg-green-50 transition-colors text-green-600 text-xs font-bold shadow-sm"
           >
-            {expandido ? "â–²" : "â–¼"}
+            {expandido ? "?" : "?"}
           </button>
         </div>
 
@@ -125,7 +125,7 @@ function DolarWidget() {
               <p className="text-sm text-red-500">{erroCotacao}</p>
             ) : cotacao ? (
               <>
-                {/* â”€â”€ Linha de cotaÃ§Ãµes â”€â”€ */}
+                {/* -- Linha de cotações -- */}
                 <div className="flex flex-wrap items-start gap-6">
                   {/* Compra comercial */}
                   <div className="flex flex-col">
@@ -138,39 +138,39 @@ function DolarWidget() {
                   {/* Separador visual */}
                   <div className="hidden sm:block w-px self-stretch bg-green-200" />
 
-                  {/* DÃ³lar Turismo â€” destaque */}
+                  {/* Dólar Turismo — destaque */}
                   {cotacaoTurismo && (
                     <div className="flex flex-col">
-                      <span className="text-xs font-semibold text-green-700">Turismo â€” Compra c/ cartÃ£o</span>
+                      <span className="text-xs font-semibold text-green-700">Turismo — Compra c/ cartão</span>
                       <span className="text-xl font-bold text-green-800 dark:text-green-300">
                         {fmtBRLStr(cotacaoTurismo.ask)}
                       </span>
-                      <span className="text-xs text-muted-foreground">taxa aplicada no cartÃ£o internacional</span>
+                      <span className="text-xs text-muted-foreground">taxa aplicada no cartão internacional</span>
                     </div>
                   )}
 
-                  {/* VariaÃ§Ã£o */}
+                  {/* Variação */}
                   <div className="flex flex-col">
-                    <span className="text-xs text-muted-foreground">VariaÃ§Ã£o hoje</span>
+                    <span className="text-xs text-muted-foreground">Variação hoje</span>
                     <span className={`flex items-center gap-1 text-sm font-semibold ${positivo ? "text-red-500" : "text-green-600"}`}>
                       {positivo ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
                       {positivo ? "+" : ""}{variacao.toFixed(2)}%
                     </span>
                   </div>
 
-                  {/* MÃ¡x / MÃ­n */}
+                  {/* Máx / Mín */}
                   <div className="flex flex-col">
-                    <span className="text-xs text-muted-foreground">MÃ¡x / MÃ­n</span>
+                    <span className="text-xs text-muted-foreground">Máx / Mín</span>
                     <span className="text-sm text-gray-700 dark:text-gray-300">
                       {fmtBRLStr(cotacao.high)} / {fmtBRLStr(cotacao.low)}
                     </span>
                   </div>
 
-                  {/* AtualizaÃ§Ã£o */}
+                  {/* Atualização */}
                   <div className="flex flex-col items-start sm:items-end gap-1 sm:ml-auto">
                     {ultimaAtualizacao && (
                       <span className="text-xs text-muted-foreground">
-                        Atualizado Ã s {ultimaAtualizacao.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                        Atualizado às {ultimaAtualizacao.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     )}
                     <button
@@ -185,7 +185,7 @@ function DolarWidget() {
               </>
             ) : null}
 
-            {/* Conversor de Moedas â€” no final do quadro DÃ³lar */}
+            {/* Conversor de Moedas — no final do quadro Dólar */}
             <div className="mt-4 border-t border-green-200 pt-4">
               <ConversorMoedas />
             </div>
@@ -196,18 +196,18 @@ function DolarWidget() {
   );
 }
 const MOEDAS = [
-  { code: "BRL", label: "Real Brasileiro", flag: "ðŸ‡§ðŸ‡·" },
-  { code: "USD", label: "DÃ³lar Americano", flag: "ðŸ‡ºðŸ‡¸" },
-  { code: "EUR", label: "Euro", flag: "ðŸ‡ªðŸ‡º" },
-  { code: "GBP", label: "Libra Esterlina", flag: "ðŸ‡¬ðŸ‡§" },
-  { code: "ARS", label: "Peso Argentino", flag: "ðŸ‡¦ðŸ‡·" },
-  { code: "CAD", label: "DÃ³lar Canadense", flag: "ðŸ‡¨ðŸ‡¦" },
-  { code: "AUD", label: "DÃ³lar Australiano", flag: "ðŸ‡¦ðŸ‡º" },
-  { code: "JPY", label: "Iene JaponÃªs", flag: "ðŸ‡¯ðŸ‡µ" },
-  { code: "CHF", label: "Franco SuÃ­Ã§o", flag: "ðŸ‡¨ðŸ‡­" },
-  { code: "CNY", label: "Yuan ChinÃªs", flag: "ðŸ‡¨ðŸ‡³" },
-  { code: "MXN", label: "Peso Mexicano", flag: "ðŸ‡²ðŸ‡½" },
-  { code: "CLP", label: "Peso Chileno", flag: "ðŸ‡¨ðŸ‡±" },
+  { code: "BRL", label: "Real Brasileiro", flag: "????" },
+  { code: "USD", label: "Dólar Americano", flag: "????" },
+  { code: "EUR", label: "Euro", flag: "????" },
+  { code: "GBP", label: "Libra Esterlina", flag: "????" },
+  { code: "ARS", label: "Peso Argentino", flag: "????" },
+  { code: "CAD", label: "Dólar Canadense", flag: "????" },
+  { code: "AUD", label: "Dólar Australiano", flag: "????" },
+  { code: "JPY", label: "Iene Japonês", flag: "????" },
+  { code: "CHF", label: "Franco Suíço", flag: "????" },
+  { code: "CNY", label: "Yuan Chinês", flag: "????" },
+  { code: "MXN", label: "Peso Mexicano", flag: "????" },
+  { code: "CLP", label: "Peso Chileno", flag: "????" },
 ];
 
 function ConversorMoedas() {
@@ -235,14 +235,14 @@ function ConversorMoedas() {
 
   async function converter() {
     const num = parseFloat(valor.replace(",", "."));
-    if (isNaN(num) || num <= 0) { setErroConv("Valor invÃ¡lido."); return; }
+    if (isNaN(num) || num <= 0) { setErroConv("Valor inválido."); return; }
     if (de === para) {
       setTaxa(1); setTaxaTurismo(null); setResultado(num); setUltimaConv(new Date()); setErroConv(null); return;
     }
     setLoadingConv(true);
     setErroConv(null);
     try {
-      // Busca cotaÃ§Ã£o comercial + turismo em paralelo (turismo sÃ³ para USDâ†’BRL)
+      // Busca cotação comercial + turismo em paralelo (turismo só para USD?BRL)
       const isUsdToBrl = de === "USD" && para === "BRL";
       const fetches: Promise<Response>[] = [
         fetch(`https://economia.awesomeapi.com.br/last/${de}-${para}`),
@@ -250,10 +250,10 @@ function ConversorMoedas() {
       if (isUsdToBrl) fetches.push(fetch("https://economia.awesomeapi.com.br/last/USD-BRLT"));
 
       const respostas = await Promise.all(fetches);
-      if (!respostas[0].ok) throw new Error("Par nÃ£o disponÃ­vel");
+      if (!respostas[0].ok) throw new Error("Par não disponível");
       const dados = await respostas[0].json();
       const cotacaoAtual = dados[`${de}${para}`];
-      if (!cotacaoAtual) throw new Error("CotaÃ§Ã£o nÃ£o encontrada");
+      if (!cotacaoAtual) throw new Error("Cotação não encontrada");
       const bid = parseFloat(cotacaoAtual.bid);
       setTaxa(bid);
       setResultado(num * bid);
@@ -294,10 +294,10 @@ function ConversorMoedas() {
   const moedasOrigemLabel = MOEDAS.find((m) => m.code === de);
   const moedasDestinoLabel = MOEDAS.find((m) => m.code === para);
 
-  // CÃ¡lculos de IOF â€” sÃ³ exibidos quando o resultado existe e a moeda destino Ã© BRL
+  // Cálculos de IOF — só exibidos quando o resultado existe e a moeda destino é BRL
   const num = parseFloat(valor.replace(",", "."));
   const mostrarIof = resultado !== null && para === "BRL" && !isNaN(num) && num > 0;
-  const baseIof = taxaTurismo ?? taxa; // usa turismo se disponÃ­vel
+  const baseIof = taxaTurismo ?? taxa; // usa turismo se disponível
 
   const calcComIof = (iofPct: number) =>
     baseIof ? num * baseIof * (1 + iofPct / 100) : null;
@@ -310,7 +310,7 @@ function ConversorMoedas() {
   return (
     <Card className="border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20">
       <CardContent className="py-2 px-4">
-        {/* Barra sempre visÃ­vel â€” tÃ­tulo + toggle */}
+        {/* Barra sempre visível — título + toggle */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40">
@@ -334,14 +334,14 @@ function ConversorMoedas() {
             title={expandido ? "Minimizar" : "Expandir"}
             className="flex h-7 w-7 items-center justify-center rounded-full border border-blue-200 bg-white hover:bg-blue-50 transition-colors text-blue-600 text-xs font-bold shadow-sm"
           >
-            {expandido ? "â–²" : "â–¼"}
+            {expandido ? "?" : "?"}
           </button>
         </div>
 
         {/* Corpo expandido */}
         {expandido && (
           <div className="mt-2 space-y-3">
-            {/* â”€â”€ Linha de inputs â”€â”€ */}
+            {/* -- Linha de inputs -- */}
             <div className="flex flex-wrap items-center gap-2 pb-1">
               <input
                 type="number"
@@ -364,7 +364,7 @@ function ConversorMoedas() {
                 title="Trocar moedas"
                 className="h-8 w-8 shrink-0 flex items-center justify-center rounded-full border border-blue-200 bg-white hover:bg-blue-50 transition-colors shadow-sm text-blue-500 font-bold"
               >
-                â‡„
+                ?
               </button>
               <select
                 value={para}
@@ -386,64 +386,64 @@ function ConversorMoedas() {
                     {formatMoeda(resultado, para)}
                   </span>
                 ) : (
-                  <span className="text-sm text-muted-foreground">â€”</span>
+                  <span className="text-sm text-muted-foreground">—</span>
                 )}
               </div>
               {taxa !== null && !loadingConv && !erroConv && (
                 <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
                   (1 {de} = {taxa.toFixed(4)} {para}
-                  {ultimaConv ? ` Â· ${ultimaConv.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : ""})
+                  {ultimaConv ? ` · ${ultimaConv.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : ""})
                 </span>
               )}
             </div>
 
-            {/* â”€â”€ Breakdown de IOF â€” aparece apenas quando hÃ¡ resultado em BRL â”€â”€ */}
+            {/* -- Breakdown de IOF — aparece apenas quando há resultado em BRL -- */}
             {mostrarIof && semIof !== null && (
               <div className="rounded-lg border border-blue-200 bg-white/70 px-3 py-2">
                 <p className="mb-2 text-xs font-semibold text-blue-800 uppercase tracking-wide">
                   Custo total por forma de pagamento
                   {taxaTurismo && (
                     <span className="ml-2 font-normal text-blue-500 normal-case">
-                      (base: dÃ³lar turismo {formatMoeda(taxaTurismo, "BRL")}/USD)
+                      (base: dólar turismo {formatMoeda(taxaTurismo, "BRL")}/USD)
                     </span>
                   )}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {/* CartÃ£o de CrÃ©dito */}
+                  {/* Cartão de Crédito */}
                   <div className="flex flex-col rounded-md border border-blue-100 bg-blue-50 px-3 py-2">
-                    <span className="text-xs text-muted-foreground">ðŸ’³ CartÃ£o de CrÃ©dito</span>
+                    <span className="text-xs text-muted-foreground">?? Cartão de Crédito</span>
                     <span className="text-base font-bold text-blue-800">
-                      {comCredito !== null ? formatMoeda(comCredito, "BRL") : "â€”"}
+                      {comCredito !== null ? formatMoeda(comCredito, "BRL") : "—"}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      IOF {IOF.credito}% Â· +{comCredito !== null ? formatMoeda(comCredito - semIof, "BRL") : "â€”"}
+                      IOF {IOF.credito}% · +{comCredito !== null ? formatMoeda(comCredito - semIof, "BRL") : "—"}
                     </span>
                   </div>
 
-                  {/* CartÃ£o de DÃ©bito / PrÃ©-pago */}
+                  {/* Cartão de Débito / Pré-pago */}
                   <div className="flex flex-col rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2">
-                    <span className="text-xs text-muted-foreground">ðŸ’³ DÃ©bito / PrÃ©-pago</span>
+                    <span className="text-xs text-muted-foreground">?? Débito / Pré-pago</span>
                     <span className="text-base font-bold text-indigo-800">
-                      {comDebito !== null ? formatMoeda(comDebito, "BRL") : "â€”"}
+                      {comDebito !== null ? formatMoeda(comDebito, "BRL") : "—"}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      IOF {IOF.debito}% Â· +{comDebito !== null ? formatMoeda(comDebito - semIof, "BRL") : "â€”"}
+                      IOF {IOF.debito}% · +{comDebito !== null ? formatMoeda(comDebito - semIof, "BRL") : "—"}
                     </span>
                   </div>
 
-                  {/* Dinheiro / EspÃ©cie */}
+                  {/* Dinheiro / Espécie */}
                   <div className="flex flex-col rounded-md border border-green-100 bg-green-50 px-3 py-2">
-                    <span className="text-xs text-muted-foreground">ðŸ’µ Dinheiro / EspÃ©cie</span>
+                    <span className="text-xs text-muted-foreground">?? Dinheiro / Espécie</span>
                     <span className="text-base font-bold text-green-800">
-                      {comDinheiro !== null ? formatMoeda(comDinheiro, "BRL") : "â€”"}
+                      {comDinheiro !== null ? formatMoeda(comDinheiro, "BRL") : "—"}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      Sem IOF Â· taxa turismo
+                      Sem IOF · taxa turismo
                     </span>
                   </div>
                 </div>
                 <p className="mt-1.5 text-xs text-muted-foreground">
-                  Valores estimados com base na cotaÃ§Ã£o turismo. O banco pode aplicar tarifas adicionais.
+                  Valores estimados com base na cotação turismo. O banco pode aplicar tarifas adicionais.
                 </p>
               </div>
             )}
@@ -459,7 +459,7 @@ import { listarLeads, type Lead } from "../data/leadsApi";
 import { listarLancamentosFinanceiros, type LancamentoFinanceiro } from "../data/financeiroApi";
 import { listarOrcamentos, type Orcamento } from "../data/orcamentosApi";
 
-const periodFilters = ["Hoje", "MÃªs", "MÃªs Passado", "3m", "6m", "12m", "Tudo", "Personalizado"];
+const periodFilters = ["Hoje", "Mês", "Mês Passado", "3m", "6m", "12m", "Tudo", "Personalizado"];
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
@@ -486,7 +486,7 @@ type CardKey =
   | "finComissao"
   | "finSaldo"
   | "receitaRoteiros"
-  // legado (usado nos grÃ¡ficos)
+  // legado (usado nos gráficos)
   | "leadsPeriodo"
   | "fechamentos"
   | "churnInativos"
@@ -530,13 +530,13 @@ function resolverDataInicialPorFiltro(activeFilter: string, hoje: Date): { inici
     return { inicio, fim };
   }
 
-  if (activeFilter === "MÃªs") {
+  if (activeFilter === "Mês") {
     const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
     inicio.setHours(0, 0, 0, 0);
     return { inicio, fim };
   }
 
-  if (activeFilter === "MÃªs Passado") {
+  if (activeFilter === "Mês Passado") {
     const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
     inicio.setHours(0, 0, 0, 0);
     const fimMesPassado = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
@@ -692,7 +692,7 @@ function extrairDatasViagem(orc: Orcamento): { checkin: string | null; checkout:
 
 export default function LeadDashboard() {
   const [expandidoVisaoGeral, setExpandidoVisaoGeral] = useState(true);
-  const [activeFilter, setActiveFilter] = useState("MÃªs");
+  const [activeFilter, setActiveFilter] = useState("Mês");
   const [customDataInicio, setCustomDataInicio] = useState("");
   const [customDataFim, setCustomDataFim] = useState("");
   const [activeCard, setActiveCard] = useState<CardKey>("totalLeads");
@@ -716,7 +716,7 @@ export default function LeadDashboard() {
         setLancamentos(listaLancamentos);
         setOrcamentos(listaOrcamentos);
       } catch (erroCarregamento) {
-        setError(erroCarregamento instanceof Error ? erroCarregamento.message : "Erro ao carregar dados da visÃ£o geral.");
+        setError(erroCarregamento instanceof Error ? erroCarregamento.message : "Erro ao carregar dados da visão geral.");
       } finally {
         setLoading(false);
       }
@@ -787,7 +787,7 @@ export default function LeadDashboard() {
       }))
       .filter((orc): orc is Orcamento & { dataCriacaoDate: Date } => orc.dataCriacaoDate !== null);
 
-    // Filtra todos os dados pelo perÃ­odo selecionado
+    // Filtra todos os dados pelo período selecionado
     const leadsValidosPeriodo = leadsValidos.filter((lead) =>
       (!inicioFiltro || lead.criadoDate >= inicioFiltro) && lead.criadoDate <= fimFiltro
     );
@@ -833,7 +833,7 @@ export default function LeadDashboard() {
       orcamentosAprovadosValidos.map((orc) => orc.dataCriacaoDate)
     );
 
-    // CÃ¡lculos financeiros usados no chartByCard e nos grupos de cards
+    // Cálculos financeiros usados no chartByCard e nos grupos de cards
     const comissaoPeriodo = receitasVisiveis
       .filter((item) => item.comissaoValor !== null)
       .reduce((acc, item) => acc + (item.comissaoValor ?? 0), 0);
@@ -850,46 +850,46 @@ export default function LeadDashboard() {
 
     // Contagens por status CRM
     const crmNovoLead    = leadsValidosPeriodo.filter((l) => l.statusCrm === "Novo Lead").length;
-    const crmQualif      = leadsValidosPeriodo.filter((l) => l.statusCrm === "QualificaÃ§Ã£o").length;
-    const crmReuniao     = leadsValidosPeriodo.filter((l) => l.statusCrm === "ReuniÃ£o").length;
+    const crmQualif      = leadsValidosPeriodo.filter((l) => l.statusCrm === "Qualificação").length;
+    const crmReuniao     = leadsValidosPeriodo.filter((l) => l.statusCrm === "Reunião").length;
     const crmFollowUps   = leadsValidosPeriodo.filter((l) => l.statusCrm === "Follow-ups").length;
     const crmFinalizados = leadsValidosPeriodo.filter((l) => l.statusCrm === "Finalizados").length;
 
-    // Contagens por status orÃ§amento
+    // Contagens por status orçamento
     const orcRascunho  = orcamentosValidosPeriodo.filter((o) => o.status === "Rascunho").length;
     const orcAprovado  = orcamentosValidosPeriodo.filter((o) => o.status === "Aprovado").length;
 
     const chartByCard: Record<CardKey, Omit<CardChartConfig, "key" | "title" | "value" | "icon">> = {
       totalLeads: {
-        barTitle: "Leads por PerÃ­odo",
+        barTitle: "Leads por Período",
         pieTitle: "Status dos Leads",
         barData: leadsPorPeriodoData.map((item) => ({ name: item.name, value: item.leads })),
         barName: "Leads",
         pieData: statusLeadsData,
       },
       leadsNovo: {
-        barTitle: "Leads Novos por MÃªs",
+        barTitle: "Leads Novos por Mês",
         pieTitle: "Leads Novos",
         barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.status === "Novo").map((l) => l.criadoDate)),
         barName: "Novo",
         pieData: [{ name: "Novo", value: leadsValidosPeriodo.filter((l) => l.status === "Novo").length }],
       },
       leadsEmContato: {
-        barTitle: "Leads Em Contato por MÃªs",
+        barTitle: "Leads Em Contato por Mês",
         pieTitle: "Leads Em Contato",
         barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.status === "Em Contato").map((l) => l.criadoDate)),
         barName: "Em Contato",
         pieData: [{ name: "Em Contato", value: leadsValidosPeriodo.filter((l) => l.status === "Em Contato").length }],
       },
       leadsQualificado: {
-        barTitle: "Leads Qualificados por MÃªs",
+        barTitle: "Leads Qualificados por Mês",
         pieTitle: "Leads Qualificados",
         barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.status === "Qualificado").map((l) => l.criadoDate)),
         barName: "Qualificado",
         pieData: [{ name: "Qualificado", value: leadsValidosPeriodo.filter((l) => l.status === "Qualificado").length }],
       },
       leadsVendido: {
-        barTitle: "Fechamentos por MÃªs",
+        barTitle: "Fechamentos por Mês",
         pieTitle: "Fechamentos por Atendente",
         barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, fechamentosLeads.map((lead) => lead.criadoDate)),
         barName: "Vendido",
@@ -900,45 +900,45 @@ export default function LeadDashboard() {
         })(),
       },
       crmNovoLead: {
-        barTitle: "CRM â€” Novo Lead por MÃªs",
+        barTitle: "CRM — Novo Lead por Mês",
         pieTitle: "Novo Lead",
         barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.statusCrm === "Novo Lead").map((l) => l.criadoDate)),
         barName: "Novo Lead",
         pieData: [{ name: "Novo Lead", value: leadsValidosPeriodo.filter((l) => l.statusCrm === "Novo Lead").length }],
       },
       crmQualificacao: {
-        barTitle: "CRM â€” QualificaÃ§Ã£o por MÃªs",
-        pieTitle: "QualificaÃ§Ã£o",
-        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.statusCrm === "QualificaÃ§Ã£o").map((l) => l.criadoDate)),
-        barName: "QualificaÃ§Ã£o",
-        pieData: [{ name: "QualificaÃ§Ã£o", value: leadsValidosPeriodo.filter((l) => l.statusCrm === "QualificaÃ§Ã£o").length }],
+        barTitle: "CRM — Qualificação por Mês",
+        pieTitle: "Qualificação",
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.statusCrm === "Qualificação").map((l) => l.criadoDate)),
+        barName: "Qualificação",
+        pieData: [{ name: "Qualificação", value: leadsValidosPeriodo.filter((l) => l.statusCrm === "Qualificação").length }],
       },
       crmReuniao: {
-        barTitle: "CRM â€” ReuniÃ£o por MÃªs",
-        pieTitle: "ReuniÃ£o",
-        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.statusCrm === "ReuniÃ£o").map((l) => l.criadoDate)),
-        barName: "ReuniÃ£o",
-        pieData: [{ name: "ReuniÃ£o", value: leadsValidosPeriodo.filter((l) => l.statusCrm === "ReuniÃ£o").length }],
+        barTitle: "CRM — Reunião por Mês",
+        pieTitle: "Reunião",
+        barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.statusCrm === "Reunião").map((l) => l.criadoDate)),
+        barName: "Reunião",
+        pieData: [{ name: "Reunião", value: leadsValidosPeriodo.filter((l) => l.statusCrm === "Reunião").length }],
       },
       crmFollowUps: {
-        barTitle: "CRM â€” Follow-ups por MÃªs",
+        barTitle: "CRM — Follow-ups por Mês",
         pieTitle: "Follow-ups",
         barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.statusCrm === "Follow-ups").map((l) => l.criadoDate)),
         barName: "Follow-ups",
         pieData: [{ name: "Follow-ups", value: leadsValidosPeriodo.filter((l) => l.statusCrm === "Follow-ups").length }],
       },
       crmFinalizados: {
-        barTitle: "CRM â€” Finalizados por MÃªs",
+        barTitle: "CRM — Finalizados por Mês",
         pieTitle: "Finalizados",
         barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsValidosPeriodo.filter((l) => l.statusCrm === "Finalizados").map((l) => l.criadoDate)),
         barName: "Finalizados",
         pieData: [{ name: "Finalizados", value: leadsValidosPeriodo.filter((l) => l.statusCrm === "Finalizados").length }],
       },
       orcamentosTotal: {
-        barTitle: "OrÃ§amentos por MÃªs",
-        pieTitle: "Status dos OrÃ§amentos",
+        barTitle: "Orçamentos por Mês",
+        pieTitle: "Status dos Orçamentos",
         barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, orcamentosValidosPeriodo.map((o) => o.dataCriacaoDate)),
-        barName: "OrÃ§amentos",
+        barName: "Orçamentos",
         pieData: (() => {
           const map = new Map<string, number>();
           orcamentosValidosPeriodo.forEach((o) => map.set(o.status, (map.get(o.status) || 0) + 1));
@@ -946,22 +946,22 @@ export default function LeadDashboard() {
         })(),
       },
       orcamentosRascunho: {
-        barTitle: "Rascunhos por MÃªs",
+        barTitle: "Rascunhos por Mês",
         pieTitle: "Rascunhos",
         barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, orcamentosValidosPeriodo.filter((o) => o.status === "Rascunho").map((o) => o.dataCriacaoDate)),
         barName: "Rascunho",
         pieData: [{ name: "Rascunho", value: orcamentosValidosPeriodo.filter((o) => o.status === "Rascunho").length }],
       },
       orcamentosAprovado: {
-        barTitle: "Aprovados por MÃªs",
+        barTitle: "Aprovados por Mês",
         pieTitle: "Aprovados",
         barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, orcamentosAprovadosValidos.map((o) => o.dataCriacaoDate)),
         barName: "Aprovado",
         pieData: [{ name: "Aprovado", value: orcamentosAprovadosValidos.length }],
       },
       finReceitas: {
-        barTitle: "Receitas por MÃªs",
-        pieTitle: "ComposiÃ§Ã£o Financeira",
+        barTitle: "Receitas por Mês",
+        pieTitle: "Composição Financeira",
         barData: montarSerieMesesValor(inicioGrafico, fimFiltro, receitasVisiveis.map((item) => ({ data: item.dataDate, valor: Number(item.valor || 0) }))),
         barName: "Receita (R$)",
         pieData: [
@@ -970,32 +970,32 @@ export default function LeadDashboard() {
         ],
       },
       finDespesas: {
-        barTitle: "Despesas por MÃªs",
+        barTitle: "Despesas por Mês",
         pieTitle: "Despesas",
         barData: montarSerieMesesValor(inicioGrafico, fimFiltro, despesasVisiveis.map((item) => ({ data: item.dataDate, valor: Number(item.valor || 0) }))),
         barName: "Despesa (R$)",
         pieData: [{ name: "Despesas", value: despesasPeriodo }],
       },
       finComissao: {
-        barTitle: "ComissÃ£o por MÃªs",
-        pieTitle: "ComissÃ£o",
+        barTitle: "Comissão por Mês",
+        pieTitle: "Comissão",
         barData: montarSerieMesesValor(inicioGrafico, fimFiltro, receitasVisiveis.filter((i) => i.comissaoValor !== null).map((item) => ({ data: item.dataDate, valor: item.comissaoValor ?? 0 }))),
-        barName: "ComissÃ£o (R$)",
-        pieData: [{ name: "ComissÃ£o", value: comissaoPeriodo }],
+        barName: "Comissão (R$)",
+        pieData: [{ name: "Comissão", value: comissaoPeriodo }],
       },
       finSaldo: {
-        barTitle: "Saldo (ComissÃ£o - Despesas)",
+        barTitle: "Saldo (Comissão - Despesas)",
         pieTitle: "Saldo",
         barData: [],
         barName: "Saldo",
         pieData: [
-          { name: "ComissÃ£o", value: comissaoPeriodo },
+          { name: "Comissão", value: comissaoPeriodo },
           { name: "Despesas", value: despesasPeriodo },
         ],
       },
       receitaRoteiros: {
-        barTitle: "Receita de Roteiros por MÃªs",
-        pieTitle: "ComposiÃ§Ã£o Financeira",
+        barTitle: "Receita de Roteiros por Mês",
+        pieTitle: "Composição Financeira",
         barData: montarSerieMesesValor(inicioGrafico, fimFiltro, receitasVisiveis.map((item) => ({ data: item.dataDate, valor: Number(item.valor || 0) }))),
         barName: "Receita (R$)",
         pieData: [
@@ -1005,14 +1005,14 @@ export default function LeadDashboard() {
       },
       // legado
       leadsPeriodo: {
-        barTitle: "Leads no Filtro por MÃªs",
-        pieTitle: "Status no PerÃ­odo Selecionado",
+        barTitle: "Leads no Filtro por Mês",
+        pieTitle: "Status no Período Selecionado",
         barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, leadsNoPeriodo.map((lead) => parseDate(lead.criadoEm)).filter((data): data is Date => data !== null)),
-        barName: "Leads no perÃ­odo",
+        barName: "Leads no período",
         pieData: Array.from(statusNoPeriodoMap.entries()).map(([name, value]) => ({ name, value })),
       },
       fechamentos: {
-        barTitle: "Fechamentos por MÃªs",
+        barTitle: "Fechamentos por Mês",
         pieTitle: "Fechamentos por Atendente",
         barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, fechamentosLeads.map((lead) => lead.criadoDate)),
         barName: "Fechamentos",
@@ -1023,7 +1023,7 @@ export default function LeadDashboard() {
         })(),
       },
       churnInativos: {
-        barTitle: "Churn por MÃªs",
+        barTitle: "Churn por Mês",
         pieTitle: "Churn por Atendente",
         barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, churnLeads.map((lead) => lead.criadoDate)),
         barName: "Churn",
@@ -1034,7 +1034,7 @@ export default function LeadDashboard() {
         })(),
       },
       semFollowUp: {
-        barTitle: "Leads Sem Follow-up por MÃªs",
+        barTitle: "Leads Sem Follow-up por Mês",
         pieTitle: "Follow-up dos Leads",
         barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, followUpPendenteLeads.map((lead) => lead.criadoDate)),
         barName: "Sem follow-up",
@@ -1044,7 +1044,7 @@ export default function LeadDashboard() {
         ],
       },
       viagensAndamento: {
-        barTitle: "Viagens em Andamento (OrÃ§amentos Aprovados) por MÃªs",
+        barTitle: "Viagens em Andamento (Orçamentos Aprovados) por Mês",
         pieTitle: "Status das Vendas",
         barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, orcamentosAprovadosValidos.map((orc) => orc.dataCriacaoDate)),
         barName: "Vendas aprovadas",
@@ -1054,8 +1054,8 @@ export default function LeadDashboard() {
         ],
       },
       viagensFinalizadas: {
-        barTitle: "Viagens Finalizadas por MÃªs",
-        pieTitle: "SituaÃ§Ã£o das Vendas",
+        barTitle: "Viagens Finalizadas por Mês",
+        pieTitle: "Situação das Vendas",
         barData: montarSerieMesesContagem(inicioGrafico, fimFiltro, orcamentosValidosPeriodo.filter((orc) => orc.statusViagem === "Finalizada").map((orc) => orc.dataCriacaoDate)),
         barName: "Finalizadas",
         pieData: [
@@ -1091,14 +1091,14 @@ export default function LeadDashboard() {
         corTitulo: "text-violet-700",
         cards: [
           { key: "crmNovoLead"   as const, title: "Novo Lead",    value: String(crmNovoLead),    icon: <UserPlus     className="h-4 w-4 text-violet-500" /> },
-          { key: "crmQualificacao"as const, title: "QualificaÃ§Ã£o", value: String(crmQualif),      icon: <ClipboardList className="h-4 w-4 text-violet-500" /> },
-          { key: "crmReuniao"    as const, title: "ReuniÃ£o",      value: String(crmReuniao),     icon: <Users        className="h-4 w-4 text-violet-500" /> },
+          { key: "crmQualificacao"as const, title: "Qualificação", value: String(crmQualif),      icon: <ClipboardList className="h-4 w-4 text-violet-500" /> },
+          { key: "crmReuniao"    as const, title: "Reunião",      value: String(crmReuniao),     icon: <Users        className="h-4 w-4 text-violet-500" /> },
           { key: "crmFollowUps"  as const, title: "Follow-ups",   value: String(crmFollowUps),   icon: <PhoneOff     className="h-4 w-4 text-orange-500" /> },
           { key: "crmFinalizados"as const, title: "Finalizados",  value: String(crmFinalizados), icon: <CheckCircle2 className="h-4 w-4 text-violet-500" /> },
         ],
       },
       {
-        titulo: "OrÃ§amentos",
+        titulo: "Orçamentos",
         cor: "border-sky-200 bg-sky-50/40",
         corTitulo: "text-sky-700",
         cards: [
@@ -1116,9 +1116,9 @@ export default function LeadDashboard() {
         cards: [
           { key: "finReceitas"   as const, title: "Receitas",  value: formatarMoeda(receitaRoteiros),    icon: <TrendingUp   className="h-4 w-4 text-green-500" /> },
           { key: "finDespesas"   as const, title: "Despesas",  value: formatarMoeda(despesasPeriodo),    icon: <TrendingDown className="h-4 w-4 text-red-500" /> },
-          { key: "finComissao"   as const, title: "ComissÃ£o",  value: formatarMoeda(comissaoPeriodo),    icon: <DollarSign   className="h-4 w-4 text-blue-500" /> },
+          { key: "finComissao"   as const, title: "Comissão",  value: formatarMoeda(comissaoPeriodo),    icon: <DollarSign   className="h-4 w-4 text-blue-500" /> },
           { key: "finSaldo"      as const, title: "Saldo",     value: formatarMoeda(saldoPeriodo),       icon: <DollarSign   className="h-4 w-4 text-emerald-500" /> },
-          { key: "receitaRoteiros"as const, title: "MÃ©dia ComissÃ£o", value: formatarMoeda(mediaComissao), subtitle: mediaComissaoPerc > 0 ? `${mediaComissaoPerc.toFixed(1)}% mÃ©dio` : undefined, icon: <TrendingUp className="h-4 w-4 text-purple-500" /> },
+          { key: "receitaRoteiros"as const, title: "Média Comissão", value: formatarMoeda(mediaComissao), subtitle: mediaComissaoPerc > 0 ? `${mediaComissaoPerc.toFixed(1)}% médio` : undefined, icon: <TrendingUp className="h-4 w-4 text-purple-500" /> },
         ],
       },
     ];
@@ -1158,7 +1158,7 @@ export default function LeadDashboard() {
     switch (activeCard) {
       case "totalLeads":
         return {
-          columns: ["ID", "Cliente", "Status", "Atendente", "Data CriaÃ§Ã£o"],
+          columns: ["ID", "Cliente", "Status", "Atendente", "Data Criação"],
           rows: leads.filter((lead) => dentroDoFiltro(lead.criadoEm)).map((lead) => [
             lead.id.toString(),
             lead.cliente,
@@ -1171,7 +1171,7 @@ export default function LeadDashboard() {
       case "leadsPeriodo": {
         const leadsNoPeriodo = leads.filter((lead) => dentroDoFiltro(lead.criadoEm));
         return {
-          columns: ["ID", "Cliente", "Status", "Atendente", "Data CriaÃ§Ã£o"],
+          columns: ["ID", "Cliente", "Status", "Atendente", "Data Criação"],
           rows: leadsNoPeriodo.map((lead) => [
             lead.id.toString(),
             lead.cliente,
@@ -1187,11 +1187,11 @@ export default function LeadDashboard() {
         const receitas = lancamentos.filter((item) => item.tipo === "receita" && !item.oculto && dentroDoFiltro(item.data));
         const despesas = lancamentos.filter((item) => item.tipo === "despesa" && !item.oculto && dentroDoFiltro(item.data));
         return {
-          columns: ["Tipo", "Quantidade", "DescriÃ§Ã£o"],
+          columns: ["Tipo", "Quantidade", "Descrição"],
           rows: [
             ["Fechamentos", fechamentos.length.toString(), "Leads com status Vendido"],
-            ["Receitas", receitas.length.toString(), "LanÃ§amentos financeiros de receita"],
-            ["Despesas", despesas.length.toString(), "LanÃ§amentos financeiros de despesa"],
+            ["Receitas", receitas.length.toString(), "Lançamentos financeiros de receita"],
+            ["Despesas", despesas.length.toString(), "Lançamentos financeiros de despesa"],
           ],
         };
       }
@@ -1200,10 +1200,10 @@ export default function LeadDashboard() {
         const churn = leads.filter((lead) => lead.status === "Perdido" && dentroDoFiltro(lead.criadoEm));
         const totalPeriodo = leads.filter((lead) => dentroDoFiltro(lead.criadoEm)).length;
         return {
-          columns: ["Tipo", "Quantidade", "DescriÃ§Ã£o"],
+          columns: ["Tipo", "Quantidade", "Descrição"],
           rows: [
             ["Churn Inativos", churn.length.toString(), "Leads com status Perdido"],
-            ["Taxa de Churn", `${totalPeriodo > 0 ? ((churn.length / totalPeriodo) * 100).toFixed(1) : 0}%`, "Percentual em relaÃ§Ã£o ao total de leads no perÃ­odo"],
+            ["Taxa de Churn", `${totalPeriodo > 0 ? ((churn.length / totalPeriodo) * 100).toFixed(1) : 0}%`, "Percentual em relação ao total de leads no período"],
           ],
         };
       }
@@ -1211,7 +1211,7 @@ export default function LeadDashboard() {
       case "receitaRoteiros": {
         const receitas = lancamentos.filter((item) => item.tipo === "receita" && !item.oculto && dentroDoFiltro(item.data));
         return {
-          columns: ["ID", "DescriÃ§Ã£o", "Valor", "ComissÃ£o", "Data"],
+          columns: ["ID", "Descrição", "Valor", "Comissão", "Data"],
           rows: receitas.map((item) => [
             item.id.toString(),
             item.descricao,
@@ -1225,7 +1225,7 @@ export default function LeadDashboard() {
       case "finReceitas": {
         const receitas = lancamentos.filter((item) => item.tipo === "receita" && !item.oculto && dentroDoFiltro(item.data));
         return {
-          columns: ["ID", "DescriÃ§Ã£o", "Valor", "Data", "Cliente"],
+          columns: ["ID", "Descrição", "Valor", "Data", "Cliente"],
           rows: receitas.map((item) => [
             item.id.toString(),
             item.descricao,
@@ -1239,7 +1239,7 @@ export default function LeadDashboard() {
       case "finDespesas": {
         const despesas = lancamentos.filter((item) => item.tipo === "despesa" && !item.oculto && dentroDoFiltro(item.data));
         return {
-          columns: ["ID", "DescriÃ§Ã£o", "Valor", "Data"],
+          columns: ["ID", "Descrição", "Valor", "Data"],
           rows: despesas.map((item) => [
             item.id.toString(),
             item.descricao,
@@ -1252,7 +1252,7 @@ export default function LeadDashboard() {
       case "finComissao": {
         const comissoes = lancamentos.filter((item) => item.tipo === "receita" && !item.oculto && item.comissaoValor !== null && dentroDoFiltro(item.data));
         return {
-          columns: ["ID", "DescriÃ§Ã£o", "Valor Receita", "ComissÃ£o", "% ComissÃ£o", "Data"],
+          columns: ["ID", "Descrição", "Valor Receita", "Comissão", "% Comissão", "Data"],
           rows: comissoes.map((item) => [
             item.id.toString(),
             item.descricao,
@@ -1272,15 +1272,13 @@ export default function LeadDashboard() {
         return {
           columns: ["Tipo", "Valor"],
           rows: [
-            ["Total ComissÃµes", formatarMoeda(totalComissao)],
+            ["Total Comissões", formatarMoeda(totalComissao)],
             ["Total Despesas", formatarMoeda(totalDespesas)],
-            ["Saldo (ComissÃ£o - Despesas)", formatarMoeda(totalComissao - totalDespesas)],
+            ["Saldo (Comissão - Despesas)", formatarMoeda(totalComissao - totalDespesas)],
           ],
         };
       }
-
-      case "totalLeads":
-      case "leadsNovo":
+case "leadsNovo":
       case "leadsEmContato":
       case "leadsQualificado":
       case "leadsVendido": {
@@ -1296,7 +1294,7 @@ export default function LeadDashboard() {
           dentroDoFiltro(lead.criadoEm) && (statusFiltro === "" || lead.status === statusFiltro)
         );
         return {
-          columns: ["ID", "Nome", "Status", "Atendente", "Data CriaÃ§Ã£o"],
+          columns: ["ID", "Nome", "Status", "Atendente", "Data Criação"],
           rows: lista.map((lead) => [
             lead.id.toString(),
             lead.nome,
@@ -1314,15 +1312,15 @@ export default function LeadDashboard() {
       case "crmFinalizados": {
         const crmMap: Record<string, string> = {
           crmNovoLead: "Novo Lead",
-          crmQualificacao: "QualificaÃ§Ã£o",
-          crmReuniao: "ReuniÃ£o",
+          crmQualificacao: "Qualificação",
+          crmReuniao: "Reunião",
           crmFollowUps: "Follow-ups",
           crmFinalizados: "Finalizados",
         };
         const statusCrm = crmMap[activeCard];
         const lista = leads.filter((lead) => lead.statusCrm === statusCrm && dentroDoFiltro(lead.criadoEm));
         return {
-          columns: ["ID", "Nome", "Status Lead", "Status CRM", "Atendente", "Data CriaÃ§Ã£o"],
+          columns: ["ID", "Nome", "Status Lead", "Status CRM", "Atendente", "Data Criação"],
           rows: lista.map((lead) => [
             lead.id.toString(),
             lead.nome,
@@ -1347,7 +1345,7 @@ export default function LeadDashboard() {
           dentroDoFiltro(orc.dataCriacao) && (statusFiltro === "" || orc.status === statusFiltro)
         );
         return {
-          columns: ["NÃºmero", "Cliente", "Destino", "Status", "Data CriaÃ§Ã£o"],
+          columns: ["Número", "Cliente", "Destino", "Status", "Data Criação"],
           rows: lista.map((orc) => [
             orc.numero,
             orc.cliente,
@@ -1361,7 +1359,7 @@ export default function LeadDashboard() {
       case "viagensAndamento": {
         const orcamentosAprovados = orcamentos.filter((orc) => orc.status === "Aprovado" && dentroDoFiltro(orc.dataCriacao));
         return {
-          columns: ["NÃºmero", "Cliente", "Destino", "Status", "Data CriaÃ§Ã£o"],
+          columns: ["Número", "Cliente", "Destino", "Status", "Data Criação"],
           rows: orcamentosAprovados.map((orc) => [
             orc.numero,
             orc.cliente,
@@ -1376,7 +1374,7 @@ export default function LeadDashboard() {
         const semFollowUp = leads.filter((lead) => lead.status === "Novo" && dentroDoFiltro(lead.criadoEm)).length;
         const followUpsCrm = leads.filter((lead) => lead.statusCrm === "Follow-ups" && dentroDoFiltro(lead.criadoEm)).length;
         return {
-          columns: ["Tipo", "Quantidade", "DescriÃ§Ã£o"],
+          columns: ["Tipo", "Quantidade", "Descrição"],
           rows: [
             ["Sem Follow-up", semFollowUp.toString(), "Leads com status Novo"],
             ["Follow-ups CRM", followUpsCrm.toString(), "Leads com statusCrm Follow-ups"],
@@ -1387,7 +1385,7 @@ export default function LeadDashboard() {
       case "viagensFinalizadas": {
         const finalizadas = orcamentos.filter((orc) => orc.statusViagem === "Finalizada" && dentroDoFiltro(orc.dataCriacao));
         return {
-          columns: ["NÃºmero", "Cliente", "Destino", "Check-in", "Check-out"],
+          columns: ["Número", "Cliente", "Destino", "Check-in", "Check-out"],
           rows: finalizadas.map((orc) => {
             const { checkin, checkout } = extrairDatasViagem(orc);
             const fmt = (d: string | null) =>
@@ -1413,17 +1411,17 @@ export default function LeadDashboard() {
 
   return (
     <div className="flex-1 space-y-4 p-4 sm:p-8 pt-6">
-      {/* CotaÃ§Ã£o do DÃ³lar */}
+      {/* Cotação do Dólar */}
       <DolarWidget />
 
-      {/* VisÃ£o Geral â€” card colapsÃ¡vel */}
+      {/* Visão Geral — card colapsável */}
       <Card className="border border-gray-200">
         <CardContent className="py-2 px-4">
-          {/* Barra de tÃ­tulo */}
+          {/* Barra de título */}
           <div className="flex items-start justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg sm:text-xl font-bold tracking-tight whitespace-nowrap">VisÃ£o Geral</h2>
-              {/* Filtros de perÃ­odo sempre visÃ­veis */}
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight whitespace-nowrap">Visão Geral</h2>
+              {/* Filtros de período sempre visíveis */}
               <div className="flex flex-wrap items-center gap-1">
                 {periodFilters.map((filter) => (
                   <Button
@@ -1450,7 +1448,7 @@ export default function LeadDashboard() {
                     />
                   </div>
                   <div className="flex items-center gap-1">
-                    <label className="text-xs text-gray-500 whitespace-nowrap">AtÃ©:</label>
+                    <label className="text-xs text-gray-500 whitespace-nowrap">Até:</label>
                     <input
                       type="date"
                       value={customDataFim}
@@ -1466,11 +1464,11 @@ export default function LeadDashboard() {
               title={expandidoVisaoGeral ? "Minimizar" : "Expandir"}
               className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-gray-600 text-xs font-bold shadow-sm"
             >
-              {expandidoVisaoGeral ? "â–²" : "â–¼"}
+              {expandidoVisaoGeral ? "?" : "?"}
             </button>
           </div>
 
-          {/* ConteÃºdo expandido */}
+          {/* Conteúdo expandido */}
           {expandidoVisaoGeral && (
             <div className="mt-4 space-y-5">
               {/* Grupos de Cards por categoria */}
@@ -1514,7 +1512,7 @@ export default function LeadDashboard() {
                 </Card>
               )}
 
-              {/* SeÃ§Ã£o de GrÃ¡ficos */}
+              {/* Seção de Gráficos */}
               <div className="grid gap-4 grid-cols-1 lg:grid-cols-7">
                 <Card className="col-span-1 lg:col-span-4">
                   <CardHeader>
@@ -1580,7 +1578,7 @@ export default function LeadDashboard() {
                         ) : (
                           <TableRow>
                             <TableCell colSpan={tableData.columns.length} className="text-center text-gray-500 py-4">
-                              Nenhum dado disponÃ­vel
+                              Nenhum dado disponível
                             </TableCell>
                           </TableRow>
                         )}
@@ -1596,3 +1594,4 @@ export default function LeadDashboard() {
     </div>
   );
 }
+
