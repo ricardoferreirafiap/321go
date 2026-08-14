@@ -1,4 +1,4 @@
-const CACHE_NAME = "portal-web-offline-v1";
+const CACHE_NAME = "portal-web-offline-v2";
 const APP_SHELL_URLS = ["/", "/index.html", "/logo.png"];
 
 async function cacheAppShell() {

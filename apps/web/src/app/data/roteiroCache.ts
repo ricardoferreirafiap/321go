@@ -54,7 +54,7 @@ export function prepararRoteiroSemAnexos(orcamento: Orcamento): Orcamento {
 }
 
 function criarCopiaPersistivel(orcamento: Orcamento): Orcamento {
-  return JSON.parse(JSON.stringify(orcamento)) as Orcamento;
+  return prepararRoteiroSemAnexos(orcamento);
 }
 
 export async function obterRoteiroDoCache(identificador: string): Promise<RoteiroCacheEntry | null> {

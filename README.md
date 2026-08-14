@@ -20,7 +20,11 @@ npm install
 npm run dev:frontend
 ```
 
-- Frontend: http://localhost:5173
+- Frontend: https://localhost:5173
+
+Para testar o modo offline por outro dispositivo da rede, acesse o frontend com
+`https://IP_DA_MAQUINA:5173` e aceite o certificado local antes de desconectar a rede.
+Service Workers não são habilitados em endereços IP servidos por HTTP.
 
 ## Variáveis de ambiente
 
