@@ -13,7 +13,6 @@ import {
   obterFuncionariosDoCache,
   obterRoteiroDoCache,
   prepararRoteiroSemAnexos,
-  ROTEIRO_REFRESH_INTERVAL_MS,
   salvarFuncionariosNoCache,
   salvarRoteiroNoCache,
 } from "../data/roteiroCache";
@@ -776,8 +775,7 @@ export default function RoteiroOrcamento() {
           setCarregando(false);
         }
         carregouDoCache = true;
-        const cacheAtual = Date.now() - cached.savedAt < ROTEIRO_REFRESH_INTERVAL_MS;
-        if (!navigator.onLine || (cacheAtual && cached.complete !== false)) {
+        if (!navigator.onLine) {
           return;
         }
       }
