@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import {
   Share2, X, Instagram, Mail, MessageCircle, Car, MapPin, Globe,
   Phone, Mail as MailIcon, Calendar, Bed, Star, Coffee,
-  ExternalLink, ChevronLeft, ChevronRight
+  ExternalLink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp
 } from "lucide-react";
 import { JSX, useEffect, useRef, useState } from "react";
 import { listarFuncionarios, type Funcionario } from "../data/funcionariosApi";
@@ -741,6 +741,7 @@ export default function RoteiroOrcamento() {
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
+  const [politicaCancelamentoMinimizada, setPoliticaCancelamentoMinimizada] = useState<Record<number, boolean>>({});
   const carrosselHospedagemRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   useEffect(() => {
@@ -1162,6 +1163,9 @@ export default function RoteiroOrcamento() {
           </div>
           <div className="bg-[#0b0635] p-4 sm:p-5 space-y-4">
             {orc.pacotes.map((pacote: any, idx: number) => {
+              const pacoteId = Number(pacote.id ?? idx);
+              const politicaCancelamentoMinimizadaParaPacote = politicaCancelamentoMinimizada[pacoteId] ?? true;
+
               // Verifica se há campos estruturados preenchidos
               const temEstrutura = pacote.operador || pacote.destino || pacote.origem ||
                 pacote.reserva || pacote.informacoesAdicionais ||
@@ -1270,8 +1274,37 @@ export default function RoteiroOrcamento() {
                   {/* Política de cancelamento */}
                   {pacote.politicaAlteracoesCancelamentos && (
                     <div className="pt-2 border-t border-white/10">
-                      <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/40 mb-1">Política de Cancelamento</p>
-                      <p className="text-xs text-white/75 leading-5 whitespace-pre-wrap">{pacote.politicaAlteracoesCancelamentos}</p>
+                      <button
+                        type="button"
+                        onClick={() => setPoliticaCancelamentoMinimizada((prev) => ({
+                          ...prev,
+                          [pacoteId]: !(prev[pacoteId] ?? true),
+                        }))}
+                        className="flex w-full items-center justify-between gap-2 rounded-md border border-white/10 bg-white/[0.02] px-2.5 py-2 text-left transition-colors hover:bg-white/[0.04]"
+                        aria-expanded={!politicaCancelamentoMinimizadaParaPacote}
+                      >
+                        <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/75">Política de Cancelamento</p>
+                        {politicaCancelamentoMinimizadaParaPacote ? (
+                          <ChevronDown className="h-4 w-4 text-white/70" />
+                        ) : (
+                          <ChevronUp className="h-4 w-4 text-white/70" />
+                        )}
+                      </button>
+                      {!politicaCancelamentoMinimizadaParaPacote && (
+                        <div className="mt-2 rounded-md border border-white/10 bg-white/[0.02] p-2.5">
+                          {pacote.politicaAlteracoesCancelamentos
+                            .split(/\n\s*\n|\n/)
+                            .map((paragrafo: string, index: number) => {
+                              const texto = paragrafo.trim();
+                              if (!texto) return null;
+                              return (
+                                <p key={`${pacoteId}-${index}`} className="text-xs text-white/80 leading-6 whitespace-pre-wrap mb-2 last:mb-0">
+                                  {texto}
+                                </p>
+                              );
+                            })}
+                        </div>
+                      )}
                     </div>
                   )}
 
