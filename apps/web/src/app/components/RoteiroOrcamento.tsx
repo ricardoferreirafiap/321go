@@ -1220,15 +1220,9 @@ export default function RoteiroOrcamento() {
               return (
                 <div key={pacote.id || idx} className="rounded-[22px] bg-[#1c1848] px-4 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-5 sm:py-5 space-y-3">
 
-                  {/* Operador / Destino / Reserva */}
-                  {(pacote.operador || pacote.destino || pacote.origem || pacote.reserva) && (
+                  {/* Destino / Reserva */}
+                  {(pacote.destino || pacote.origem || pacote.reserva) && (
                     <div className="flex flex-wrap gap-x-6 gap-y-2 pb-3 border-b border-white/10">
-                      {pacote.operador && (
-                        <div>
-                          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/40">Operador</p>
-                          <p className="mt-0.5 text-sm font-bold text-white">{pacote.operador}</p>
-                        </div>
-                      )}
                       {(pacote.origem || pacote.destino) && (
                         <div>
                           <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/40">Destino</p>
@@ -1366,15 +1360,9 @@ export default function RoteiroOrcamento() {
               .map((p: any, idx: number) => (
               <div key={idx} className="overflow-hidden rounded-[26px] bg-white shadow-[0_10px_30px_rgba(10,5,52,0.12)]">
                 <div className="px-4 py-4 sm:px-5 sm:py-5">
-                  {/* Operador / CIA / Reserva */}
-                  {(p.operador || p.ciaAerea || p.reserva) && (
+                  {/* CIA / Reserva */}
+                  {(p.ciaAerea || p.reserva) && (
                     <div className="flex flex-wrap gap-4 mb-4 pb-3 border-b border-slate-100">
-                      {p.operador && (
-                        <div>
-                          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Operador</p>
-                          <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.operador}</p>
-                        </div>
-                      )}
                       {p.ciaAerea && (
                         <div>
                           <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">CIA Aérea</p>
