@@ -1,3 +1,5 @@
+import { removerRoteiroDoCache, salvarRoteiroNoCache } from "./roteiroCache";
+
 export type StatusOrc = 'Rascunho' | 'Enviado' | 'Aprovado' | 'Rejeitado' | 'Cancelado';
 export type StatusViagem = 'Não Iniciada' | 'Em Andamento' | 'Finalizada';
 
@@ -55,6 +57,15 @@ export interface Orcamento {
 export type OrcamentoPayload = Omit<Orcamento, 'id'>;
 
 const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || (import.meta.env.DEV ? '/api' : (() => { throw new Error('VITE_API_URL não configurada no deploy. Defina a URL do backend, por exemplo: https://seu-backend.up.railway.app/api.'); })());
+const LIST_CACHE_TTL_MS = 60 * 1000;
+
+let cachedList: { expiresAt: number; value: Orcamento[] } | null = null;
+let pendingList: Promise<Orcamento[]> | null = null;
+
+function invalidateListCache() {
+  cachedList = null;
+  pendingList = null;
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   let response: Response;
@@ -103,8 +114,25 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return parsedBody as T;
 }
 
-export function listarOrcamentos() {
-  return request<Orcamento[]>('/orcamentos');
+export function listarOrcamentos(forceRefresh = false) {
+  if (!forceRefresh && cachedList && cachedList.expiresAt > Date.now()) {
+    return Promise.resolve(cachedList.value);
+  }
+
+  if (!forceRefresh && pendingList) {
+    return pendingList;
+  }
+
+  pendingList = request<Orcamento[]>('/orcamentos')
+    .then((value) => {
+      cachedList = { expiresAt: Date.now() + LIST_CACHE_TTL_MS, value };
+      return value;
+    })
+    .finally(() => {
+      pendingList = null;
+    });
+
+  return pendingList;
 }
 
 export function buscarOrcamentoPorId(id: number) {
@@ -127,22 +155,36 @@ export function buscarOrcamentoPublico(identificador: string) {
   });
 }
 
-export function criarOrcamento(payload: OrcamentoPayload) {
-  return request<Orcamento>('/orcamentos', {
+export async function criarOrcamento(payload: OrcamentoPayload) {
+  const orcamento = await request<Orcamento>('/orcamentos', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+  invalidateListCache();
+  await salvarRoteiroNoCache(orcamento);
+  return orcamento;
 }
 
-export function atualizarOrcamento(id: number, payload: OrcamentoPayload) {
-  return request<Orcamento>(`/orcamentos/${id}`, {
+export async function atualizarOrcamento(id: number, payload: OrcamentoPayload) {
+  const orcamento = await request<Orcamento>(`/orcamentos/${id}`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
+  invalidateListCache();
+  await salvarRoteiroNoCache(orcamento);
+  return orcamento;
 }
 
-export function removerOrcamento(id: number) {
-  return request<void>(`/orcamentos/${id}`, {
+export async function removerOrcamento(id: number) {
+  const cachedOrcamento = cachedList?.value.find((orcamento) => orcamento.id === id);
+  await request<void>(`/orcamentos/${id}`, {
     method: 'DELETE',
   });
+  invalidateListCache();
+  if (cachedOrcamento) {
+    await Promise.all([
+      removerRoteiroDoCache(cachedOrcamento.numero),
+      removerRoteiroDoCache(cachedOrcamento.publicToken || ''),
+    ]);
+  }
 }

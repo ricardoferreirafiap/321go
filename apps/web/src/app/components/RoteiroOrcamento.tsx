@@ -9,6 +9,14 @@ import {
 import { JSX, useEffect, useRef, useState } from "react";
 import { listarFuncionarios, type Funcionario } from "../data/funcionariosApi";
 import { buscarOrcamentoPublico } from "../data/orcamentosApi";
+import {
+  obterFuncionariosDoCache,
+  obterRoteiroDoCache,
+  prepararRoteiroSemAnexos,
+  ROTEIRO_REFRESH_INTERVAL_MS,
+  salvarFuncionariosNoCache,
+  salvarRoteiroNoCache,
+} from "../data/roteiroCache";
 import { gerarResumoPacote } from "./PacotesForm";
 
 const COR_PRINCIPAL = "#0a0534";
@@ -760,13 +768,28 @@ export default function RoteiroOrcamento() {
       setCarregando(true);
       setErroCarregamento(null);
 
-      // Tenta carregar do localStorage imediatamente enquanto aguarda a API
-      // (evita tela em branco quando a aba abre e o dado já foi gravado)
+      let carregouDoCache = false;
+      const cached = await obterRoteiroDoCache(numero);
+      if (cached) {
+        if (active) {
+          setOrc(cached.value);
+          setCarregando(false);
+        }
+        carregouDoCache = true;
+        const cacheAtual = Date.now() - cached.savedAt < ROTEIRO_REFRESH_INTERVAL_MS;
+        if (!navigator.onLine || (cacheAtual && cached.complete !== false)) {
+          return;
+        }
+      }
+
+      // Mantém compatibilidade com roteiros abertos antes da adoção do IndexedDB.
       let carregouDoLocal = false;
       const localImediato = localStorage.getItem(`orc_${numero}`);
       if (localImediato) {
         try {
-          const parsed = JSON.parse(localImediato);
+          const parsed = prepararRoteiroSemAnexos(JSON.parse(localImediato));
+          localStorage.setItem(`orc_${numero}`, JSON.stringify(parsed));
+          await salvarRoteiroNoCache(parsed, false);
           if (active) {
             setOrc(parsed);
             setCarregando(false);
@@ -780,6 +803,7 @@ export default function RoteiroOrcamento() {
 
       try {
         const orcamentoApi = await buscarOrcamentoPublico(numero);
+        await salvarRoteiroNoCache(orcamentoApi);
         if (active) {
           // @ts-ignore
           setOrc(orcamentoApi);
@@ -787,8 +811,7 @@ export default function RoteiroOrcamento() {
         }
         return;
       } catch (error) {
-        // Se já carregou do localStorage acima, mantém sem mostrar erro
-        if (carregouDoLocal) {
+        if (carregouDoCache || carregouDoLocal) {
           return;
         }
 
@@ -797,7 +820,9 @@ export default function RoteiroOrcamento() {
 
         if (stored) {
           try {
-            const parsed = JSON.parse(stored);
+            const parsed = prepararRoteiroSemAnexos(JSON.parse(stored));
+            localStorage.setItem(`orc_${numero}`, JSON.stringify(parsed));
+            await salvarRoteiroNoCache(parsed, false);
             if (active) {
               setOrc(parsed);
               setCarregando(false);
@@ -826,7 +851,11 @@ export default function RoteiroOrcamento() {
 
         if (chaveEncontrada) {
           try {
-            const parsed = JSON.parse(localStorage.getItem(chaveEncontrada) || "");
+            const parsed = prepararRoteiroSemAnexos(
+              JSON.parse(localStorage.getItem(chaveEncontrada) || ""),
+            );
+            localStorage.setItem(chaveEncontrada, JSON.stringify(parsed));
+            await salvarRoteiroNoCache(parsed, false);
             if (active) {
               setOrc(parsed);
               setCarregando(false);
@@ -856,13 +885,23 @@ export default function RoteiroOrcamento() {
     let mounted = true;
 
     async function carregarFuncionarios() {
+      const funcionariosCache = await obterFuncionariosDoCache();
+      if (mounted && funcionariosCache.length > 0) {
+        setFuncionarios(funcionariosCache);
+      }
+
+      if (!navigator.onLine) {
+        return;
+      }
+
       try {
         const lista = await listarFuncionarios();
+        await salvarFuncionariosNoCache(lista);
         if (mounted) {
           setFuncionarios(lista);
         }
       } catch {
-        if (mounted) {
+        if (mounted && funcionariosCache.length === 0) {
           setFuncionarios([]);
         }
       }

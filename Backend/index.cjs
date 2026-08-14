@@ -3404,12 +3404,20 @@ app.get('/api/orcamentos', ensureDb, async (req, res) => {
         await ensureOrcamentosObservacoesColumn();
         await ensureOrcamentosStatusViagemColumn();
 
-        // Listagem resumida: exclui campos de texto longo de IA (roteiro, prompts)
-        // que só são necessários ao abrir um orçamento individual.
-        // Isso reduz significativamente o volume de dados transferidos do Neon.
+        // Mantém os dados necessários às telas de resumo, mas remove anexos Base64.
+        // Os documentos completos continuam disponíveis no endpoint de detalhe.
         const result = await pool.query(
             `SELECT id, numero, public_token, cliente, email, destino, agente_viagem, status, data_criacao, data_validade, observacoes,
-                            itens, pacotes, voos, hospedagem, day_by_day, transporte, restaurante, experiencias, seguro, perfil_viagem, passageiros,
+                            COALESCE((SELECT jsonb_agg(item - ARRAY['documentos', 'voucher', 'voucherTipo', 'voucherNome', 'documento', 'arquivo', 'base64']::text[]) FROM jsonb_array_elements(COALESCE(itens, '[]'::jsonb)) item), '[]'::jsonb) AS itens,
+                            COALESCE((SELECT jsonb_agg(item - ARRAY['documentos', 'voucher', 'voucherTipo', 'voucherNome', 'documento', 'arquivo', 'base64']::text[]) FROM jsonb_array_elements(COALESCE(pacotes, '[]'::jsonb)) item), '[]'::jsonb) AS pacotes,
+                            COALESCE((SELECT jsonb_agg(item - ARRAY['documentos', 'voucher', 'voucherTipo', 'voucherNome', 'documento', 'arquivo', 'base64']::text[]) FROM jsonb_array_elements(COALESCE(voos, '[]'::jsonb)) item), '[]'::jsonb) AS voos,
+                            COALESCE((SELECT jsonb_agg(item - ARRAY['documentos', 'voucher', 'voucherTipo', 'voucherNome', 'documento', 'arquivo', 'base64']::text[]) FROM jsonb_array_elements(COALESCE(hospedagem, '[]'::jsonb)) item), '[]'::jsonb) AS hospedagem,
+                            day_by_day,
+                            COALESCE((SELECT jsonb_agg(item - ARRAY['documentos', 'voucher', 'voucherTipo', 'voucherNome', 'documento', 'arquivo', 'base64']::text[]) FROM jsonb_array_elements(COALESCE(transporte, '[]'::jsonb)) item), '[]'::jsonb) AS transporte,
+                            COALESCE((SELECT jsonb_agg(item - ARRAY['documentos', 'voucher', 'voucherTipo', 'voucherNome', 'documento', 'arquivo', 'base64']::text[]) FROM jsonb_array_elements(COALESCE(restaurante, '[]'::jsonb)) item), '[]'::jsonb) AS restaurante,
+                            COALESCE((SELECT jsonb_agg(item - ARRAY['documentos', 'voucher', 'voucherTipo', 'voucherNome', 'documento', 'arquivo', 'base64']::text[]) FROM jsonb_array_elements(COALESCE(experiencias, '[]'::jsonb)) item), '[]'::jsonb) AS experiencias,
+                            COALESCE((SELECT jsonb_agg(item - ARRAY['documentos', 'voucher', 'voucherTipo', 'voucherNome', 'documento', 'arquivo', 'base64']::text[]) FROM jsonb_array_elements(COALESCE(seguro, '[]'::jsonb)) item), '[]'::jsonb) AS seguro,
+                            perfil_viagem, passageiros,
                             forma_pagamento, parcelas, status_viagem
        FROM public.orcamentos
        ORDER BY data_criacao DESC, id DESC`
@@ -4442,5 +4450,4 @@ io.on('connection', (socket) => {
 server.listen(PORT, () => {
     logServerError(`Servidor ouvindo na porta ${PORT}`);
 });
-
 

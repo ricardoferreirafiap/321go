@@ -43,6 +43,7 @@ import {
 import { buscarOpcoesDestino } from "../data/placePhotoApi";
 import { enviarMensagemIA } from "../data/aiChatApi";
 import { criarEvento } from "../data/eventosApi";
+import { prepararRoteiroSemAnexos, salvarRoteiroNoCache } from "../data/roteiroCache";
 
 // ─── Utilitários de comissão (espelhados de Financeiro.tsx) ─────────────────
 
@@ -1393,7 +1394,7 @@ export default function Orcamentos() {
     return obj;
   }
 
-  function gerarRoteiro(orc: Orcamento | null = null) {
+  async function gerarRoteiro(orc: Orcamento | null = null) {
     const orcParaAbrir = orc || (editando ? editando : null);
     if (!orcParaAbrir) return;
 
@@ -1417,9 +1418,17 @@ export default function Orcamentos() {
       promptPerfilViagemIA: usandoEstadoFormulario ? promptPerfilViagemIA : (orcParaAbrir.promptPerfilViagemIA || ""),
     };
 
+    const roteiroPath = `/financeiro/orcamentos/roteiro/${orcComSecoes.numero}`;
+    const novaAba = window.open("", "_blank");
+    const orcPersistivel = prepararRoteiroSemAnexos(
+      sanitizarParaStorage(orcComSecoes) as Orcamento,
+    );
+
+    await salvarRoteiroNoCache(orcComSecoes as Orcamento);
+
     // Store in localStorage to access from new tab
     try {
-      const orcJson = JSON.stringify(sanitizarParaStorage(orcComSecoes));
+      const orcJson = JSON.stringify(orcPersistivel);
       localStorage.setItem(`orc_${orcComSecoes.numero}`, orcJson);
       // Se houver publicToken, grava também com ele para que o fallback funcione
       if (orcComSecoes.publicToken) {
@@ -1430,11 +1439,9 @@ export default function Orcamentos() {
       // a página do roteiro vai carregar direto da API
     }
 
-    // Sempre usa o numero como identificador interno (garante consistência com o localStorage)
-    const roteiroPath = `/financeiro/orcamentos/roteiro/${orcComSecoes.numero}`;
-    // Tenta abrir em nova aba; se o popup for bloqueado, navega na aba atual
-    const novaAba = window.open(roteiroPath, "_blank");
-    if (!novaAba) {
+    if (novaAba) {
+      novaAba.location.href = roteiroPath;
+    } else {
       navigate(roteiroPath);
     }
   }

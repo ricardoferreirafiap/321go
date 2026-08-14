@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { useNavigate } from "react-router";
 import { listarOrcamentos, type ItemOrc, type Orcamento } from "../data/orcamentosApi";
+import { prepararRoteiroSemAnexos, salvarRoteiroNoCache } from "../data/roteiroCache";
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -60,9 +61,18 @@ export default function ResumoOrcamentos() {
     );
   };
 
-  const gerarRoteiro = (orc: Orcamento) => {
-    localStorage.setItem(`orc_${orc.numero}`, JSON.stringify(orc));
-    window.open(`/financeiro/orcamentos/roteiro/${orc.publicToken || orc.numero}`, "_blank");
+  const gerarRoteiro = async (orc: Orcamento) => {
+    const roteiroPath = `/financeiro/orcamentos/roteiro/${orc.publicToken || orc.numero}`;
+    const novaAba = window.open("", "_blank");
+    const orcPersistivel = prepararRoteiroSemAnexos(orc);
+
+    await salvarRoteiroNoCache(orc, false);
+    localStorage.setItem(`orc_${orc.numero}`, JSON.stringify(orcPersistivel));
+    if (novaAba) {
+      novaAba.location.href = roteiroPath;
+    } else {
+      navigate(roteiroPath);
+    }
   };
 
   const abrirOrcamento = (orc: Orcamento) => {

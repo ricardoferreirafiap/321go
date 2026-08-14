@@ -21,6 +21,15 @@ export interface LoginFuncionarioResponse {
 export type FuncionarioPayload = Omit<Funcionario, 'id' | 'initials'>;
 
 const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || (import.meta.env.DEV ? '/api' : (() => { throw new Error('VITE_API_URL não configurada no deploy. Defina a URL do backend, por exemplo: https://seu-backend.up.railway.app/api.'); })());
+const LIST_CACHE_TTL_MS = 5 * 60 * 1000;
+
+let cachedList: { expiresAt: number; value: Funcionario[] } | null = null;
+let pendingList: Promise<Funcionario[]> | null = null;
+
+function invalidateListCache() {
+  cachedList = null;
+  pendingList = null;
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   let response: Response;
@@ -71,27 +80,49 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export function listarFuncionarios() {
-  return request<Funcionario[]>('/funcionarios');
+  if (cachedList && cachedList.expiresAt > Date.now()) {
+    return Promise.resolve(cachedList.value);
+  }
+
+  if (pendingList) {
+    return pendingList;
+  }
+
+  pendingList = request<Funcionario[]>('/funcionarios')
+    .then((value) => {
+      cachedList = { expiresAt: Date.now() + LIST_CACHE_TTL_MS, value };
+      return value;
+    })
+    .finally(() => {
+      pendingList = null;
+    });
+
+  return pendingList;
 }
 
-export function criarFuncionario(payload: FuncionarioPayload) {
-  return request<Funcionario>('/funcionarios', {
+export async function criarFuncionario(payload: FuncionarioPayload) {
+  const funcionario = await request<Funcionario>('/funcionarios', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+  invalidateListCache();
+  return funcionario;
 }
 
-export function atualizarFuncionario(id: number, payload: FuncionarioPayload) {
-  return request<Funcionario>(`/funcionarios/${id}`, {
+export async function atualizarFuncionario(id: number, payload: FuncionarioPayload) {
+  const funcionario = await request<Funcionario>(`/funcionarios/${id}`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
+  invalidateListCache();
+  return funcionario;
 }
 
-export function removerFuncionario(id: number) {
-  return request<void>(`/funcionarios/${id}`, {
+export async function removerFuncionario(id: number) {
+  await request<void>(`/funcionarios/${id}`, {
     method: 'DELETE',
   });
+  invalidateListCache();
 }
 
 export function loginFuncionario(email: string, password: string) {
