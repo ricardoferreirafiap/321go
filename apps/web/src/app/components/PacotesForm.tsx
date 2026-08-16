@@ -1,10 +1,11 @@
 import { useMemo, useState, useRef } from "react";
-import { ChevronDown, ChevronUp, Pencil, Plus, Trash2, Link2, Package2, Image, Upload, FileText, X, Sparkles, RefreshCw, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Plus, Trash2, Link2, Package2, Image, Upload, FileText, X, Sparkles, RefreshCw, ExternalLink, ShieldCheck } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
+import { Checkbox } from "./ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,7 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "./ui/alert-dialog";
-import { enviarMensagemIA } from "../data/aiChatApi";
+import { enviarMensagemIA, type AIChatApiMessageContent } from "../data/aiChatApi";
 import { API_CONFIG } from "../data/apiConfig";
 import { buscarFotoDestino } from "../data/placePhotoApi";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
@@ -32,6 +33,7 @@ interface Documento {
   nome: string;
   tipo: string;
   arquivo: string;
+  exibirNoRoteiro?: boolean;
   analise?: string;
   dadosIA?: DadosIAExtraidos;
 }
@@ -48,7 +50,13 @@ interface IngressoItem {
 type DadosIAExtraidos = {
   operador?: string;
   ciaAerea?: string;
+  ciaAereaVolta?: string;
+  numeroVooIda?: string;
+  numeroVooVolta?: string;
+  bagagemIda?: string;
+  bagagemVolta?: string;
   reserva?: string;
+  reservaVolta?: string;
   destino?: string;
   passageiros?: string;
   dataIda?: string;
@@ -65,6 +73,7 @@ type DadosIAExtraidos = {
   horaChegadaVolta?: string;
   politicaAlteracoesCancelamentos?: string;
   link?: string;
+  linkVolta?: string;
   valor?: string;
   foto?: string;
   nomeHotel?: string;
@@ -76,6 +85,8 @@ type DadosIAExtraidos = {
   comodidades?: string;
   checkinHotel?: string;
   checkoutHotel?: string;
+  horarioCheckinHotel?: string;
+  horarioCheckoutHotel?: string;
   noitesHotel?: string;
   valorHotel?: string;
   linkHotel?: string;
@@ -88,6 +99,20 @@ type DadosIAExtraidos = {
   trasladoLocalChegada?: string;
   trasladoVeiculoEmpresa?: string;
   trasladoObservacoes?: string;
+  seguroAssistencia?: string;
+  seguroSeguradora?: string;
+  seguroPlano?: string;
+  seguroNumeroReserva?: string;
+  seguroNumeroConfirmacao?: string;
+  seguroApoliceCertificado?: string;
+  seguroSegurados?: string;
+  seguroDestino?: string;
+  seguroAmbitoCobertura?: string;
+  seguroVigenciaInicio?: string;
+  seguroVigenciaFim?: string;
+  seguroCoberturas?: string;
+  seguroValor?: string;
+  seguroObservacoes?: string;
   // Campos legados (single ingresso) - mantidos para retrocompatibilidade com relatórios antigos
   ingressoNomeAtracao?: string;
   ingressoData?: string;
@@ -105,10 +130,17 @@ interface Pacote {
   id: number;
   operador: string;
   ciaAerea?: string;
+  ciaAereaVolta?: string;
+  numeroVooIda?: string;
+  numeroVooVolta?: string;
+  bagagemIda?: string;
+  bagagemVolta?: string;
   origem: string;
   destino: string;
   reserva?: string;
+  reservaVolta?: string;
   link: string;
+  linkVolta?: string;
   urlOperador?: string[];
 
   foto: string | null;
@@ -133,6 +165,8 @@ interface Pacote {
   hospedagemEmail?: string;
   hospedagemCheckin?: string;
   hospedagemCheckout?: string;
+  hospedagemHorarioCheckin?: string;
+  hospedagemHorarioCheckout?: string;
   hospedagemTipoQuarto?: string;
   hospedagemRegime?: string;
   hospedagemComodidades?: string;
@@ -150,6 +184,20 @@ interface Pacote {
   trasladoLocalChegada?: string;
   trasladoVeiculoEmpresa?: string;
   trasladoObservacoes?: string;
+  seguroAssistencia?: string;
+  seguroSeguradora?: string;
+  seguroPlano?: string;
+  seguroNumeroReserva?: string;
+  seguroNumeroConfirmacao?: string;
+  seguroApoliceCertificado?: string;
+  seguroSegurados?: string;
+  seguroDestino?: string;
+  seguroAmbitoCobertura?: string;
+  seguroVigenciaInicio?: string;
+  seguroVigenciaFim?: string;
+  seguroCoberturas?: string;
+  seguroValor?: number;
+  seguroObservacoes?: string;
   // Campos legados (single ingresso) - mantidos para retrocompatibilidade
   ingressoNomeAtracao?: string;
   ingressoData?: string;
@@ -185,13 +233,98 @@ const operadoresPadrao = [
   "Visual Turismo",
 ];
 
+const ciasAereasPadrao = [
+  "Azul",
+  "GOL",
+  "LATAM",
+  "TAP Air Portugal",
+  "American Airlines",
+  "Air Canada",
+  "Air Europa",
+  "Air France",
+  "Aerolíneas Argentinas",
+  "Avianca",
+  "British Airways",
+  "Copa Airlines",
+  "Delta Air Lines",
+  "Emirates",
+  "Iberia",
+  "ITA Airways",
+  "KLM",
+  "Lufthansa",
+  "Qatar Airways",
+  "Swiss",
+  "Turkish Airlines",
+];
+
+function obterOpcoesCiaAerea(valorAtual?: string): string[] {
+  if (!valorAtual || ciasAereasPadrao.includes(valorAtual)) return ciasAereasPadrao;
+  return [...ciasAereasPadrao, valorAtual];
+}
+
+const aeroportosPadrao = [
+  { value: "São Paulo (GRU)", label: "GRU — São Paulo / Guarulhos" },
+  { value: "São Paulo (CGH)", label: "CGH — São Paulo / Congonhas" },
+  { value: "Campinas (VCP)", label: "VCP — Campinas / Viracopos" },
+  { value: "Rio de Janeiro (GIG)", label: "GIG — Rio de Janeiro / Galeão" },
+  { value: "Rio de Janeiro (SDU)", label: "SDU — Rio de Janeiro / Santos Dumont" },
+  { value: "Brasília (BSB)", label: "BSB — Brasília" },
+  { value: "Belo Horizonte (CNF)", label: "CNF — Belo Horizonte / Confins" },
+  { value: "Salvador (SSA)", label: "SSA — Salvador" },
+  { value: "Recife (REC)", label: "REC — Recife" },
+  { value: "Fortaleza (FOR)", label: "FOR — Fortaleza" },
+  { value: "Porto Alegre (POA)", label: "POA — Porto Alegre" },
+  { value: "Curitiba (CWB)", label: "CWB — Curitiba" },
+  { value: "Florianópolis (FLN)", label: "FLN — Florianópolis" },
+  { value: "Manaus (MAO)", label: "MAO — Manaus" },
+  { value: "Belém (BEL)", label: "BEL — Belém" },
+  { value: "Natal (NAT)", label: "NAT — Natal" },
+  { value: "Maceió (MCZ)", label: "MCZ — Maceió" },
+  { value: "Aracaju (AJU)", label: "AJU — Aracaju" },
+  { value: "Vitória (VIX)", label: "VIX — Vitória" },
+  { value: "Goiânia (GYN)", label: "GYN — Goiânia" },
+  { value: "Cuiabá (CGB)", label: "CGB — Cuiabá" },
+  { value: "Foz do Iguaçu (IGU)", label: "IGU — Foz do Iguaçu" },
+  { value: "João Pessoa (JPA)", label: "JPA — João Pessoa" },
+  { value: "São Luís (SLZ)", label: "SLZ — São Luís" },
+  { value: "Teresina (THE)", label: "THE — Teresina" },
+  { value: "Miami (MIA)", label: "MIA — Miami" },
+  { value: "Orlando (MCO)", label: "MCO — Orlando" },
+  { value: "Nova York (JFK)", label: "JFK — Nova York / John F. Kennedy" },
+  { value: "Nova York (EWR)", label: "EWR — Nova York / Newark" },
+  { value: "Los Angeles (LAX)", label: "LAX — Los Angeles" },
+  { value: "Lisboa (LIS)", label: "LIS — Lisboa" },
+  { value: "Porto (OPO)", label: "OPO — Porto" },
+  { value: "Madri (MAD)", label: "MAD — Madri" },
+  { value: "Barcelona (BCN)", label: "BCN — Barcelona" },
+  { value: "Paris (CDG)", label: "CDG — Paris / Charles de Gaulle" },
+  { value: "Paris (ORY)", label: "ORY — Paris / Orly" },
+  { value: "Londres (LHR)", label: "LHR — Londres / Heathrow" },
+  { value: "Roma (FCO)", label: "FCO — Roma / Fiumicino" },
+  { value: "Amsterdã (AMS)", label: "AMS — Amsterdã" },
+  { value: "Frankfurt (FRA)", label: "FRA — Frankfurt" },
+  { value: "Zurique (ZRH)", label: "ZRH — Zurique" },
+  { value: "Dubai (DXB)", label: "DXB — Dubai" },
+  { value: "Doha (DOH)", label: "DOH — Doha" },
+  { value: "Buenos Aires (EZE)", label: "EZE — Buenos Aires / Ezeiza" },
+  { value: "Santiago (SCL)", label: "SCL — Santiago" },
+];
+
+function obterOpcoesAeroporto(valorAtual?: string): { value: string; label: string }[] {
+  if (!valorAtual || aeroportosPadrao.some(({ value }) => value === valorAtual)) return aeroportosPadrao;
+  return [...aeroportosPadrao, { value: valorAtual, label: valorAtual }];
+}
+
 const pacoteVazio: Omit<Pacote, "id"> = {
   operador: "",
   ciaAerea: "",
+  ciaAereaVolta: "",
   origem: "",
   destino: "",
   reserva: "",
+  reservaVolta: "",
   link: "",
+  linkVolta: "",
   urlOperador: [],
 
   foto: null,
@@ -209,6 +342,10 @@ const pacoteVazio: Omit<Pacote, "id"> = {
   horaChegadaIda: "",
   horaSaidaVolta: "",
   horaChegadaVolta: "",
+  numeroVooIda: "",
+  numeroVooVolta: "",
+  bagagemIda: "",
+  bagagemVolta: "",
   politicaAlteracoesCancelamentos: "",
   hospedagemNome: "",
   hospedagemEndereco: "",
@@ -216,6 +353,8 @@ const pacoteVazio: Omit<Pacote, "id"> = {
   hospedagemEmail: "",
   hospedagemCheckin: "",
   hospedagemCheckout: "",
+  hospedagemHorarioCheckin: "",
+  hospedagemHorarioCheckout: "",
   hospedagemTipoQuarto: "",
   hospedagemRegime: "",
   hospedagemComodidades: "",
@@ -233,6 +372,20 @@ const pacoteVazio: Omit<Pacote, "id"> = {
   trasladoLocalChegada: "",
   trasladoVeiculoEmpresa: "",
   trasladoObservacoes: "",
+  seguroAssistencia: "",
+  seguroSeguradora: "",
+  seguroPlano: "",
+  seguroNumeroReserva: "",
+  seguroNumeroConfirmacao: "",
+  seguroApoliceCertificado: "",
+  seguroSegurados: "",
+  seguroDestino: "",
+  seguroAmbitoCobertura: "",
+  seguroVigenciaInicio: "",
+  seguroVigenciaFim: "",
+  seguroCoberturas: "",
+  seguroValor: 0,
+  seguroObservacoes: "",
   ingressoNomeAtracao: "",
   ingressoData: "",
   ingressoHorario: "",
@@ -272,7 +425,7 @@ function formatarDataIsoBr(dataIso?: string): string {
 }
 
 // Monta um resumo curto da viagem com base nos Detalhes do Voo, Hospedagem,
-// Traslado e Ingresso já preenchidos no pacote. É esse texto que aparece
+// Seguro, Traslado e Ingresso já preenchidos no pacote. É esse texto que aparece
 // como descrição do pacote na tela pública do Roteiro.
 export function gerarResumoPacote(dados: Omit<Pacote, "id" | "documentos">): string {
   const partes: string[] = [];
@@ -288,8 +441,10 @@ export function gerarResumoPacote(dados: Omit<Pacote, "id" | "documentos">): str
     partes.push(`${trecho}.`);
   }
 
-  if (dados.dataVolta || dados.origemVolta?.trim() || dados.destinoVolta?.trim()) {
+  if (dados.dataVolta || dados.origemVolta?.trim() || dados.destinoVolta?.trim() || dados.ciaAereaVolta?.trim()) {
     let volta = "Volta";
+    const ciaVolta = dados.ciaAereaVolta?.trim() || dados.ciaAerea?.trim();
+    if (ciaVolta) volta += ` pela ${ciaVolta}`;
     if (dados.origemVolta?.trim() || dados.destinoVolta?.trim()) {
       volta += ` de ${dados.origemVolta?.trim() || "?"} para ${dados.destinoVolta?.trim() || "?"}`;
     }
@@ -304,6 +459,16 @@ export function gerarResumoPacote(dados: Omit<Pacote, "id" | "documentos">): str
     }
     if (dados.hospedagemNoites?.trim()) hospedagem += ` (${dados.hospedagemNoites.trim()} noites)`;
     partes.push(`${hospedagem}.`);
+  }
+
+  if (dados.seguroPlano?.trim() || dados.seguroAssistencia?.trim() || dados.seguroSeguradora?.trim()) {
+    let seguro = `Seguro ${dados.seguroPlano?.trim() || "viagem"}`;
+    const fornecedor = dados.seguroAssistencia?.trim() || dados.seguroSeguradora?.trim();
+    if (fornecedor) seguro += ` pela ${fornecedor}`;
+    if (dados.seguroVigenciaInicio && dados.seguroVigenciaFim) {
+      seguro += `, de ${formatarDataIsoBr(dados.seguroVigenciaInicio)} a ${formatarDataIsoBr(dados.seguroVigenciaFim)}`;
+    }
+    partes.push(`${seguro}.`);
   }
 
   if (dados.trasladoTipo?.trim() || dados.trasladoLocalPartida?.trim() || dados.trasladoLocalChegada?.trim()) {
@@ -387,6 +552,35 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+function dataUrlBase64ParaUint8Array(dataUrl: string): Uint8Array {
+  const separador = dataUrl.indexOf(",");
+  if (separador < 0) {
+    throw new Error("Arquivo em Data URL inválido.");
+  }
+
+  const binario = atob(dataUrl.slice(separador + 1));
+  const bytes = new Uint8Array(binario.length);
+  for (let i = 0; i < binario.length; i++) {
+    bytes[i] = binario.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function renderizarPaginaPdfComoImagem(
+    page: pdfjsLib.PDFPageProxy,
+    scale = 1.5,
+): Promise<string> {
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil(viewport.width);
+  canvas.height = Math.ceil(viewport.height);
+  const context = canvas.getContext("2d");
+  if (!context) return "";
+
+  await page.render({ canvasContext: context, viewport }).promise;
+  return canvas.toDataURL("image/jpeg", 0.9);
+}
+
 function imagemPdfParaDataUrl(img: unknown): string {
   if (!img || typeof img !== "object") return "";
 
@@ -429,7 +623,26 @@ function imagemPdfParaDataUrl(img: unknown): string {
     canvas.width = obj.width;
     canvas.height = obj.height;
     const imageData = ctx.createImageData(obj.width, obj.height);
-    imageData.data.set(obj.data);
+    const totalPixels = obj.width * obj.height;
+    if (obj.data.length === totalPixels * 4) {
+      imageData.data.set(obj.data);
+    } else if (obj.data.length === totalPixels * 3) {
+      for (let origem = 0, destino = 0; origem < obj.data.length; origem += 3, destino += 4) {
+        imageData.data[destino] = obj.data[origem];
+        imageData.data[destino + 1] = obj.data[origem + 1];
+        imageData.data[destino + 2] = obj.data[origem + 2];
+        imageData.data[destino + 3] = 255;
+      }
+    } else if (obj.data.length === totalPixels) {
+      for (let origem = 0, destino = 0; origem < obj.data.length; origem += 1, destino += 4) {
+        imageData.data[destino] = obj.data[origem];
+        imageData.data[destino + 1] = obj.data[origem];
+        imageData.data[destino + 2] = obj.data[origem];
+        imageData.data[destino + 3] = 255;
+      }
+    } else {
+      return "";
+    }
     ctx.putImageData(imageData, 0, 0);
     return canvas.toDataURL("image/png");
   }
@@ -491,6 +704,49 @@ async function extrairPrimeiraImagemEmbutidaDoPdf(pdf: pdfjsLib.PDFDocumentProxy
   return "";
 }
 
+async function extrairMaioresImagensEmbutidasDoPdf(
+    pdf: pdfjsLib.PDFDocumentProxy,
+    limite = 3,
+): Promise<string[]> {
+  const imagens: { dataUrl: string; area: number }[] = [];
+
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const ops = await page.getOperatorList();
+
+    for (let i = 0; i < ops.fnArray.length; i++) {
+      const fn = ops.fnArray[i];
+      if (fn !== pdfjsLib.OPS.paintImageXObject && fn !== pdfjsLib.OPS.paintInlineImageXObject) continue;
+
+      const imgName = ops.argsArray[i][0];
+      if (typeof imgName !== "string") continue;
+
+      try {
+        let img: unknown;
+        try {
+          img = await resolvePdfObject(page.objs, imgName);
+        } catch {
+          img = await resolvePdfObject(pdf.commonObjs, imgName);
+        }
+
+        const dimensoes = img && typeof img === "object"
+          ? img as { width?: number; height?: number }
+          : {};
+        const area = (dimensoes.width || 0) * (dimensoes.height || 0);
+        const dataUrl = imagemPdfParaDataUrl(img);
+        if (dataUrl && area > 0) imagens.push({ dataUrl, area });
+      } catch {
+        // tenta a próxima imagem
+      }
+    }
+  }
+
+  return imagens
+      .sort((a, b) => b.area - a.area)
+      .slice(0, limite)
+      .map(({ dataUrl }) => dataUrl);
+}
+
 async function extrairLogoDoTopoDoPdf(pdf: pdfjsLib.PDFDocumentProxy): Promise<string> {
   const page = await pdf.getPage(1);
   const viewport = page.getViewport({ scale: 2 });
@@ -540,6 +796,72 @@ function detectarOperadorNoTexto(texto: string): string {
   }
 
   return "";
+}
+
+function detectarCiaAereaNoTexto(texto: string): string {
+  if (!texto.trim()) return "";
+
+  const textoNormalizado = texto
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+  const contextoDeVoo = /\b(voo|flight|embarque|aeroporto|saida|chegada|sai|chega)\b/.test(textoNormalizado);
+  if (!contextoDeVoo) return "";
+
+  const companhias: { nome: string; aliases: RegExp; codigoVoo: RegExp }[] = [
+    { nome: "Azul", aliases: /\bazul(?: linhas aereas| brazilian airlines)?\b/i, codigoVoo: /\bAD\s?\d{3,4}\b/i },
+    { nome: "LATAM", aliases: /\blatam(?: airlines)?\b/i, codigoVoo: /\b(?:LA|JJ)\s?\d{3,4}\b/i },
+    { nome: "GOL", aliases: /\bgol(?: linhas aereas)?\b/i, codigoVoo: /\bG3\s?\d{3,4}\b/i },
+    { nome: "Avianca", aliases: /\bavianca\b/i, codigoVoo: /\bAV\s?\d{3,4}\b/i },
+    { nome: "TAP Air Portugal", aliases: /\btap(?: air portugal)?\b/i, codigoVoo: /\bTP\s?\d{3,4}\b/i },
+    { nome: "Copa Airlines", aliases: /\bcopa airlines\b/i, codigoVoo: /\bCM\s?\d{3,4}\b/i },
+    { nome: "American Airlines", aliases: /\bamerican airlines\b/i, codigoVoo: /\bAA\s?\d{3,4}\b/i },
+    { nome: "Delta Air Lines", aliases: /\bdelta air lines\b|\bdelta airlines\b/i, codigoVoo: /\bDL\s?\d{3,4}\b/i },
+    { nome: "United Airlines", aliases: /\bunited airlines\b/i, codigoVoo: /\bUA\s?\d{3,4}\b/i },
+    { nome: "Air France", aliases: /\bair france\b/i, codigoVoo: /\bAF\s?\d{3,4}\b/i },
+    { nome: "KLM", aliases: /\bklm\b/i, codigoVoo: /\bKL\s?\d{3,4}\b/i },
+    { nome: "Iberia", aliases: /\biberia\b/i, codigoVoo: /\bIB\s?\d{3,4}\b/i },
+    { nome: "Lufthansa", aliases: /\blufthansa\b/i, codigoVoo: /\bLH\s?\d{3,4}\b/i },
+    { nome: "Turkish Airlines", aliases: /\bturkish airlines\b/i, codigoVoo: /\bTK\s?\d{3,4}\b/i },
+    { nome: "Emirates", aliases: /\bemirates\b/i, codigoVoo: /\bEK\s?\d{3,4}\b/i },
+    { nome: "Qatar Airways", aliases: /\bqatar airways\b/i, codigoVoo: /\bQR\s?\d{3,4}\b/i },
+    { nome: "British Airways", aliases: /\bbritish airways\b/i, codigoVoo: /\bBA\s?\d{3,4}\b/i },
+    { nome: "Air Europa", aliases: /\bair europa\b/i, codigoVoo: /\bUX\s?\d{3,4}\b/i },
+  ];
+
+  const porCodigo = companhias.find(({ codigoVoo }) => codigoVoo.test(texto));
+  if (porCodigo) return porCodigo.nome;
+
+  const porNome = companhias.find(({ aliases }) => aliases.test(textoNormalizado));
+  return porNome?.nome || "";
+}
+
+function nomeArquivoIndicaVolta(nome: string): boolean {
+  const normalizado = normalizarChave(nome);
+  return normalizado.includes("volta") || normalizado.includes("return") || normalizado.includes("inbound");
+}
+
+function aplicarCiaAereaDetectada(
+    dados: DadosIAExtraidos,
+    nomeArquivo: string,
+    ciaAereaDetectada: string,
+): { dados: DadosIAExtraidos; trechoAplicado: "Ida" | "Volta" | null } {
+  if (!ciaAereaDetectada) return { dados, trechoAplicado: null };
+
+  if (nomeArquivoIndicaVolta(nomeArquivo)) {
+    if (dados.ciaAereaVolta) return { dados, trechoAplicado: null };
+    return {
+      dados: { ...dados, ciaAereaVolta: ciaAereaDetectada },
+      trechoAplicado: "Volta",
+    };
+  }
+
+  if (dados.ciaAerea) return { dados, trechoAplicado: null };
+  return {
+    dados: { ...dados, ciaAerea: ciaAereaDetectada },
+    trechoAplicado: "Ida",
+  };
 }
 
 function carregarImagem(src: string): Promise<HTMLImageElement> {
@@ -628,12 +950,18 @@ async function identificarOperadorPorOcr(imageUrl: string, worker: Worker): Prom
   if (!imageUrl) return "";
 
   try {
-    const imagemPreparada = await prepararImagemParaOcr(imageUrl);
-    const { data: { text } } = await worker.recognize(imagemPreparada);
+    const text = await extrairTextoPorOcr(imageUrl, worker);
     return detectarOperadorNoTexto(text);
   } catch {
     return "";
   }
+}
+
+async function extrairTextoPorOcr(imageUrl: string, worker: Worker): Promise<string> {
+  if (!imageUrl) return "";
+  const imagemPreparada = await prepararImagemParaOcr(imageUrl);
+  const { data: { text } } = await worker.recognize(imagemPreparada);
+  return text.trim();
 }
 
 function extrairPoliticaAlteracoesCancelamentos(texto: string): string {
@@ -666,6 +994,33 @@ function extrairPoliticaAlteracoesCancelamentos(texto: string): string {
   return conteudo.slice(0, fim).trim().replace(/\s{2,}/g, " ");
 }
 
+function extrairPoliticasHospedagem(texto: string): string {
+  if (!texto?.trim()) return "";
+
+  const inicio = texto.search(
+      /\b(?:pol[ií]ticas?\s+e\s+condi[cç][oõ]es|condi[cç][oõ]es\s+de\s+reserva|regras\s+da\s+hospedagem|informa[cç][oõ]es\s+(?:importantes|especiais))\b/i,
+  );
+  if (inicio < 0) return "";
+
+  const secao = texto.slice(inicio);
+  const fim = secao.search(
+      /\n---\s*(?:p[aá]gina|imagem)|\n(?:dados\s+do\s+cliente|traslado|seguro\s+viagem|detalhes\s+do\s+voo)\b/i,
+  );
+  const conteudo = (fim > 0 ? secao.slice(0, fim) : secao)
+      .replace(/[ \t]{2,}/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+
+  return conteudo.length > 30 ? conteudo : "";
+}
+
+function textoMaisCompleto(...valores: (string | null | undefined)[]): string {
+  return valores
+      .map((valor) => valor?.trim() || "")
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length)[0] || "";
+}
+
 function extrairDadosIADeAnalise(analise: string): DadosIAExtraidos {
   // Captura sempre o último grupo da regex (o valor real), ignorando grupos opcionais anteriores
   const extrair = (regex: RegExp) => {
@@ -683,8 +1038,14 @@ function extrairDadosIADeAnalise(analise: string): DadosIAExtraidos {
 
   return {
     operador: padronizarOperador(extrair(/\*\*Operador:\*\*\s*(.+)/)),
-    ciaAerea: extrair(/\*\*CIA A[eé]rea:\*\*\s*(.+)/i),
-    reserva: extrair(/\*\*Nº de Reserva\/Localizador:\*\*\s*(.+)/),
+    ciaAerea: extrair(/\*\*CIA A[eé]rea(?: \(Ida\))?:\*\*\s*(.+)/i),
+    ciaAereaVolta: extrair(/\*\*CIA A[eé]rea \(Volta\):\*\*\s*(.+)/i),
+    numeroVooIda: extrair(/\*\*N[º°]? do Voo \(Ida\):\*\*\s*(.+)/i),
+    numeroVooVolta: extrair(/\*\*N[º°]? do Voo \(Volta\):\*\*\s*(.+)/i),
+    bagagemIda: extrair(/\*\*Bagagem \(Ida\):\*\*\s*(.+)/i),
+    bagagemVolta: extrair(/\*\*Bagagem \(Volta\):\*\*\s*(.+)/i),
+    reserva: extrair(/\*\*Nº de Reserva\/Localizador(?: \(Ida\))?:\*\*\s*(.+)/i),
+    reservaVolta: extrair(/\*\*Nº de Reserva\/Localizador \(Volta\):\*\*\s*(.+)/i),
     destino: extrair(/\*\*Destino Principal:\*\*\s*(.+)/),
     passageiros: extrair(/\*\*Passageiros:\*\*\s*(.+)/),
     dataIda: dataIdaBr ? dataBrParaIso(dataIdaBr) : "",
@@ -699,7 +1060,8 @@ function extrairDadosIADeAnalise(analise: string): DadosIAExtraidos {
     horaChegadaIda: extrair(/\*\*Horário (?:de )?Chegada (?:\(Ida\))?:\*\*\s*(.+)/i),
     horaSaidaVolta: extrair(/\*\*Horário (?:de )?Saída (?:\(Volta\))?:\*\*\s*(.+)/i),
     horaChegadaVolta: extrair(/\*\*Horário (?:de )?Chegada (?:\(Volta\))?:\*\*\s*(.+)/i),
-    link: extrair(/\*\*Link:\*\*\s*(.+)/i),
+    link: extrair(/\*\*Link(?: \(Ida\))?:\*\*\s*(.+)/i),
+    linkVolta: extrair(/\*\*Link \(Volta\):\*\*\s*(.+)/i),
     valor: extrair(/\*\*Valor:\*\*\s*(.+)/i),
     foto: extrair(/\*\*Foto:\*\*\s*(.+)/i),
     nomeHotel: extrair(/\*\*Nome (?:do )?Hotel:\*\*\s*(.+)/i),
@@ -711,6 +1073,8 @@ function extrairDadosIADeAnalise(analise: string): DadosIAExtraidos {
     comodidades: extrair(/\*\*Comodidades (?:do )?Estabelecimento:\*\*\s*(.+)/i),
     checkinHotel: checkinBr ? dataBrParaIso(checkinBr) : "",
     checkoutHotel: checkoutBr ? dataBrParaIso(checkoutBr) : "",
+    horarioCheckinHotel: extrair(/\*\*Horário de Check-in:\*\*\s*(.+)/i),
+    horarioCheckoutHotel: extrair(/\*\*Horário de Check-out:\*\*\s*(.+)/i),
     noitesHotel: extrair(/\*\*Noites:\*\*\s*(.+)/i),
     linkHotel: extrair(/\*\*Link (?:do )?Hotel:\*\*\s*(.+)/i),
     fotoHotel: extrair(/\*\*Foto (?:da )?Hospedagem:\*\*\s*(.+)/i),
@@ -721,6 +1085,34 @@ function extrairDadosIADeAnalise(analise: string): DadosIAExtraidos {
     })(),
     politicaAlteracoesCancelamentos: (() => {
       const match = analise.match(/\*\*Políticas? (?:de )?Alterações? (?:e )?Cancelamentos?:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
+      const valor = match?.[1]?.trim();
+      return valor && valor.toLowerCase() !== "não informado" ? valor : "";
+    })(),
+    seguroAssistencia: extrair(/\*\*Assistência do Seguro:\*\*\s*(.+)/i),
+    seguroSeguradora: extrair(/\*\*Seguradora:\*\*\s*(.+)/i),
+    seguroPlano: extrair(/\*\*Plano\/Produto do Seguro:\*\*\s*(.+)/i),
+    seguroNumeroReserva: extrair(/\*\*Nº de Reserva do Seguro:\*\*\s*(.+)/i),
+    seguroNumeroConfirmacao: extrair(/\*\*Nº de Confirmação do Seguro:\*\*\s*(.+)/i),
+    seguroApoliceCertificado: extrair(/\*\*Apólice\/Certificado:\*\*\s*(.+)/i),
+    seguroSegurados: extrair(/\*\*Segurados:\*\*\s*(.+)/i),
+    seguroDestino: extrair(/\*\*Destino do Seguro:\*\*\s*(.+)/i),
+    seguroAmbitoCobertura: extrair(/\*\*Âmbito de Cobertura:\*\*\s*(.+)/i),
+    seguroVigenciaInicio: (() => {
+      const dataBr = extrair(/\*\*Início da Vigência:\*\*\s*(.+)/i);
+      return dataBr ? dataBrParaIso(dataBr) : "";
+    })(),
+    seguroVigenciaFim: (() => {
+      const dataBr = extrair(/\*\*Fim da Vigência:\*\*\s*(.+)/i);
+      return dataBr ? dataBrParaIso(dataBr) : "";
+    })(),
+    seguroCoberturas: (() => {
+      const match = analise.match(/\*\*Coberturas do Seguro:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
+      const valor = match?.[1]?.trim();
+      return valor && valor.toLowerCase() !== "não informado" ? valor : "";
+    })(),
+    seguroValor: extrair(/\*\*Valor do Seguro:\*\*\s*(.+)/i),
+    seguroObservacoes: (() => {
+      const match = analise.match(/\*\*Observações do Seguro:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/i);
       const valor = match?.[1]?.trim();
       return valor && valor.toLowerCase() !== "não informado" ? valor : "";
     })(),
@@ -844,89 +1236,120 @@ function mesclarDadosIADocumentos(documentos: Documento[]): DadosIAExtraidos {
 }
 
 function montarDadosIAFromJson(
-    respostaJson: Record<string, string>,
+    respostaJson: Record<string, unknown>,
     operadorDetectado: string,
     politicaExtraida: string,
 ): DadosIAExtraidos {
-  const ciaAerea = respostaJson.ciaAerea || "";
-  const politicaFinal = politicaExtraida || respostaJson.politicaAlteracoesCancelamentos || "";
+  const normalizar = (valor: unknown): string => {
+    if (typeof valor === "string") return normalizarValorIA(valor);
+    if (typeof valor === "number" && Number.isFinite(valor)) return String(valor);
+    return "";
+  };
+  const campo = (...chaves: string[]): string => {
+    for (const chave of chaves) {
+      const valor = normalizar(respostaJson[chave]);
+      if (valor) return valor;
+    }
+    return "";
+  };
+
+  const ciaAerea = campo("ciaAerea");
+  const politicaFinal = normalizar(politicaExtraida) || campo("politicaAlteracoesCancelamentos");
+  const ingressoLegado = {
+    nomeAtracao: campo("ingressoNomeAtracao"),
+    data: campo("ingressoData"),
+    horario: campo("ingressoHorario"),
+    quantidade: campo("ingressoQuantidade"),
+    observacoes: campo("ingressoObservacoes"),
+  };
+  const ingressos = Array.isArray(respostaJson.ingressos)
+    ? respostaJson.ingressos
+        .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item))
+        .map((item) => ({
+          nomeAtracao: normalizar(item.nomeAtracao) || normalizar(item.ingressoNomeAtracao),
+          data: normalizar(item.data) || normalizar(item.ingressoData),
+          horario: normalizar(item.horario) || normalizar(item.ingressoHorario),
+          quantidade: normalizar(item.quantidade) || normalizar(item.ingressoQuantidade),
+          observacoes: normalizar(item.observacoes) || normalizar(item.ingressoObservacoes),
+        }))
+        .filter((item) => item.nomeAtracao)
+    : [];
 
   return {
-    operador: padronizarOperador(operadorDetectado || respostaJson.operador || ""),
+    operador: padronizarOperador(normalizar(operadorDetectado) || campo("operador")),
     ciaAerea,
-    reserva: respostaJson.reserva || "",
-    destino: respostaJson.destino || respostaJson.destinoIda || "",
-    passageiros: respostaJson.passageiros || "",
-    dataIda: respostaJson.dataIda || "",
-    dataVolta: respostaJson.dataVolta || "",
-    origemIda: respostaJson.origemIda || "",
-    destinoIda: respostaJson.destinoIda || "",
-    duracaoIda: respostaJson.duracaoIda || "",
-    origemVolta: respostaJson.origemVolta || "",
-    destinoVolta: respostaJson.destinoVolta || "",
-    duracaoVolta: respostaJson.duracaoVolta || "",
-    horaSaidaIda: respostaJson.horaSaidaIda || "",
-    horaChegadaIda: respostaJson.horaChegadaIda || "",
-    horaSaidaVolta: respostaJson.horaSaidaVolta || "",
-    horaChegadaVolta: respostaJson.horaChegadaVolta || "",
+    ciaAereaVolta: campo("ciaAereaVolta"),
+    numeroVooIda: campo("numeroVooIda"),
+    numeroVooVolta: campo("numeroVooVolta"),
+    bagagemIda: campo("bagagemIda"),
+    bagagemVolta: campo("bagagemVolta"),
+    reserva: campo("reserva"),
+    reservaVolta: campo("reservaVolta"),
+    destino: campo("destino", "destinoIda"),
+    passageiros: campo("passageiros"),
+    dataIda: campo("dataIda"),
+    dataVolta: campo("dataVolta"),
+    origemIda: campo("origemIda"),
+    destinoIda: campo("destinoIda"),
+    duracaoIda: campo("duracaoIda"),
+    origemVolta: campo("origemVolta"),
+    destinoVolta: campo("destinoVolta"),
+    duracaoVolta: campo("duracaoVolta"),
+    horaSaidaIda: campo("horaSaidaIda"),
+    horaChegadaIda: campo("horaChegadaIda"),
+    horaSaidaVolta: campo("horaSaidaVolta"),
+    horaChegadaVolta: campo("horaChegadaVolta"),
     politicaAlteracoesCancelamentos: politicaFinal,
-    link: respostaJson.link || "",
-    valor: respostaJson.valor || "",
-    foto: respostaJson.foto || "",
-    nomeHotel: respostaJson.nomeHotel || "",
-    enderecoHotel: respostaJson.enderecoHotel || "",
-    telefoneHotel: respostaJson.telefoneHotel || "",
-    emailHotel: respostaJson.emailHotel || "",
-    quarto: respostaJson.quarto || "",
-    regimeHotel: respostaJson.regimeHotel || "",
-    comodidades: respostaJson.comodidades || "",
-    checkinHotel: respostaJson.checkinHotel || "",
-    checkoutHotel: respostaJson.checkoutHotel || "",
-    noitesHotel: respostaJson.noitesHotel || "",
-    valorHotel: respostaJson.valorHotel || "",
-    linkHotel: respostaJson.linkHotel || "",
-    fotoHotel: respostaJson.fotoHotel || "",
-    politicasCondicoesInformacoesEspeciais: respostaJson.politicasCondicoesInformacoesEspeciais || "",
-    trasladoTipo: respostaJson.trasladoTipo || "",
-    trasladoData: respostaJson.trasladoData || "",
-    trasladoHorario: respostaJson.trasladoHorario || "",
-    trasladoLocalPartida: respostaJson.trasladoLocalPartida || "",
-    trasladoLocalChegada: respostaJson.trasladoLocalChegada || "",
-    trasladoVeiculoEmpresa: respostaJson.trasladoVeiculoEmpresa || "",
-    trasladoObservacoes: respostaJson.trasladoObservacoes || "",
-    ingressoNomeAtracao: respostaJson.ingressoNomeAtracao || "",
-    ingressoData: respostaJson.ingressoData || "",
-    ingressoHorario: respostaJson.ingressoHorario || "",
-    ingressoQuantidade: respostaJson.ingressoQuantidade || "",
-    ingressoObservacoes: respostaJson.ingressoObservacoes || "",
-    dadosCliente: respostaJson.dadosCliente || "",
-    informacoesAdicionais: respostaJson.informacoesAdicionais || "",
-    conteudoCompleto: respostaJson.conteudoCompleto || "",
-    // Array de ingressos — a IA pode retornar um array "ingressos" ou usamos o campo singular como fallback
-    ingressos: (() => {
-      // Se a IA retornou um array tipado (novo formato)
-      const raw = (respostaJson as Record<string, unknown>).ingressos;
-      if (Array.isArray(raw) && raw.length > 0) {
-        return (raw as Array<Record<string, string>>).map((item) => ({
-          nomeAtracao: item.nomeAtracao || item.ingressoNomeAtracao || "",
-          data: item.data || item.ingressoData || "",
-          horario: item.horario || item.ingressoHorario || "",
-          quantidade: item.quantidade || item.ingressoQuantidade || "",
-          observacoes: item.observacoes || item.ingressoObservacoes || "",
-        })).filter((i) => i.nomeAtracao.trim());
-      }
-      // Fallback: constrói a partir do campo singular legado
-      if (respostaJson.ingressoNomeAtracao?.trim()) {
-        return [{
-          nomeAtracao: respostaJson.ingressoNomeAtracao,
-          data: respostaJson.ingressoData || "",
-          horario: respostaJson.ingressoHorario || "",
-          quantidade: respostaJson.ingressoQuantidade || "",
-          observacoes: respostaJson.ingressoObservacoes || "",
-        }];
-      }
-      return [];
-    })(),
+    link: campo("link"),
+    linkVolta: campo("linkVolta"),
+    valor: campo("valor"),
+    foto: campo("foto"),
+    nomeHotel: campo("nomeHotel"),
+    enderecoHotel: campo("enderecoHotel"),
+    telefoneHotel: campo("telefoneHotel"),
+    emailHotel: campo("emailHotel"),
+    quarto: campo("quarto"),
+    regimeHotel: campo("regimeHotel"),
+    comodidades: campo("comodidades"),
+    checkinHotel: campo("checkinHotel"),
+    checkoutHotel: campo("checkoutHotel"),
+    horarioCheckinHotel: campo("horarioCheckinHotel"),
+    horarioCheckoutHotel: campo("horarioCheckoutHotel"),
+    noitesHotel: campo("noitesHotel"),
+    valorHotel: campo("valorHotel"),
+    linkHotel: campo("linkHotel"),
+    fotoHotel: campo("fotoHotel"),
+    politicasCondicoesInformacoesEspeciais: campo("politicasCondicoesInformacoesEspeciais"),
+    trasladoTipo: campo("trasladoTipo"),
+    trasladoData: campo("trasladoData"),
+    trasladoHorario: campo("trasladoHorario"),
+    trasladoLocalPartida: campo("trasladoLocalPartida"),
+    trasladoLocalChegada: campo("trasladoLocalChegada"),
+    trasladoVeiculoEmpresa: campo("trasladoVeiculoEmpresa"),
+    trasladoObservacoes: campo("trasladoObservacoes"),
+    seguroAssistencia: campo("seguroAssistencia"),
+    seguroSeguradora: campo("seguroSeguradora"),
+    seguroPlano: campo("seguroPlano"),
+    seguroNumeroReserva: campo("seguroNumeroReserva"),
+    seguroNumeroConfirmacao: campo("seguroNumeroConfirmacao"),
+    seguroApoliceCertificado: campo("seguroApoliceCertificado"),
+    seguroSegurados: campo("seguroSegurados"),
+    seguroDestino: campo("seguroDestino"),
+    seguroAmbitoCobertura: campo("seguroAmbitoCobertura"),
+    seguroVigenciaInicio: campo("seguroVigenciaInicio"),
+    seguroVigenciaFim: campo("seguroVigenciaFim"),
+    seguroCoberturas: campo("seguroCoberturas"),
+    seguroValor: campo("seguroValor"),
+    seguroObservacoes: campo("seguroObservacoes"),
+    ingressoNomeAtracao: ingressoLegado.nomeAtracao,
+    ingressoData: ingressoLegado.data,
+    ingressoHorario: ingressoLegado.horario,
+    ingressoQuantidade: ingressoLegado.quantidade,
+    ingressoObservacoes: ingressoLegado.observacoes,
+    dadosCliente: campo("dadosCliente"),
+    informacoesAdicionais: campo("informacoesAdicionais"),
+    conteudoCompleto: campo("conteudoCompleto"),
+    ingressos: ingressos.length > 0 ? ingressos : ingressoLegado.nomeAtracao ? [ingressoLegado] : [],
   };
 }
 
@@ -942,8 +1365,14 @@ function montarRelatorioCompleto(
     `**Relatório do Pacote (Analisado com ${provedorUsado})**`,
     "--------------------",
     `**Operador:** ${dados.operador || padronizarOperador(operadorDetectado) || "Não informado"}`,
-    `**CIA Aérea:** ${fmtCampo(dados.ciaAerea)}`,
-    `**Nº de Reserva/Localizador:** ${fmtCampo(dados.reserva)}`,
+    `**CIA Aérea (Ida):** ${fmtCampo(dados.ciaAerea)}`,
+    `**Nº do Voo (Ida):** ${fmtCampo(dados.numeroVooIda)}`,
+    `**Nº de Reserva/Localizador (Ida):** ${fmtCampo(dados.reserva)}`,
+    `**Bagagem (Ida):** ${fmtCampo(dados.bagagemIda)}`,
+    `**CIA Aérea (Volta):** ${fmtCampo(dados.ciaAereaVolta)}`,
+    `**Nº do Voo (Volta):** ${fmtCampo(dados.numeroVooVolta)}`,
+    `**Nº de Reserva/Localizador (Volta):** ${fmtCampo(dados.reservaVolta)}`,
+    `**Bagagem (Volta):** ${fmtCampo(dados.bagagemVolta)}`,
     `**Destino Principal:** ${fmtCampo(dados.destino || dados.destinoIda)}`,
     `**Passageiros:** ${fmtCampo(dados.passageiros)}`,
     `**Data de Ida:** ${fmtData(dados.dataIda)}`,
@@ -958,7 +1387,8 @@ function montarRelatorioCompleto(
     `**Duração (Volta):** ${fmtCampo(dados.duracaoVolta)}`,
     `**Horário de Saída (Volta):** ${fmtCampo(dados.horaSaidaVolta)}`,
     `**Horário de Chegada (Volta):** ${fmtCampo(dados.horaChegadaVolta)}`,
-    `**Link:** ${fmtCampo(dados.link)}`,
+    `**Link (Ida):** ${fmtCampo(dados.link)}`,
+    `**Link (Volta):** ${fmtCampo(dados.linkVolta)}`,
     `**Valor:** ${fmtCampo(dados.valor)}`,
     `**Foto:** ${fmtCampo(dados.foto)}`,
     "**Política de alterações e cancelamentos:**",
@@ -968,15 +1398,34 @@ function montarRelatorioCompleto(
     `**Telefone do Hotel:** ${fmtCampo(dados.telefoneHotel)}`,
     `**E-mail do Hotel:** ${fmtCampo(dados.emailHotel)}`,
     `**Check-in:** ${fmtData(dados.checkinHotel)}`,
+    `**Horário de Check-in:** ${fmtCampo(dados.horarioCheckinHotel)}`,
     `**Check-out:** ${fmtData(dados.checkoutHotel)}`,
+    `**Horário de Check-out:** ${fmtCampo(dados.horarioCheckoutHotel)}`,
     `**Tipo de Quarto:** ${fmtCampo(dados.quarto)}`,
     `**Regime / Pensão:** ${fmtCampo(dados.regimeHotel)}`,
     `**Comodidades do Estabelecimento:** ${fmtCampo(dados.comodidades)}`,
     `**Noites:** ${fmtCampo(dados.noitesHotel)}`,
+    `**Valor da Hospedagem:** ${fmtCampo(dados.valorHotel)}`,
     `**Link do Hotel:** ${fmtCampo(dados.linkHotel)}`,
     `**Foto da Hospedagem:** ${fmtCampo(dados.fotoHotel)}`,
     "**Políticas, Condições e Informações Especiais:**",
     dados.politicasCondicoesInformacoesEspeciais || "Não informado",
+    `**Assistência do Seguro:** ${fmtCampo(dados.seguroAssistencia)}`,
+    `**Seguradora:** ${fmtCampo(dados.seguroSeguradora)}`,
+    `**Plano/Produto do Seguro:** ${fmtCampo(dados.seguroPlano)}`,
+    `**Nº de Reserva do Seguro:** ${fmtCampo(dados.seguroNumeroReserva)}`,
+    `**Nº de Confirmação do Seguro:** ${fmtCampo(dados.seguroNumeroConfirmacao)}`,
+    `**Apólice/Certificado:** ${fmtCampo(dados.seguroApoliceCertificado)}`,
+    `**Segurados:** ${fmtCampo(dados.seguroSegurados)}`,
+    `**Destino do Seguro:** ${fmtCampo(dados.seguroDestino)}`,
+    `**Âmbito de Cobertura:** ${fmtCampo(dados.seguroAmbitoCobertura)}`,
+    `**Início da Vigência:** ${fmtData(dados.seguroVigenciaInicio)}`,
+    `**Fim da Vigência:** ${fmtData(dados.seguroVigenciaFim)}`,
+    "**Coberturas do Seguro:**",
+    dados.seguroCoberturas || "Não informado",
+    `**Valor do Seguro:** ${fmtCampo(dados.seguroValor)}`,
+    "**Observações do Seguro:**",
+    dados.seguroObservacoes || "Não informado",
     `**Tipo de Traslado:** ${fmtCampo(dados.trasladoTipo)}`,
     `**Data do Traslado:** ${fmtData(dados.trasladoData)}`,
     `**Horário do Traslado:** ${fmtCampo(dados.trasladoHorario)}`,
@@ -1041,30 +1490,37 @@ Instruções:
 1. Analise o conteúdo fornecido cuidadosamente.
 2. Extraia todas as informações disponíveis nas seções mencionadas acima.
 3. Para o campo "operador", extraia o nome do operador (ex: HotelDO, Decolar, CVC). NÃO INVENTE ou HALLUCINE dados que não existem no conteúdo.
-4. Para datas (dataIda, dataVolta, checkinHotel, checkoutHotel), use o formato AAAA-MM-DD.
-5. O campo "ciaAerea" deve conter o nome da companhia aérea (ex: LATAM Airlines Group, GOL, Azul).
-6. Identifique origem, destino e duração separadamente para o trecho de IDA e para o trecho de VOLTA.
+4. Para datas (dataIda, dataVolta, checkinHotel, checkoutHotel, seguroVigenciaInicio, seguroVigenciaFim), use o formato AAAA-MM-DD.
+5. Os campos "ciaAerea", "reserva" e "link" representam o trecho de IDA. Os campos "ciaAereaVolta", "reservaVolta" e "linkVolta" representam o trecho de VOLTA. Diferencie companhia aérea, localizador e link/voucher por trecho; quando o documento apresentar apenas um valor comum aos dois trechos, preencha somente os campos de IDA para preservar a retrocompatibilidade.
+6. Identifique companhia aérea, número do voo, bagagens incluídas, localizador, origem, destino e duração separadamente para o trecho de IDA e para o trecho de VOLTA.
 7. A duração do voo deve estar no formato legível (ex: "2h 30min", "11h 45min", "1h 05min").
 8. Horários devem estar no formato HH:MM (ex: "08:35", "23:10").
 9. O campo "valor" deve conter o valor total da viagem como aparece na página (ex: "R$ 5.432,10").
-10. Os campos "link" e "foto" devem conter URLs completas quando existirem na página.
+10. Os campos "link", "linkVolta" e "foto" devem conter URLs completas quando existirem na página.
 11. O campo "nomeHotel" deve conter o nome do estabelecimento de hospedagem.
 12. O campo "regimeHotel" deve conter o regime de pensão (ex: "Café da manhã", "Meia pensão", "All inclusive").
 13. O campo "noitesHotel" deve conter apenas o número de noites (ex: "7").
 14. Localize a seção "Políticas de alteração e cancelamento" e copie todo o texto integralmente para "politicaAlteracoesCancelamentos", sem resumir.
 15. Extraia informações sobre traslado (tipo, data, horário, locais, veículo/empresa, observações).
 16. Extraia informações sobre ingressos (nome da atração, data, horário, quantidade, observações). Se houver MAIS DE UM ingresso/atração, preencha o array "ingressos" com um objeto por atração. Também preencha "ingressoNomeAtracao", "ingressoData", "ingressoHorario", "ingressoQuantidade" e "ingressoObservacoes" com os dados da primeira atração (retrocompatibilidade).
-17. Extraia TODOS os dados do cliente (nome, email, telefone, CPF, etc.) e coloque no campo "dadosCliente".
-18. Extraia quaisquer informações adicionais ou observações gerais da página e coloque no campo "informacoesAdicionais".
-19. Copie TODO o conteúdo da página para o campo "conteudoCompleto" para garantir que nenhum dado seja perdido.
-20. CRÍTICO: Se uma informação não for encontrada no conteúdo, retorne uma string vazia "" para o campo correspondente. NUNCA INVENTE dados.
-21. Retorne APENAS o JSON, sem formatação adicional, sem blocos de código markdown.
+17. Se houver SEGURO VIAGEM, extraia separadamente: empresa de assistência, seguradora garantidora, plano/produto, números de reserva e confirmação, apólice/certificado, segurados, destino, âmbito territorial, início e fim da vigência, todas as coberturas com seus limites, valor e observações/condições relevantes.
+18. Extraia TODOS os dados do cliente (nome, email, telefone, CPF, etc.) e coloque no campo "dadosCliente".
+19. Extraia quaisquer informações adicionais ou observações gerais da página e coloque no campo "informacoesAdicionais".
+20. Copie TODO o conteúdo da página para o campo "conteudoCompleto" para garantir que nenhum dado seja perdido.
+21. CRÍTICO: Se uma informação não for encontrada no conteúdo, retorne uma string vazia "" para o campo correspondente. NUNCA INVENTE dados.
+22. Retorne APENAS o JSON, sem formatação adicional, sem blocos de código markdown.
 
 Retorne o JSON no seguinte formato:
 {
   "operador": "",
   "ciaAerea": "",
+  "ciaAereaVolta": "",
+  "numeroVooIda": "",
+  "numeroVooVolta": "",
+  "bagagemIda": "",
+  "bagagemVolta": "",
   "reserva": "",
+  "reservaVolta": "",
   "destino": "",
   "passageiros": "",
   "dataIda": "",
@@ -1081,6 +1537,7 @@ Retorne o JSON no seguinte formato:
   "horaChegadaVolta": "",
   "politicaAlteracoesCancelamentos": "",
   "link": "",
+  "linkVolta": "",
   "valor": "",
   "foto": "",
   "nomeHotel": "",
@@ -1092,10 +1549,26 @@ Retorne o JSON no seguinte formato:
   "comodidades": "",
   "checkinHotel": "",
   "checkoutHotel": "",
+  "horarioCheckinHotel": "",
+  "horarioCheckoutHotel": "",
   "noitesHotel": "",
   "linkHotel": "",
   "fotoHotel": "",
   "politicasCondicoesInformacoesEspeciais": "",
+  "seguroAssistencia": "",
+  "seguroSeguradora": "",
+  "seguroPlano": "",
+  "seguroNumeroReserva": "",
+  "seguroNumeroConfirmacao": "",
+  "seguroApoliceCertificado": "",
+  "seguroSegurados": "",
+  "seguroDestino": "",
+  "seguroAmbitoCobertura": "",
+  "seguroVigenciaInicio": "",
+  "seguroVigenciaFim": "",
+  "seguroCoberturas": "",
+  "seguroValor": "",
+  "seguroObservacoes": "",
   "trasladoTipo": "",
   "trasladoData": "",
   "trasladoHorario": "",
@@ -1126,8 +1599,10 @@ Retorne o JSON no seguinte formato:
 function montarRelatorioUrl(provedor: string, dados: DadosIAExtraidos): string {
   const campos: [string, string | undefined][] = [
     ["Operador", dados.operador],
-    ["CIA Aérea", dados.ciaAerea],
-    ["Nº de Reserva/Localizador", dados.reserva],
+    ["CIA Aérea (Ida)", dados.ciaAerea],
+    ["Nº de Reserva/Localizador (Ida)", dados.reserva],
+    ["CIA Aérea (Volta)", dados.ciaAereaVolta],
+    ["Nº de Reserva/Localizador (Volta)", dados.reservaVolta],
     ["Destino Principal", dados.destino],
     ["Passageiros", dados.passageiros],
     ["Data de Ida", dados.dataIda],
@@ -1143,7 +1618,8 @@ function montarRelatorioUrl(provedor: string, dados: DadosIAExtraidos): string {
     ["Horário de Saída (Volta)", dados.horaSaidaVolta],
     ["Horário de Chegada (Volta)", dados.horaChegadaVolta],
     ["Valor", dados.valor],
-    ["Link", dados.link],
+    ["Link (Ida)", dados.link],
+    ["Link (Volta)", dados.linkVolta],
     ["Nome do Hotel", dados.nomeHotel],
     ["Endereço do Hotel", dados.enderecoHotel],
     ["Telefone do Hotel", dados.telefoneHotel],
@@ -1155,6 +1631,20 @@ function montarRelatorioUrl(provedor: string, dados: DadosIAExtraidos): string {
     ["Check-out", dados.checkoutHotel],
     ["Noites", dados.noitesHotel],
     ["Link do Hotel", dados.linkHotel],
+    ["Assistência do Seguro", dados.seguroAssistencia],
+    ["Seguradora", dados.seguroSeguradora],
+    ["Plano/Produto do Seguro", dados.seguroPlano],
+    ["Nº de Reserva do Seguro", dados.seguroNumeroReserva],
+    ["Nº de Confirmação do Seguro", dados.seguroNumeroConfirmacao],
+    ["Apólice/Certificado", dados.seguroApoliceCertificado],
+    ["Segurados", dados.seguroSegurados],
+    ["Destino do Seguro", dados.seguroDestino],
+    ["Âmbito de Cobertura", dados.seguroAmbitoCobertura],
+    ["Início da Vigência", dados.seguroVigenciaInicio],
+    ["Fim da Vigência", dados.seguroVigenciaFim],
+    ["Coberturas do Seguro", dados.seguroCoberturas],
+    ["Valor do Seguro", dados.seguroValor],
+    ["Observações do Seguro", dados.seguroObservacoes],
     ["Tipo de Traslado", dados.trasladoTipo],
     ["Data Traslado", dados.trasladoData],
     ["Horário Traslado", dados.trasladoHorario],
@@ -1205,29 +1695,36 @@ ${contextoArquivo}
 Instruções:
 1. Extraia todas as informações do conteúdo do arquivo (PDF, OCR ou imagem). Seja exaustivo e procure em todas as seções do documento.
 2. Se uma informação não for encontrada, retorne uma string vazia "" para o campo correspondente.
-3. Para datas (dataIda, dataVolta, checkinHotel, checkoutHotel, trasladoData, ingressoData), use o formato AAAA-MM-DD.
+3. Para datas (dataIda, dataVolta, checkinHotel, checkoutHotel, trasladoData, ingressoData, seguroVigenciaInicio, seguroVigenciaFim), use o formato AAAA-MM-DD.
 4. O campo "operador" deve conter o nome da operadora de turismo (ex: HotelDO, Decolar, CVC, Flytour, Orinter, Abreu, Visual Turismo, Diversa Turismo). Procure pelo nome no cabeçalho, rodapé ou logotipo do documento.
-5. O campo "ciaAerea" deve conter o nome da companhia aérea (ex: LATAM Airlines Group, GOL, Azul). Não confunda com operadora de turismo.
-6. Identifique origem, destino e duração separadamente para o trecho de IDA e para o trecho de VOLTA.
+5. Os campos "ciaAerea", "reserva" e "link" representam o trecho de IDA. Os campos "ciaAereaVolta", "reservaVolta" e "linkVolta" representam o trecho de VOLTA. Diferencie companhia aérea, localizador e link/voucher por trecho; quando o documento apresentar apenas um valor comum aos dois trechos, preencha somente os campos de IDA para preservar a retrocompatibilidade. Não confunda companhia aérea com operadora de turismo.
+6. Identifique a companhia pelo nome escrito, logotipo, código IATA/ICAO ou prefixo do número do voo (por exemplo AD/Azul, G3/GOL, LA/LATAM, AV/Avianca, TP/TAP). Examine especialmente a linha ou tabela próxima de "Voo", "Flight", "SAI" e "CHEGA", mesmo quando o nome estiver pequeno ou estilizado no logotipo. Identifique também número do voo, bagagens incluídas, localizador, origem, destino e duração separadamente para o trecho de IDA e para o trecho de VOLTA.
 7. A duração do voo deve estar no formato legível (ex: "2h 30min", "11h 45min", "1h 05min").
 8. Horários devem estar no formato HH:MM (ex: "08:35", "23:10").
 9. O campo "valor" deve conter o valor total do pacote/reserva como aparece no documento (ex: "R$ 5.432,10").
 10. O campo "valorHotel" deve conter o valor específico da hospedagem quando disponível (ex: "R$ 1.200,00").
-11. Os campos "link" e "foto" devem conter URLs completas quando existirem no documento.
+11. Os campos "link", "linkVolta" e "foto" devem conter URLs completas quando existirem no documento.
 12. O campo "nomeHotel" deve conter o nome do estabelecimento de hospedagem.
 13. O campo "regimeHotel" deve conter o regime de pensão (ex: "Café da manhã", "Meia pensão", "All inclusive").
 14. O campo "noitesHotel" deve conter apenas o número de noites (ex: "7").
 15. Localize a seção "Política de alterações e cancelamentos" e copie todo o texto integralmente para "politicaAlteracoesCancelamentos", sem resumir.
-16. Localize seções de "Políticas", "Condições" ou "Informações Especiais" da hospedagem e copie integralmente para "politicasCondicoesInformacoesEspeciais".
+16. Localize seções de "Políticas", "Condições", "Regras", "Cancelamento", "Informações Importantes/Especiais", observações, taxas, no-show e instruções de check-in/check-out da hospedagem. Copie integralmente todo o conteúdo, sem resumir nem retornar apenas o título, para "politicasCondicoesInformacoesEspeciais". Extraia também os horários de check-in e check-out em HH:MM.
 17. Identifique informações de TRASLADO (transfer), quando houver: tipo (ex: "Aeroporto-Hotel", "Hotel-Aeroporto", "Hotel-Passeio"), data, horário, local de partida, local de chegada, veículo/empresa responsável e observações relevantes (ex: regular, privativo, ponto de encontro).
 18. Identifique informações de INGRESSO (tickets/atrações), quando houver: nome da atração/local, data, horário, quantidade de ingressos e observações relevantes (ex: categoria do ingresso, se inclui guia). Se houver MAIS DE UMA atração/ingresso, preencha o array "ingressos" com um objeto por atração. Também preencha os campos "ingressoNomeAtracao", "ingressoData", "ingressoHorario", "ingressoQuantidade" e "ingressoObservacoes" com os dados da primeira atração (retrocompatibilidade).
-19. Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
-${!temConteudoArquivo ? "\n20. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise no nome do arquivo e na imagem anexada (se houver)." : ""}
+19. Identifique informações de SEGURO VIAGEM. Diferencie a empresa de assistência da seguradora garantidora e extraia: plano/produto, números de reserva e confirmação, apólice/certificado, segurados, destino, âmbito territorial, início e fim da vigência, todas as coberturas com seus respectivos limites, valor e observações/condições relevantes.
+20. Retorne APENAS o objeto JSON, sem nenhum texto ou formatação adicional.
+${!temConteudoArquivo ? "\n21. Como o conteúdo do arquivo não pôde ser lido, baseie sua análise no nome do arquivo e na imagem anexada (se houver)." : ""}
 Formato JSON esperado:
 {
   "operador": "string",
   "ciaAerea": "string",
+  "ciaAereaVolta": "string",
+  "numeroVooIda": "string",
+  "numeroVooVolta": "string",
+  "bagagemIda": "string",
+  "bagagemVolta": "string",
   "reserva": "string",
+  "reservaVolta": "string",
   "destino": "string",
   "passageiros": "string",
   "dataIda": "string",
@@ -1243,6 +1740,7 @@ Formato JSON esperado:
   "destinoVolta": "string",
   "duracaoVolta": "string",
   "link": "string",
+  "linkVolta": "string",
   "valor": "string",
   "foto": "string",
   "nomeHotel": "string",
@@ -1251,6 +1749,8 @@ Formato JSON esperado:
   "emailHotel": "string",
   "checkinHotel": "string",
   "checkoutHotel": "string",
+  "horarioCheckinHotel": "string",
+  "horarioCheckoutHotel": "string",
   "quarto": "string",
   "regimeHotel": "string",
   "comodidades": "string",
@@ -1260,6 +1760,20 @@ Formato JSON esperado:
   "fotoHotel": "string",
   "politicasCondicoesInformacoesEspeciais": "string",
   "politicaAlteracoesCancelamentos": "string",
+  "seguroAssistencia": "string",
+  "seguroSeguradora": "string",
+  "seguroPlano": "string",
+  "seguroNumeroReserva": "string",
+  "seguroNumeroConfirmacao": "string",
+  "seguroApoliceCertificado": "string",
+  "seguroSegurados": "string",
+  "seguroDestino": "string",
+  "seguroAmbitoCobertura": "string",
+  "seguroVigenciaInicio": "string",
+  "seguroVigenciaFim": "string",
+  "seguroCoberturas": "string",
+  "seguroValor": "string",
+  "seguroObservacoes": "string",
   "trasladoTipo": "string",
   "trasladoData": "string",
   "trasladoHorario": "string",
@@ -1331,7 +1845,13 @@ function mapearDetalhesVoo<T extends Pick<
     Pacote,
     | "operador"
     | "ciaAerea"
+    | "ciaAereaVolta"
+    | "numeroVooIda"
+    | "numeroVooVolta"
+    | "bagagemIda"
+    | "bagagemVolta"
     | "reserva"
+    | "reservaVolta"
     | "destino"
     | "origem"
     | "dataIda"
@@ -1349,33 +1869,44 @@ function mapearDetalhesVoo<T extends Pick<
     | "horaChegadaVolta"
     | "politicaAlteracoesCancelamentos"
     | "link"
+    | "linkVolta"
     | "foto"
     | "valor"
 >>(formAtual: T, dadosIAVoo: NonNullable<Documento["dadosIA"]>): T {
+  const origemIda = formAtual.origemIda || formAtual.origem || dadosIAVoo.origemIda || "";
+  const destinoIda = formAtual.destinoIda || formAtual.destino || dadosIAVoo.destinoIda || dadosIAVoo.destino || "";
+
   return {
     ...formAtual,
-    operador: dadosIAVoo.operador || formAtual.operador || "",
-    ciaAerea: dadosIAVoo.ciaAerea || formAtual.ciaAerea || "",
-    reserva: dadosIAVoo.reserva || formAtual.reserva || "",
-    destino: dadosIAVoo.destinoIda || dadosIAVoo.destino || formAtual.destino || "",
-    origem: dadosIAVoo.origemIda || formAtual.origem || "",
-    dataIda: dadosIAVoo.dataIda || formAtual.dataIda || "",
-    dataVolta: dadosIAVoo.dataVolta || formAtual.dataVolta || "",
-    passageiros: dadosIAVoo.passageiros || formAtual.passageiros || "",
-    origemIda: dadosIAVoo.origemIda || formAtual.origemIda || "",
-    destinoIda: dadosIAVoo.destinoIda || formAtual.destinoIda || "",
-    duracaoIda: dadosIAVoo.duracaoIda || formAtual.duracaoIda || "",
-    origemVolta: dadosIAVoo.origemVolta || formAtual.origemVolta || "",
-    destinoVolta: dadosIAVoo.destinoVolta || formAtual.destinoVolta || "",
-    duracaoVolta: dadosIAVoo.duracaoVolta || formAtual.duracaoVolta || "",
-    horaSaidaIda: dadosIAVoo.horaSaidaIda || formAtual.horaSaidaIda || "",
-    horaChegadaIda: dadosIAVoo.horaChegadaIda || formAtual.horaChegadaIda || "",
-    horaSaidaVolta: dadosIAVoo.horaSaidaVolta || formAtual.horaSaidaVolta || "",
-    horaChegadaVolta: dadosIAVoo.horaChegadaVolta || formAtual.horaChegadaVolta || "",
-    politicaAlteracoesCancelamentos: dadosIAVoo.politicaAlteracoesCancelamentos || formAtual.politicaAlteracoesCancelamentos || "",
-    link: dadosIAVoo.link || formAtual.link || "",
-    foto: dadosIAVoo.foto || formAtual.foto || null,
-    valor: dadosIAVoo.valor ? parseMoeda(dadosIAVoo.valor) : (formAtual.valor || 0),
+    operador: formAtual.operador || dadosIAVoo.operador || "",
+    ciaAerea: formAtual.ciaAerea || dadosIAVoo.ciaAerea || "",
+    ciaAereaVolta: formAtual.ciaAereaVolta || dadosIAVoo.ciaAereaVolta || "",
+    numeroVooIda: formAtual.numeroVooIda || dadosIAVoo.numeroVooIda || "",
+    numeroVooVolta: formAtual.numeroVooVolta || dadosIAVoo.numeroVooVolta || "",
+    bagagemIda: formAtual.bagagemIda || dadosIAVoo.bagagemIda || "",
+    bagagemVolta: formAtual.bagagemVolta || dadosIAVoo.bagagemVolta || "",
+    reserva: formAtual.reserva || dadosIAVoo.reserva || "",
+    reservaVolta: formAtual.reservaVolta || dadosIAVoo.reservaVolta || "",
+    destino: destinoIda,
+    origem: origemIda,
+    dataIda: formAtual.dataIda || dadosIAVoo.dataIda || "",
+    dataVolta: formAtual.dataVolta || dadosIAVoo.dataVolta || "",
+    passageiros: formAtual.passageiros || dadosIAVoo.passageiros || "",
+    origemIda,
+    destinoIda,
+    duracaoIda: formAtual.duracaoIda || dadosIAVoo.duracaoIda || "",
+    origemVolta: formAtual.origemVolta || dadosIAVoo.origemVolta || "",
+    destinoVolta: formAtual.destinoVolta || dadosIAVoo.destinoVolta || "",
+    duracaoVolta: formAtual.duracaoVolta || dadosIAVoo.duracaoVolta || "",
+    horaSaidaIda: formAtual.horaSaidaIda || dadosIAVoo.horaSaidaIda || "",
+    horaChegadaIda: formAtual.horaChegadaIda || dadosIAVoo.horaChegadaIda || "",
+    horaSaidaVolta: formAtual.horaSaidaVolta || dadosIAVoo.horaSaidaVolta || "",
+    horaChegadaVolta: formAtual.horaChegadaVolta || dadosIAVoo.horaChegadaVolta || "",
+    politicaAlteracoesCancelamentos: textoMaisCompleto(formAtual.politicaAlteracoesCancelamentos, dadosIAVoo.politicaAlteracoesCancelamentos),
+    link: formAtual.link || dadosIAVoo.link || "",
+    linkVolta: formAtual.linkVolta || dadosIAVoo.linkVolta || "",
+    foto: formAtual.foto || dadosIAVoo.foto || null,
+    valor: formAtual.valor || (dadosIAVoo.valor ? parseMoeda(dadosIAVoo.valor) : 0),
   };
 }
 
@@ -1391,6 +1922,8 @@ function mapearDetalhesHospedagem<T extends Pick<
     | "hospedagemPoliticasCondicoesInformacoesEspeciais"
     | "hospedagemCheckin"
     | "hospedagemCheckout"
+    | "hospedagemHorarioCheckin"
+    | "hospedagemHorarioCheckout"
     | "hospedagemNoites"
     | "hospedagemValor"
     | "hospedagemLink"
@@ -1398,20 +1931,58 @@ function mapearDetalhesHospedagem<T extends Pick<
 >>(formAtual: T, dadosIAHospedagem: NonNullable<Documento["dadosIA"]>): T {
   return {
     ...formAtual,
-    hospedagemNome: dadosIAHospedagem.nomeHotel || formAtual.hospedagemNome || "",
-    hospedagemEndereco: dadosIAHospedagem.enderecoHotel || formAtual.hospedagemEndereco || "",
-    hospedagemTelefone: dadosIAHospedagem.telefoneHotel || formAtual.hospedagemTelefone || "",
-    hospedagemEmail: dadosIAHospedagem.emailHotel || formAtual.hospedagemEmail || "",
-    hospedagemTipoQuarto: dadosIAHospedagem.quarto || formAtual.hospedagemTipoQuarto || "",
-    hospedagemRegime: dadosIAHospedagem.regimeHotel || formAtual.hospedagemRegime || "",
-    hospedagemComodidades: dadosIAHospedagem.comodidades || formAtual.hospedagemComodidades || "",
-    hospedagemPoliticasCondicoesInformacoesEspeciais: dadosIAHospedagem.politicasCondicoesInformacoesEspeciais || formAtual.hospedagemPoliticasCondicoesInformacoesEspeciais || "",
-    hospedagemCheckin: dadosIAHospedagem.checkinHotel || formAtual.hospedagemCheckin || "",
-    hospedagemCheckout: dadosIAHospedagem.checkoutHotel || formAtual.hospedagemCheckout || "",
-    hospedagemNoites: dadosIAHospedagem.noitesHotel || formAtual.hospedagemNoites || "",
-    hospedagemValor: dadosIAHospedagem.valorHotel || formAtual.hospedagemValor || "",
-    hospedagemLink: dadosIAHospedagem.linkHotel || formAtual.hospedagemLink || "",
-    hospedagemFoto: dadosIAHospedagem.fotoHotel || formAtual.hospedagemFoto || null,
+    hospedagemNome: formAtual.hospedagemNome || dadosIAHospedagem.nomeHotel || "",
+    hospedagemEndereco: formAtual.hospedagemEndereco || dadosIAHospedagem.enderecoHotel || "",
+    hospedagemTelefone: formAtual.hospedagemTelefone || dadosIAHospedagem.telefoneHotel || "",
+    hospedagemEmail: formAtual.hospedagemEmail || dadosIAHospedagem.emailHotel || "",
+    hospedagemTipoQuarto: formAtual.hospedagemTipoQuarto || dadosIAHospedagem.quarto || "",
+    hospedagemRegime: formAtual.hospedagemRegime || dadosIAHospedagem.regimeHotel || "",
+    hospedagemComodidades: textoMaisCompleto(formAtual.hospedagemComodidades, dadosIAHospedagem.comodidades),
+    hospedagemPoliticasCondicoesInformacoesEspeciais: textoMaisCompleto(formAtual.hospedagemPoliticasCondicoesInformacoesEspeciais, dadosIAHospedagem.politicasCondicoesInformacoesEspeciais),
+    hospedagemCheckin: formAtual.hospedagemCheckin || dadosIAHospedagem.checkinHotel || "",
+    hospedagemCheckout: formAtual.hospedagemCheckout || dadosIAHospedagem.checkoutHotel || "",
+    hospedagemHorarioCheckin: formAtual.hospedagemHorarioCheckin || dadosIAHospedagem.horarioCheckinHotel || "",
+    hospedagemHorarioCheckout: formAtual.hospedagemHorarioCheckout || dadosIAHospedagem.horarioCheckoutHotel || "",
+    hospedagemNoites: formAtual.hospedagemNoites || dadosIAHospedagem.noitesHotel || "",
+    hospedagemValor: formAtual.hospedagemValor || dadosIAHospedagem.valorHotel || "",
+    hospedagemLink: formAtual.hospedagemLink || dadosIAHospedagem.linkHotel || "",
+    hospedagemFoto: formAtual.hospedagemFoto || dadosIAHospedagem.fotoHotel || null,
+  };
+}
+
+function mapearDetalhesSeguro<T extends Pick<
+    Pacote,
+    | "seguroAssistencia"
+    | "seguroSeguradora"
+    | "seguroPlano"
+    | "seguroNumeroReserva"
+    | "seguroNumeroConfirmacao"
+    | "seguroApoliceCertificado"
+    | "seguroSegurados"
+    | "seguroDestino"
+    | "seguroAmbitoCobertura"
+    | "seguroVigenciaInicio"
+    | "seguroVigenciaFim"
+    | "seguroCoberturas"
+    | "seguroValor"
+    | "seguroObservacoes"
+>>(formAtual: T, dadosIA: NonNullable<Documento["dadosIA"]>): T {
+  return {
+    ...formAtual,
+    seguroAssistencia: dadosIA.seguroAssistencia || formAtual.seguroAssistencia || "",
+    seguroSeguradora: dadosIA.seguroSeguradora || formAtual.seguroSeguradora || "",
+    seguroPlano: dadosIA.seguroPlano || formAtual.seguroPlano || "",
+    seguroNumeroReserva: dadosIA.seguroNumeroReserva || formAtual.seguroNumeroReserva || "",
+    seguroNumeroConfirmacao: dadosIA.seguroNumeroConfirmacao || formAtual.seguroNumeroConfirmacao || "",
+    seguroApoliceCertificado: dadosIA.seguroApoliceCertificado || formAtual.seguroApoliceCertificado || "",
+    seguroSegurados: dadosIA.seguroSegurados || formAtual.seguroSegurados || "",
+    seguroDestino: dadosIA.seguroDestino || formAtual.seguroDestino || "",
+    seguroAmbitoCobertura: dadosIA.seguroAmbitoCobertura || formAtual.seguroAmbitoCobertura || "",
+    seguroVigenciaInicio: dadosIA.seguroVigenciaInicio || formAtual.seguroVigenciaInicio || "",
+    seguroVigenciaFim: dadosIA.seguroVigenciaFim || formAtual.seguroVigenciaFim || "",
+    seguroCoberturas: dadosIA.seguroCoberturas || formAtual.seguroCoberturas || "",
+    seguroValor: dadosIA.seguroValor ? parseMoeda(dadosIA.seguroValor) : (formAtual.seguroValor || 0),
+    seguroObservacoes: dadosIA.seguroObservacoes || formAtual.seguroObservacoes || "",
   };
 }
 
@@ -1495,6 +2066,26 @@ function possuiDadosTraslado(dados?: DadosIAExtraidos | null) {
   );
 }
 
+function possuiDadosSeguro(dados?: DadosIAExtraidos | null) {
+  if (!dados) return false;
+  return Boolean(
+      dados.seguroAssistencia?.trim() ||
+      dados.seguroSeguradora?.trim() ||
+      dados.seguroPlano?.trim() ||
+      dados.seguroNumeroReserva?.trim() ||
+      dados.seguroNumeroConfirmacao?.trim() ||
+      dados.seguroApoliceCertificado?.trim() ||
+      dados.seguroSegurados?.trim() ||
+      dados.seguroDestino?.trim() ||
+      dados.seguroAmbitoCobertura?.trim() ||
+      dados.seguroVigenciaInicio?.trim() ||
+      dados.seguroVigenciaFim?.trim() ||
+      dados.seguroCoberturas?.trim() ||
+      dados.seguroValor?.trim() ||
+      dados.seguroObservacoes?.trim()
+  );
+}
+
 function possuiDadosIngresso(dados?: DadosIAExtraidos | null) {
   if (!dados) return false;
   if (dados.ingressos && dados.ingressos.length > 0) return true;
@@ -1521,12 +2112,16 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
   const [form, setForm] = useState<Omit<Pacote, "id">>(pacoteVazio);
   const [valorInput, setValorInput] = useState("");
   const [hospedagemValorInput, setHospedagemValorInput] = useState("");
+  const [seguroValorInput, setSeguroValorInput] = useState("");
   const [erro, setErro] = useState("");
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [voucherParaExcluir, setVoucherParaExcluir] = useState<number | null>(null);
   const [ingressoParaExcluir, setIngressoParaExcluir] = useState<number | null>(null);
   const [formMinimizado, setFormMinimizado] = useState(true);
+  const [trechoIdaMinimizado, setTrechoIdaMinimizado] = useState(false);
+  const [trechoVoltaMinimizado, setTrechoVoltaMinimizado] = useState(false);
   const [hospedagemMinimizado, setHospedagemMinimizado] = useState(true);
+  const [seguroMinimizado, setSeguroMinimizado] = useState(true);
   const [trasladoMinimizado, setTrasladoMinimizado] = useState(true);
   const [ingressoMinimizado, setIngressoMinimizado] = useState(true);
   const [logAnaliseMinimizado, setLogAnaliseMinimizado] = useState(true);
@@ -1773,10 +2368,17 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                     ...item,
                     operador: form.operador.trim(),
                     ciaAerea: form.ciaAerea?.trim(),
+                    ciaAereaVolta: form.ciaAereaVolta?.trim(),
+                    numeroVooIda: form.numeroVooIda?.trim(),
+                    numeroVooVolta: form.numeroVooVolta?.trim(),
+                    bagagemIda: form.bagagemIda?.trim(),
+                    bagagemVolta: form.bagagemVolta?.trim(),
                     origem: (form.origemIda || form.origem).trim(),
                     destino: (form.destinoIda || form.destino).trim(),
                     reserva: form.reserva?.trim(),
+                    reservaVolta: form.reservaVolta?.trim(),
                     link: form.link.trim(),
+                    linkVolta: form.linkVolta?.trim(),
 
                     foto: form.foto,
                     valor: form.valor,
@@ -1789,6 +2391,10 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                     origemVolta: form.origemVolta?.trim(),
                     destinoVolta: form.destinoVolta?.trim(),
                     duracaoVolta: form.duracaoVolta?.trim(),
+                    horaSaidaIda: form.horaSaidaIda?.trim(),
+                    horaChegadaIda: form.horaChegadaIda?.trim(),
+                    horaSaidaVolta: form.horaSaidaVolta?.trim(),
+                    horaChegadaVolta: form.horaChegadaVolta?.trim(),
                     politicaAlteracoesCancelamentos: form.politicaAlteracoesCancelamentos?.trim(),
                     hospedagemNome: form.hospedagemNome?.trim(),
                     hospedagemEndereco: form.hospedagemEndereco?.trim(),
@@ -1796,6 +2402,8 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                     hospedagemEmail: form.hospedagemEmail?.trim(),
                     hospedagemCheckin: form.hospedagemCheckin,
                     hospedagemCheckout: form.hospedagemCheckout,
+                    hospedagemHorarioCheckin: form.hospedagemHorarioCheckin,
+                    hospedagemHorarioCheckout: form.hospedagemHorarioCheckout,
                     hospedagemTipoQuarto: form.hospedagemTipoQuarto?.trim(),
                     hospedagemRegime: form.hospedagemRegime?.trim(),
                     hospedagemComodidades: form.hospedagemComodidades?.trim(),
@@ -1806,6 +2414,20 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                     hospedagemLinks: form.hospedagemLinks || [],
                     hospedagemFoto: form.hospedagemFoto,
                     hospedagemFotos: form.hospedagemFotos || [],
+                    seguroAssistencia: form.seguroAssistencia?.trim(),
+                    seguroSeguradora: form.seguroSeguradora?.trim(),
+                    seguroPlano: form.seguroPlano?.trim(),
+                    seguroNumeroReserva: form.seguroNumeroReserva?.trim(),
+                    seguroNumeroConfirmacao: form.seguroNumeroConfirmacao?.trim(),
+                    seguroApoliceCertificado: form.seguroApoliceCertificado?.trim(),
+                    seguroSegurados: form.seguroSegurados?.trim(),
+                    seguroDestino: form.seguroDestino?.trim(),
+                    seguroAmbitoCobertura: form.seguroAmbitoCobertura?.trim(),
+                    seguroVigenciaInicio: form.seguroVigenciaInicio,
+                    seguroVigenciaFim: form.seguroVigenciaFim,
+                    seguroCoberturas: form.seguroCoberturas?.trim(),
+                    seguroValor: form.seguroValor,
+                    seguroObservacoes: form.seguroObservacoes?.trim(),
                     trasladoTipo: form.trasladoTipo?.trim(),
                     trasladoData: form.trasladoData,
                     trasladoHorario: form.trasladoHorario,
@@ -1829,8 +2451,11 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       setForm(pacoteVazio);
       setValorInput("");
       setHospedagemValorInput("");
+      setSeguroValorInput("");
       setEditandoId(null);
       setFormMinimizado(true);
+      setTrechoIdaMinimizado(false);
+      setTrechoVoltaMinimizado(false);
       setPoliticaCancelamentoMinimizado(true);
       setComodidadesMinimizado(true);
       setErro("");
@@ -1843,10 +2468,17 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
         id: Date.now(),
         operador: form.operador.trim(),
         ciaAerea: form.ciaAerea?.trim(),
+        ciaAereaVolta: form.ciaAereaVolta?.trim(),
+        numeroVooIda: form.numeroVooIda?.trim(),
+        numeroVooVolta: form.numeroVooVolta?.trim(),
+        bagagemIda: form.bagagemIda?.trim(),
+        bagagemVolta: form.bagagemVolta?.trim(),
         origem: (form.origemIda || form.origem).trim(),
         destino: (form.destinoIda || form.destino).trim(),
         reserva: form.reserva?.trim(),
+        reservaVolta: form.reservaVolta?.trim(),
         link: form.link.trim(),
+        linkVolta: form.linkVolta?.trim(),
 
         foto: form.foto,
         valor: form.valor,
@@ -1859,6 +2491,10 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
         origemVolta: form.origemVolta?.trim(),
         destinoVolta: form.destinoVolta?.trim(),
         duracaoVolta: form.duracaoVolta?.trim(),
+        horaSaidaIda: form.horaSaidaIda?.trim(),
+        horaChegadaIda: form.horaChegadaIda?.trim(),
+        horaSaidaVolta: form.horaSaidaVolta?.trim(),
+        horaChegadaVolta: form.horaChegadaVolta?.trim(),
         politicaAlteracoesCancelamentos: form.politicaAlteracoesCancelamentos?.trim(),
         hospedagemNome: form.hospedagemNome?.trim(),
         hospedagemEndereco: form.hospedagemEndereco?.trim(),
@@ -1866,6 +2502,8 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
         hospedagemEmail: form.hospedagemEmail?.trim(),
         hospedagemCheckin: form.hospedagemCheckin,
         hospedagemCheckout: form.hospedagemCheckout,
+        hospedagemHorarioCheckin: form.hospedagemHorarioCheckin,
+        hospedagemHorarioCheckout: form.hospedagemHorarioCheckout,
         hospedagemTipoQuarto: form.hospedagemTipoQuarto?.trim(),
         hospedagemRegime: form.hospedagemRegime?.trim(),
         hospedagemComodidades: form.hospedagemComodidades?.trim(),
@@ -1876,6 +2514,20 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
         hospedagemLinks: form.hospedagemLinks || [],
         hospedagemFoto: form.hospedagemFoto,
         hospedagemFotos: form.hospedagemFotos || [],
+        seguroAssistencia: form.seguroAssistencia?.trim(),
+        seguroSeguradora: form.seguroSeguradora?.trim(),
+        seguroPlano: form.seguroPlano?.trim(),
+        seguroNumeroReserva: form.seguroNumeroReserva?.trim(),
+        seguroNumeroConfirmacao: form.seguroNumeroConfirmacao?.trim(),
+        seguroApoliceCertificado: form.seguroApoliceCertificado?.trim(),
+        seguroSegurados: form.seguroSegurados?.trim(),
+        seguroDestino: form.seguroDestino?.trim(),
+        seguroAmbitoCobertura: form.seguroAmbitoCobertura?.trim(),
+        seguroVigenciaInicio: form.seguroVigenciaInicio,
+        seguroVigenciaFim: form.seguroVigenciaFim,
+        seguroCoberturas: form.seguroCoberturas?.trim(),
+        seguroValor: form.seguroValor,
+        seguroObservacoes: form.seguroObservacoes?.trim(),
         trasladoTipo: form.trasladoTipo?.trim(),
         trasladoData: form.trasladoData,
         trasladoHorario: form.trasladoHorario,
@@ -1897,8 +2549,11 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     setForm(pacoteVazio);
     setValorInput("");
     setHospedagemValorInput("");
+    setSeguroValorInput("");
     setEditandoId(null);
     setFormMinimizado(true);
+    setTrechoIdaMinimizado(false);
+    setTrechoVoltaMinimizado(false);
     setPoliticaCancelamentoMinimizado(true);
     setComodidadesMinimizado(true);
     setErro("");
@@ -1907,7 +2562,10 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
   function editarPacote(pacote: Pacote) {
     setVouchersMinimizado(false);
     setFormMinimizado(true);
+    setTrechoIdaMinimizado(false);
+    setTrechoVoltaMinimizado(false);
     setHospedagemMinimizado(true);
+    setSeguroMinimizado(true);
     setPoliticaCancelamentoMinimizado(true); // Manter minimizado ao abrir edição
     setComodidadesMinimizado(true); // Manter minimizado ao abrir edição
     setHospedagemLinkInput(""); // Limpar input de link ao abrir edição
@@ -1920,10 +2578,17 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     setForm({
       operador: pacote.operador || "",
       ciaAerea: pacote.ciaAerea || "",
+      ciaAereaVolta: pacote.ciaAereaVolta || "",
+      numeroVooIda: pacote.numeroVooIda || "",
+      numeroVooVolta: pacote.numeroVooVolta || "",
+      bagagemIda: pacote.bagagemIda || "",
+      bagagemVolta: pacote.bagagemVolta || "",
       origem: pacote.origem || "",
       destino: pacote.destino || "",
       reserva: pacote.reserva || "",
+      reservaVolta: pacote.reservaVolta || "",
       link: pacote.link || "",
+      linkVolta: pacote.linkVolta || "",
 
       foto: pacote.foto || null,
       valor: Number(pacote.valor) || 0,
@@ -1948,6 +2613,8 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       hospedagemEmail: pacote.hospedagemEmail || "",
       hospedagemCheckin: pacote.hospedagemCheckin || "",
       hospedagemCheckout: pacote.hospedagemCheckout || "",
+      hospedagemHorarioCheckin: pacote.hospedagemHorarioCheckin || "",
+      hospedagemHorarioCheckout: pacote.hospedagemHorarioCheckout || "",
       hospedagemTipoQuarto: pacote.hospedagemTipoQuarto || "",
       hospedagemRegime: pacote.hospedagemRegime || "",
       hospedagemComodidades: pacote.hospedagemComodidades || "",
@@ -1958,6 +2625,20 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       hospedagemLinks: Array.isArray(pacote.hospedagemLinks) ? pacote.hospedagemLinks : (pacote.hospedagemLink ? [pacote.hospedagemLink] : []),
       hospedagemFoto: pacote.hospedagemFoto || null,
       hospedagemFotos: Array.isArray(pacote.hospedagemFotos) ? pacote.hospedagemFotos : (pacote.hospedagemFoto ? [pacote.hospedagemFoto] : []),
+      seguroAssistencia: pacote.seguroAssistencia || "",
+      seguroSeguradora: pacote.seguroSeguradora || "",
+      seguroPlano: pacote.seguroPlano || "",
+      seguroNumeroReserva: pacote.seguroNumeroReserva || "",
+      seguroNumeroConfirmacao: pacote.seguroNumeroConfirmacao || "",
+      seguroApoliceCertificado: pacote.seguroApoliceCertificado || "",
+      seguroSegurados: pacote.seguroSegurados || "",
+      seguroDestino: pacote.seguroDestino || "",
+      seguroAmbitoCobertura: pacote.seguroAmbitoCobertura || "",
+      seguroVigenciaInicio: pacote.seguroVigenciaInicio || "",
+      seguroVigenciaFim: pacote.seguroVigenciaFim || "",
+      seguroCoberturas: pacote.seguroCoberturas || "",
+      seguroValor: Number(pacote.seguroValor) || 0,
+      seguroObservacoes: pacote.seguroObservacoes || "",
       trasladoTipo: pacote.trasladoTipo || "",
       trasladoData: pacote.trasladoData || "",
       trasladoHorario: pacote.trasladoHorario || "",
@@ -1983,6 +2664,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     });
     setValorInput(pacote.valor ? formatarMoeda(Number(pacote.valor) || 0) : "");
     setHospedagemValorInput(pacote.hospedagemValor ? formatarMoeda(Number(pacote.hospedagemValor) || 0) : "");
+    setSeguroValorInput(pacote.seguroValor ? formatarMoeda(Number(pacote.seguroValor) || 0) : "");
     setErro("");
   }
 
@@ -1992,8 +2674,11 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       setForm(pacoteVazio);
       setValorInput("");
       setHospedagemValorInput("");
+      setSeguroValorInput("");
       setEditandoId(null);
       setFormMinimizado(true);
+      setTrechoIdaMinimizado(false);
+      setTrechoVoltaMinimizado(false);
       setPoliticaCancelamentoMinimizado(true);
       setComodidadesMinimizado(true);
     }
@@ -2015,6 +2700,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                       nome: arquivo.name,
                       tipo: arquivo.type,
                       arquivo: String(reader.result || ""),
+                      exibirNoRoteiro: true,
                       analise: "",
                     });
                   };
@@ -2033,6 +2719,30 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       ...f,
       documentos: (f.documentos || []).filter((doc) => doc.id !== idDocumento),
     }))
+  }
+
+  function atualizarExibicaoDocumento(idDocumento: number, exibirNoRoteiro: boolean) {
+    setForm((f) => ({
+      ...f,
+      documentos: (f.documentos || []).map((doc) =>
+        doc.id === idDocumento ? { ...doc, exibirNoRoteiro } : doc
+      ),
+    }));
+
+    if (editandoId !== null) {
+      onPacotesChange(
+        pacotes.map((item) =>
+          item.id === editandoId
+            ? {
+                ...item,
+                documentos: (item.documentos || []).map((doc) =>
+                  doc.id === idDocumento ? { ...doc, exibirNoRoteiro } : doc
+                ),
+              }
+            : item
+        )
+      );
+    }
   }
 
   // Função auxiliar interna: mescla todos os documentos e retorna dados unificados
@@ -2065,10 +2775,12 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     let novoForm = { ...form };
     novoForm = mapearDetalhesVoo(novoForm, dados);
     novoForm = mapearDetalhesHospedagem(novoForm, dados);
+    if (possuiDadosSeguro(dados)) novoForm = mapearDetalhesSeguro(novoForm, dados);
     if (possuiDadosTraslado(dados)) novoForm = mapearDetalhesTraslado(novoForm, dados);
     if (possuiDadosIngresso(dados)) novoForm = mapearDetalhesIngresso(novoForm, dados);
     if (novoForm.valor > 0) setValorInput(formatarMoeda(novoForm.valor));
     if (novoForm.hospedagemValor) setHospedagemValorInput(formatarMoeda(parseMoeda(novoForm.hospedagemValor)));
+    if (novoForm.seguroValor) setSeguroValorInput(formatarMoeda(novoForm.seguroValor));
     setForm((f) => ({ ...novoForm, documentos: f.documentos }));
     propagarAoPai({ ...novoForm, documentos: form.documentos });
     setTimeout(() => setAtualizando(null), 800);
@@ -2121,6 +2833,22 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     setTimeout(() => setAtualizando(null), 800);
   }
 
+  function atualizarDetalhesSeguro() {
+    const dados = obterDadosUnificados();
+    if (!dados || !possuiDadosSeguro(dados)) {
+      setErro("Nenhum dado de Seguro encontrado nos documentos.");
+      return;
+    }
+    setErro("");
+    setAtualizando("seguro");
+    const novoForm = mapearDetalhesSeguro(form, dados);
+    if (novoForm.seguroValor) setSeguroValorInput(formatarMoeda(novoForm.seguroValor));
+    setForm((f) => ({ ...novoForm, documentos: f.documentos }));
+    propagarAoPai({ ...novoForm, documentos: form.documentos });
+    setSeguroMinimizado(false);
+    setTimeout(() => setAtualizando(null), 800);
+  }
+
   function atualizarDetalhesIngresso() {
     const dados = obterDadosUnificados();
     if (!dados || !possuiDadosIngresso(dados)) {
@@ -2146,10 +2874,12 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     let novoForm = { ...form };
     novoForm = mapearDetalhesVoo(novoForm, dados);
     novoForm = mapearDetalhesHospedagem(novoForm, dados);
+    if (possuiDadosSeguro(dados)) novoForm = mapearDetalhesSeguro(novoForm, dados);
     if (possuiDadosTraslado(dados)) novoForm = mapearDetalhesTraslado(novoForm, dados);
     if (possuiDadosIngresso(dados)) novoForm = mapearDetalhesIngresso(novoForm, dados);
     novoForm = { ...novoForm, descricao: gerarResumoPacote(novoForm) };
     if (novoForm.valor > 0) setValorInput(formatarMoeda(novoForm.valor));
+    if (novoForm.seguroValor) setSeguroValorInput(formatarMoeda(novoForm.seguroValor));
     setForm((f) => ({ ...novoForm, documentos: f.documentos }));
     propagarAoPai({ ...novoForm, documentos: form.documentos });
     setResumoMinimizado(false);
@@ -2411,154 +3141,241 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     let workerOcr: Worker | null = null;
     try {
       try {
-        workerOcr = await createWorker("eng");
+        workerOcr = await createWorker(["por", "eng"]);
       } catch {
         adicionarLog("OCR indisponível; tentando identificação por IA e comparação visual.");
       }
 
-      const novasAnalises = await Promise.all(
-          (form.documentos || []).map(async (doc) => {
-            let contextoArquivo = "Nome do arquivo: " + doc.nome + "\n\n";
-            let temConteudoPdf = false;
-            let operadorDetectado = "";
-            let politicaAlteracoesCancelamentos = "";
+      const novasAnalises: Documento[] = [];
+      for (const doc of form.documentos || []) {
+        let contextoArquivo = "Nome do arquivo: " + doc.nome + "\n\n";
+        let temConteudoPdf = false;
+        let operadorDetectado = "";
+        let ciaAereaDetectada = "";
+        let politicaAlteracoesCancelamentos = "";
+        let politicasHospedagemDetectadas = "";
+        const imagensParaAnalise: string[] = [];
 
-            if (doc.tipo === 'application/pdf' && doc.arquivo) {
-              try {
-                const loadingTask = pdfjsLib.getDocument({ data: atob(doc.arquivo.split(',')[1]) });
-                const pdf = await loadingTask.promise;
-                let textContent = '';
-                for (let i = 1; i <= pdf.numPages; i++) {
-                  const page = await pdf.getPage(i);
-                  const text = await page.getTextContent();
-                  textContent += text.items.map(item => ('str' in item ? item.str : '')).join(' ') + '\n';
+        if (doc.tipo === "application/pdf" && doc.arquivo) {
+          try {
+            const bytesPdf = dataUrlBase64ParaUint8Array(doc.arquivo);
+            const loadingTask = pdfjsLib.getDocument({ data: bytesPdf });
+            const pdf = await loadingTask.promise;
+            let textContent = "";
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+              const page = await pdf.getPage(i);
+              const text = await page.getTextContent();
+              let textoPagina = text.items.map((item) => ("str" in item ? item.str : "")).join(" ").trim();
+
+              if (!textoPagina) {
+                adicionarLog(`Página ${i} de "${doc.nome}" sem texto. Aplicando OCR...`);
+                const imagemPagina = await renderizarPaginaPdfComoImagem(page);
+                if (imagemPagina && imagensParaAnalise.length < 3) {
+                  imagensParaAnalise.push(imagemPagina);
                 }
-                contextoArquivo += "--- Conteúdo do arquivo: " + doc.nome + " ---\n" + textContent + "\n--- Fim do arquivo: " + doc.nome + " ---\n\n";
-                temConteudoPdf = true;
-
-                politicaAlteracoesCancelamentos = extrairPoliticaAlteracoesCancelamentos(textContent);
-                if (politicaAlteracoesCancelamentos) {
-                  adicionarLog(`Política de alterações e cancelamentos identificada em "${doc.nome}".`);
-                  contextoArquivo += "--- Política de alterações e cancelamentos ---\n" + politicaAlteracoesCancelamentos + "\n\n";
-                }
-
-                adicionarLog(`Extraindo logo do fornecedor em "${doc.nome}"...`);
-                const logoEmbutido = await extrairPrimeiraImagemEmbutidaDoPdf(pdf);
-                if (logoEmbutido) {
-                  operadorDetectado = await identificarOperadorNoLogo(logoEmbutido, workerOcr, adicionarLog);
-                }
-
-                if (!operadorDetectado) {
-                  adicionarLog(`Tentando identificar operador pelo topo do PDF...`);
-                  const logoTopo = await extrairLogoDoTopoDoPdf(pdf);
-                  if (logoTopo) {
-                    operadorDetectado = await identificarOperadorNoLogo(logoTopo, workerOcr, adicionarLog);
-                  }
-                }
-
-                if (!operadorDetectado) {
-                  operadorDetectado = detectarOperadorNoTexto(textContent);
-                  if (operadorDetectado) {
-                    adicionarLog(`Operador identificado no texto: ${operadorDetectado}`);
-                  }
-                }
-
-                if (operadorDetectado) {
-                  contextoArquivo += `--- Operador identificado no logo: ${operadorDetectado} ---\n\n`;
-                } else {
-                  adicionarLog(`Não foi possível identificar o operador pelo logo do fornecedor.`);
-                }
-              } catch (e) {
-                contextoArquivo += "--- Erro ao ler o conteúdo do PDF: " + doc.nome + " ---\n";
-              }
-            }
-
-            if (doc.tipo.startsWith("image/") && doc.arquivo) {
-              operadorDetectado = await identificarOperadorNoIcone(doc, workerOcr, adicionarLog);
-              if (operadorDetectado) {
-                contextoArquivo += `--- Operador identificado no ícone: ${operadorDetectado} ---\n\n`;
-              }
-            }
-
-            const prompt = criarPromptAnaliseCompleta(contextoArquivo, temConteudoPdf);
-
-            const tentarComProvedor = async (provedor?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
-              return enviarMensagemIA([{ role: "user", content: prompt }], provedor);
-            };
-
-            try {
-              let data;
-              let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare";
-              const provedoresAutomatico: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
-
-              if (provedorIA === "automático") {
-                const mapaProvedorCapitalizado: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
-                  openai: "OpenAI",
-                  groq: "Groq",
-                  gemini: "Gemini",
-                  openrouter: "OpenRouter",
-                  cloudflare: "Cloudflare",
-                };
-
-                for (const provedor of provedoresAutomatico) {
+                if (imagemPagina && workerOcr) {
                   try {
-                    const nomeProvedor = mapaProvedorCapitalizado[provedor];
-                    adicionarLog(`Analisando "${doc.nome}" com ${nomeProvedor}...`);
-                    data = await tentarComProvedor(provedor);
-                    provedorUsado = nomeProvedor;
-                    // Se a chamada for bem-sucedida, saia do loop
-                    if (data) break;
+                    textoPagina = await extrairTextoPorOcr(imagemPagina, workerOcr);
                   } catch (error) {
-                    const nomeProvedor = mapaProvedorCapitalizado[provedor];
-                    console.warn(`Falha no ${nomeProvedor}, tentando com o próximo...`, error);
-                    adicionarLog(`Falha no ${nomeProvedor} para "${doc.nome}". Tentando com o próximo...`);
+                    console.warn(`Falha no OCR da página ${i} de "${doc.nome}":`, error);
+                    adicionarLog(`OCR falhou na página ${i}; a imagem será enviada à OpenAI.`);
                   }
                 }
-
-                if (!data) {
-                  // Se todos os provedores falharem
-                  throw new Error("Todos os provedores de IA falharam.");
-                }
-              } else {
-                const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
-                  openai: "OpenAI",
-                  groq: "Groq",
-                  gemini: "Gemini",
-                  openrouter: "OpenRouter",
-                  cloudflare: "Cloudflare",
-                };
-                const provedorCapitalizado = mapaProvedor[provedorIA] || "OpenAI";
-                adicionarLog(`Analisando "${doc.nome}" com ${provedorCapitalizado}...`);
-                data = await tentarComProvedor(provedorIA);
-                provedorUsado = provedorCapitalizado;
               }
 
-              const respostaLimpa = data.reply.replace(/^```json\s*/, "").replace(/```$/, "").trim();
-              const respostaJson = JSON.parse(respostaLimpa);
-
-              const politicaFinal =
-                  politicaAlteracoesCancelamentos ||
-                  respostaJson.politicaAlteracoesCancelamentos ||
-                  "";
-
-              // Usa as funções completas de montagem para garantir que TODAS as
-              // informações extraídas pela IA sejam aproveitadas, incluindo
-              // Traslado e Ingressos (que antes eram descartados aqui).
-              const dadosIACompletos = montarDadosIAFromJson(respostaJson, operadorDetectado, politicaFinal);
-              const relatorioCompleto = montarRelatorioCompleto(provedorUsado, operadorDetectado, dadosIACompletos);
-
-              return {
-                ...doc,
-                analise: relatorioCompleto,
-                dadosIA: dadosIACompletos,
-              };
-            } catch (error) {
-              const mensagemErro = "Não foi possível analisar o documento. Tente novamente mais tarde.";
-              adicionarLog(`Falha ao analisar "${doc.nome}": ${mensagemErro}`);
-              return { ...doc, analise: `Falha na análise com IA: ${mensagemErro}` };
+              if (textoPagina) {
+                textContent += `--- Página ${i} ---\n${textoPagina}\n`;
+              }
             }
-          })
-      );
+
+            ciaAereaDetectada = detectarCiaAereaNoTexto(textContent);
+            if (!ciaAereaDetectada && ehDocumentoVoo(doc.nome)) {
+              const imagensEmbutidas = await extrairMaioresImagensEmbutidasDoPdf(pdf, 2);
+              for (const imagemEmbutida of imagensEmbutidas) {
+                if (imagensParaAnalise.length < 3) imagensParaAnalise.push(imagemEmbutida);
+                if (!workerOcr) continue;
+
+                try {
+                  const textoImagemEmbutida = await extrairTextoPorOcr(imagemEmbutida, workerOcr);
+                  if (textoImagemEmbutida) {
+                    textContent += `--- Imagem embutida ---\n${textoImagemEmbutida}\n`;
+                    ciaAereaDetectada = detectarCiaAereaNoTexto(textoImagemEmbutida);
+                  }
+                  if (ciaAereaDetectada) break;
+                } catch (error) {
+                  console.warn(`Falha no OCR de imagem embutida de "${doc.nome}":`, error);
+                }
+              }
+            }
+
+            temConteudoPdf = Boolean(textContent.trim());
+            if (temConteudoPdf) {
+              contextoArquivo += "--- Conteúdo do arquivo: " + doc.nome + " ---\n" + textContent + "\n--- Fim do arquivo: " + doc.nome + " ---\n\n";
+            }
+
+            if (ciaAereaDetectada) {
+              adicionarLog(`Companhia aérea identificada no texto/OCR: ${ciaAereaDetectada}`);
+              contextoArquivo += `--- Companhia aérea identificada no texto/OCR: ${ciaAereaDetectada} ---\n\n`;
+            }
+
+            politicaAlteracoesCancelamentos = extrairPoliticaAlteracoesCancelamentos(textContent);
+            if (politicaAlteracoesCancelamentos) {
+              adicionarLog(`Política de alterações e cancelamentos identificada em "${doc.nome}".`);
+              contextoArquivo += "--- Política de alterações e cancelamentos ---\n" + politicaAlteracoesCancelamentos + "\n\n";
+            }
+
+            politicasHospedagemDetectadas = extrairPoliticasHospedagem(textContent);
+            if (politicasHospedagemDetectadas) {
+              adicionarLog(`Políticas de hospedagem identificadas em "${doc.nome}" (${politicasHospedagemDetectadas.length} caracteres).`);
+              contextoArquivo += "--- Políticas, condições e informações da hospedagem ---\n" + politicasHospedagemDetectadas + "\n\n";
+            }
+
+            adicionarLog(`Extraindo logo do fornecedor em "${doc.nome}"...`);
+            const logoEmbutido = await extrairPrimeiraImagemEmbutidaDoPdf(pdf);
+            if (logoEmbutido) {
+              operadorDetectado = await identificarOperadorNoLogo(logoEmbutido, workerOcr, adicionarLog);
+            }
+
+            if (!operadorDetectado) {
+              adicionarLog("Tentando identificar operador pelo topo do PDF...");
+              const logoTopo = await extrairLogoDoTopoDoPdf(pdf);
+              if (logoTopo) {
+                operadorDetectado = await identificarOperadorNoLogo(logoTopo, workerOcr, adicionarLog);
+              }
+            }
+
+            if (!operadorDetectado) {
+              operadorDetectado = detectarOperadorNoTexto(textContent);
+              if (operadorDetectado) {
+                adicionarLog(`Operador identificado no texto: ${operadorDetectado}`);
+              }
+            }
+
+            if (operadorDetectado) {
+              contextoArquivo += `--- Operador identificado no logo: ${operadorDetectado} ---\n\n`;
+            } else {
+              adicionarLog("Não foi possível identificar o operador pelo logo do fornecedor.");
+            }
+          } catch (error) {
+            console.error(`Erro ao ler o PDF "${doc.nome}":`, error);
+            contextoArquivo += "--- Erro ao ler o conteúdo do PDF: " + doc.nome + " ---\n";
+          }
+        }
+
+        if (doc.tipo.startsWith("image/") && doc.arquivo) {
+          imagensParaAnalise.push(doc.arquivo);
+          if (workerOcr) {
+            adicionarLog(`Extraindo texto da imagem "${doc.nome}" por OCR...`);
+            try {
+              const textoImagem = await extrairTextoPorOcr(doc.arquivo, workerOcr);
+              if (textoImagem) {
+                contextoArquivo += `--- Conteúdo OCR da imagem: ${doc.nome} ---\n${textoImagem}\n--- Fim do OCR ---\n\n`;
+                operadorDetectado = detectarOperadorNoTexto(textoImagem);
+                ciaAereaDetectada = detectarCiaAereaNoTexto(textoImagem);
+                if (ciaAereaDetectada) {
+                  adicionarLog(`Companhia aérea identificada no OCR: ${ciaAereaDetectada}`);
+                  contextoArquivo += `--- Companhia aérea identificada no OCR: ${ciaAereaDetectada} ---\n\n`;
+                }
+              }
+            } catch (error) {
+              console.warn(`Falha no OCR da imagem "${doc.nome}":`, error);
+              adicionarLog(`OCR falhou em "${doc.nome}"; a imagem será enviada à OpenAI.`);
+            }
+          }
+          if (!operadorDetectado) {
+            operadorDetectado = await identificarOperadorNoIcone(doc, workerOcr, adicionarLog);
+          }
+          if (operadorDetectado) {
+            contextoArquivo += `--- Operador identificado na imagem: ${operadorDetectado} ---\n\n`;
+          }
+        }
+
+        const prompt = criarPromptAnaliseCompleta(contextoArquivo, temConteudoPdf || contextoArquivo.includes("Conteúdo OCR"));
+        const tentarComProvedor = async (provedor: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
+          const content: AIChatApiMessageContent = provedor === "openai" && imagensParaAnalise.length > 0
+            ? [
+                { type: "text", text: prompt },
+                ...imagensParaAnalise.map((url) => ({ type: "image_url" as const, image_url: { url } })),
+              ]
+            : prompt;
+          return enviarMensagemIA([{ role: "user", content }], provedor);
+        };
+
+        try {
+          let data;
+          let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare" = "OpenAI";
+          const provedoresAutomatico: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] =
+            imagensParaAnalise.length > 0
+              ? ["openai", "groq", "gemini", "openrouter", "cloudflare"]
+              : ["groq", "openai", "gemini", "openrouter", "cloudflare"];
+          const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
+            openai: "OpenAI",
+            groq: "Groq",
+            gemini: "Gemini",
+            openrouter: "OpenRouter",
+            cloudflare: "Cloudflare",
+          };
+
+          if (provedorIA === "automático") {
+            for (const provedor of provedoresAutomatico) {
+              try {
+                const nomeProvedor = mapaProvedor[provedor];
+                adicionarLog(`Analisando "${doc.nome}" com ${nomeProvedor}...`);
+                data = await tentarComProvedor(provedor);
+                provedorUsado = nomeProvedor;
+                if (data) break;
+              } catch (error) {
+                const nomeProvedor = mapaProvedor[provedor];
+                console.warn(`Falha no ${nomeProvedor}, tentando com o próximo...`, error);
+                adicionarLog(`Falha no ${nomeProvedor} para "${doc.nome}". Tentando com o próximo...`);
+              }
+            }
+            if (!data) throw new Error("Todos os provedores de IA falharam.");
+          } else {
+            provedorUsado = mapaProvedor[provedorIA] || "OpenAI";
+            adicionarLog(`Analisando "${doc.nome}" com ${provedorUsado}...`);
+            data = await tentarComProvedor(provedorIA);
+          }
+
+          const respostaLimpa = data.reply.replace(/^```json\s*/, "").replace(/```$/, "").trim();
+          const respostaJson: unknown = JSON.parse(respostaLimpa);
+          if (!respostaJson || typeof respostaJson !== "object" || Array.isArray(respostaJson)) {
+            throw new Error("A IA retornou um JSON inválido.");
+          }
+
+          const respostaObjeto = respostaJson as Record<string, unknown>;
+          const politicaResposta = typeof respostaObjeto.politicaAlteracoesCancelamentos === "string"
+            ? respostaObjeto.politicaAlteracoesCancelamentos
+            : "";
+          const politicaFinal = politicaAlteracoesCancelamentos || politicaResposta;
+          const dadosNormalizados = montarDadosIAFromJson(respostaObjeto, operadorDetectado, politicaFinal);
+          dadosNormalizados.hospedagemPoliticasCondicoesInformacoesEspeciais = textoMaisCompleto(
+              dadosNormalizados.hospedagemPoliticasCondicoesInformacoesEspeciais,
+              politicasHospedagemDetectadas,
+          );
+          const { dados: dadosIACompletos, trechoAplicado } = aplicarCiaAereaDetectada(
+              dadosNormalizados,
+              doc.nome,
+              ciaAereaDetectada,
+          );
+          if (trechoAplicado) {
+            adicionarLog(`Companhia aérea aplicada ao trecho de ${trechoAplicado}: ${ciaAereaDetectada}`);
+          }
+          const relatorioCompleto = montarRelatorioCompleto(provedorUsado, operadorDetectado, dadosIACompletos);
+
+          novasAnalises.push({
+            ...doc,
+            analise: relatorioCompleto,
+            dadosIA: dadosIACompletos,
+          });
+        } catch (error) {
+          console.error(`Erro ao analisar "${doc.nome}":`, error);
+          const mensagemErro = "Não foi possível analisar o documento. Tente novamente mais tarde.";
+          adicionarLog(`Falha ao analisar "${doc.nome}": ${mensagemErro}`);
+          novasAnalises.push({ ...doc, analise: `Falha na análise com IA: ${mensagemErro}` });
+        }
+      }
 
       const dadosUnificados = obterDadosMescladosDeTodos(novasAnalises);
 
@@ -2567,6 +3384,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       if (temDadosExtraidos(dadosUnificados)) {
         novoFormCalculado = mapearDetalhesVoo(novoFormCalculado, dadosUnificados);
         novoFormCalculado = mapearDetalhesHospedagem(novoFormCalculado, dadosUnificados);
+        if (possuiDadosSeguro(dadosUnificados)) novoFormCalculado = mapearDetalhesSeguro(novoFormCalculado, dadosUnificados);
         if (possuiDadosTraslado(dadosUnificados)) novoFormCalculado = mapearDetalhesTraslado(novoFormCalculado, dadosUnificados);
         if (possuiDadosIngresso(dadosUnificados)) novoFormCalculado = mapearDetalhesIngresso(novoFormCalculado, dadosUnificados);
         novoFormCalculado = { ...novoFormCalculado, descricao: gerarResumoPacote(novoFormCalculado) };
@@ -2574,6 +3392,9 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
 
       if (novoFormCalculado.valor > 0) {
         setValorInput(formatarMoeda(novoFormCalculado.valor));
+      }
+      if (novoFormCalculado.seguroValor) {
+        setSeguroValorInput(formatarMoeda(novoFormCalculado.seguroValor));
       }
 
       // Preservar documentos do tipo URL que foram adicionados durante a análise de URLs
@@ -2640,17 +3461,28 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                   {(form.documentos || []).length > 0 && (
                       <div className="space-y-1.5 pr-2">
                         {(form.documentos || []).map((doc) => (
-                            <div key={doc.id} className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between">
-                                  <a href={doc.arquivo} download={doc.nome} className="truncate text-indigo-600 hover:text-indigo-700 flex items-center gap-2">
-                                    <FileText className="h-4 w-4 flex-shrink-0" />
-                                    <span className="truncate">{doc.nome}</span>
-                                  </a>
-                                  <button type="button" onClick={() => removerDocumento(doc.id)} className="ml-2 rounded p-1 text-red-500 hover:bg-red-50" title="Remover documento">
-                                    <X className="h-3.5 w-3.5" />
-                                  </button>
+                            <div key={doc.id} className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs">
+                              <a href={doc.arquivo} download={doc.nome} className="flex min-w-0 flex-1 items-center gap-2 text-indigo-600 hover:text-indigo-700">
+                                <FileText className="h-4 w-4 flex-shrink-0" />
+                                <span className="truncate">{doc.nome}</span>
+                              </a>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                  <Checkbox
+                                      id={`exibir-no-roteiro-${doc.id}`}
+                                      checked={doc.exibirNoRoteiro !== false}
+                                      onCheckedChange={(checked) => atualizarExibicaoDocumento(doc.id, checked === true)}
+                                  />
+                                  <Label
+                                      htmlFor={`exibir-no-roteiro-${doc.id}`}
+                                      className="cursor-pointer text-xs font-normal text-gray-600"
+                                  >
+                                    Exibir no roteiro
+                                  </Label>
                                 </div>
+                                <button type="button" onClick={() => removerDocumento(doc.id)} className="rounded p-1 text-red-500 hover:bg-red-50" title="Remover documento">
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
                               </div>
                             </div>
                         ))}
@@ -2878,193 +3710,230 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                           </select>
                         </div>
 
-                        <div className="sm:col-span-2">
-                          <Label className="text-xs">CIA Aérea</Label>
-                          <Input
-                              className={`mt-1 ${!form.ciaAerea ? 'bg-yellow-50' : 'bg-white'}`}
-                              placeholder="Ex: LATAM Airlines Group"
-                              value={form.ciaAerea || ""}
-                              onChange={(e) => setForm((prev) => ({ ...prev, ciaAerea: e.target.value }))}
-                          />
-                        </div>
-
-                        <div className="sm:col-span-2">
-                          <Label className="text-xs">Nº de Reserva</Label>
-                          <Input
-                              className={`mt-1 ${!form.reserva ? 'bg-yellow-50' : 'bg-white'}`}
-                              placeholder="Ex: ABC123"
-                              value={form.reserva || ""}
-                              onChange={(e) => setForm((prev) => ({ ...prev, reserva: e.target.value }))}
-                          />
-                        </div>
-
-                        <div className="sm:col-span-2">
-                          <Label className="text-xs">Link</Label>
-                          <div className="relative mt-1">
-                            <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                            <Input
-                                placeholder="https://..."
-                                className={`pl-8 ${!form.link ? 'bg-yellow-50' : 'bg-white'}`}
-                                value={form.link}
-                                onChange={(e) => setForm((prev) => ({ ...prev, link: e.target.value }))}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="sm:col-span-2">
-                          <p className="text-xs font-semibold text-gray-700 mb-2">Trecho de Ida</p>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div>
-                              <Label className="text-xs">Origem (Ida)</Label>
-                              <Input
-                                  className={`mt-1 ${!form.origemIda ? 'bg-yellow-50' : 'bg-white'}`}
-                                  placeholder="Ex: São Paulo (GRU)"
-                                  value={form.origemIda || ""}
-                                  onChange={(e) => setForm((prev) => ({ ...prev, origemIda: e.target.value, origem: e.target.value }))}
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Destino (Ida)</Label>
-                              <Input
-                                  className={`mt-1 ${!form.destinoIda ? 'bg-yellow-50' : 'bg-white'}`}
-                                  placeholder="Ex: Lisboa (LIS)"
-                                  value={form.destinoIda || ""}
-                                  onChange={(e) => setForm((prev) => ({ ...prev, destinoIda: e.target.value, destino: e.target.value }))}
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Duração (Ida)</Label>
-                              <Input
-                                  className={`mt-1 ${!form.duracaoIda ? 'bg-yellow-50' : 'bg-white'}`}
-                                  placeholder="Ex: 11h 30min"
-                                  value={form.duracaoIda || ""}
-                                  onChange={(e) => setForm((prev) => ({ ...prev, duracaoIda: e.target.value }))}
-                              />
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                            <div>
-                              <Label className="text-xs">Horário de Saída (Ida)</Label>
-                              <Input
-                                  className={`mt-1 ${!form.horaSaidaIda ? 'bg-yellow-50' : 'bg-white'}`}
-                                  placeholder="Ex: 14:30"
-                                  value={form.horaSaidaIda || ""}
-                                  onChange={(e) => setForm((prev) => ({ ...prev, horaSaidaIda: e.target.value }))}
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Horário de Chegada (Ida)</Label>
-                              <Input
-                                  className={`mt-1 ${!form.horaChegadaIda ? 'bg-yellow-50' : 'bg-white'}`}
-                                  placeholder="Ex: 05:30"
-                                  value={form.horaChegadaIda || ""}
-                                  onChange={(e) => setForm((prev) => ({ ...prev, horaChegadaIda: e.target.value }))}
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="sm:col-span-2">
-                          <p className="text-xs font-semibold text-gray-700 mb-2">Trecho de Volta</p>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div>
-                              <Label className="text-xs">Origem (Volta)</Label>
-                              <Input
-                                  className={`mt-1 ${!form.origemVolta ? 'bg-yellow-50' : 'bg-white'}`}
-                                  placeholder="Ex: Lisboa (LIS)"
-                                  value={form.origemVolta || ""}
-                                  onChange={(e) => setForm((prev) => ({ ...prev, origemVolta: e.target.value }))}
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Destino (Volta)</Label>
-                              <Input
-                                  className={`mt-1 ${!form.destinoVolta ? 'bg-yellow-50' : 'bg-white'}`}
-                                  placeholder="Ex: São Paulo (GRU)"
-                                  value={form.destinoVolta || ""}
-                                  onChange={(e) => setForm((prev) => ({ ...prev, destinoVolta: e.target.value }))}
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Duração (Volta)</Label>
-                              <Input
-                                  className={`mt-1 ${!form.duracaoVolta ? 'bg-yellow-50' : 'bg-white'}`}
-                                  placeholder="Ex: 11h 30min"
-                                  value={form.duracaoVolta || ""}
-                                  onChange={(e) => setForm((prev) => ({ ...prev, duracaoVolta: e.target.value }))}
-                              />
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                            <div>
-                              <Label className="text-xs">Horário de Saída (Volta)</Label>
-                              <Input
-                                  className={`mt-1 ${!form.horaSaidaVolta ? 'bg-yellow-50' : 'bg-white'}`}
-                                  placeholder="Ex: 18:30"
-                                  value={form.horaSaidaVolta || ""}
-                                  onChange={(e) => setForm((prev) => ({ ...prev, horaSaidaVolta: e.target.value }))}
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Horário de Chegada (Volta)</Label>
-                              <Input
-                                  className={`mt-1 ${!form.horaChegadaVolta ? 'bg-yellow-50' : 'bg-white'}`}
-                                  placeholder="Ex: 02:30"
-                                  value={form.horaChegadaVolta || ""}
-                                  onChange={(e) => setForm((prev) => ({ ...prev, horaChegadaVolta: e.target.value }))}
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <div>
-                            <Label className="text-xs">Data de Ida</Label>
-                            <Input
-                                type="date"
-                                className={`mt-1 ${!form.dataIda ? 'bg-yellow-50' : 'bg-white'}`}
-                                value={form.dataIda || ""}
-                                onChange={(e) => setForm((prev) => ({ ...prev, dataIda: e.target.value }))}
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Data de Volta</Label>
-                            <Input
-                                type="date"
-                                className={`mt-1 ${!form.dataVolta ? 'bg-yellow-50' : 'bg-white'}`}
-                                value={form.dataVolta || ""}
-                                onChange={(e) => setForm((prev) => ({ ...prev, dataVolta: e.target.value }))}
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Passageiros</Label>
-                            <Input
-                                className={`mt-1 ${!form.passageiros ? 'bg-yellow-50' : 'bg-white'}`}
-                                placeholder="Ex: 2 adultos, 1 criança"
-                                value={form.passageiros || ""}
-                                onChange={(e) => setForm((prev) => ({ ...prev, passageiros: e.target.value }))}
-                            />
-                          </div>
-                        </div>
-
-
-
-                        <div className="sm:col-span-2">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-xs">Política de alterações e cancelamentos</Label>
+                        <section className="sm:col-span-2 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                          <div className={`flex cursor-pointer select-none items-center justify-between ${trechoIdaMinimizado ? "" : "mb-4"}`} onClick={() => setTrechoIdaMinimizado((prev) => !prev)}>
+                            <h5 className="font-semibold text-blue-800">Trecho de Ida</h5>
                             <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setPoliticaCancelamentoMinimizado((prev) => !prev)}
+                                aria-expanded={!trechoIdaMinimizado}
+                                aria-controls="campos-trecho-ida"
+                                onClick={(e) => { e.stopPropagation(); setTrechoIdaMinimizado((prev) => !prev); }}
+                                className="h-7 gap-1 px-1.5 text-blue-700 hover:text-blue-900"
+                            >
+                              {trechoIdaMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                              <span className="sr-only">{trechoIdaMinimizado ? "Expandir trecho de ida" : "Recolher trecho de ida"}</span>
+                            </Button>
+                          </div>
+                          {!trechoIdaMinimizado && (
+                          <div id="campos-trecho-ida" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            <div>
+                              <Label htmlFor="pacote-data-ida" className="text-xs">Data</Label>
+                              <Input id="pacote-data-ida" type="date" className={`mt-1 ${!form.dataIda ? 'bg-yellow-50' : 'bg-white'}`} value={form.dataIda || ""} onChange={(e) => setForm((prev) => ({ ...prev, dataIda: e.target.value }))} />
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-cia-ida" className="text-xs">CIA Aérea</Label>
+                              <select
+                                  id="pacote-cia-ida"
+                                  className={`mt-1 flex h-9 w-full rounded-md border border-input px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 ${!form.ciaAerea ? 'bg-yellow-50' : 'bg-white'}`}
+                                  value={form.ciaAerea || ""}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, ciaAerea: e.target.value }))}
+                              >
+                                <option value="">Selecione uma companhia</option>
+                                {obterOpcoesCiaAerea(form.ciaAerea).map((ciaAerea) => (
+                                  <option key={ciaAerea} value={ciaAerea}>{ciaAerea}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-reserva-ida" className="text-xs">Nº de Reserva/Localizador</Label>
+                              <Input id="pacote-reserva-ida" className={`mt-1 ${!form.reserva ? 'bg-yellow-50' : 'bg-white'}`} placeholder="Ex: ABC123" value={form.reserva || ""} onChange={(e) => setForm((prev) => ({ ...prev, reserva: e.target.value }))} />
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-voo-ida" className="text-xs">Nº do Voo</Label>
+                              <Input id="pacote-voo-ida" className={`mt-1 ${!form.numeroVooIda ? 'bg-yellow-50' : 'bg-white'}`} placeholder="Ex: AD 2440" value={form.numeroVooIda || ""} onChange={(e) => setForm((prev) => ({ ...prev, numeroVooIda: e.target.value }))} />
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-bagagem-ida" className="text-xs">Bagagem</Label>
+                              <Input id="pacote-bagagem-ida" className={`mt-1 ${!form.bagagemIda ? 'bg-yellow-50' : 'bg-white'}`} placeholder="Ex: 1 mala de 23 kg" value={form.bagagemIda || ""} onChange={(e) => setForm((prev) => ({ ...prev, bagagemIda: e.target.value }))} />
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-link-ida" className="text-xs">Link</Label>
+                              <div className="relative mt-1">
+                                <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                <Input id="pacote-link-ida" type="url" placeholder="https://..." className={`pl-8 ${!form.link ? 'bg-yellow-50' : 'bg-white'}`} value={form.link} onChange={(e) => setForm((prev) => ({ ...prev, link: e.target.value }))} />
+                              </div>
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-origem-ida" className="text-xs">Origem</Label>
+                              <select
+                                  id="pacote-origem-ida"
+                                  className={`mt-1 flex h-9 w-full rounded-md border border-input px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 ${!form.origemIda ? 'bg-yellow-50' : 'bg-white'}`}
+                                  value={form.origemIda || ""}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, origemIda: e.target.value, origem: e.target.value }))}
+                              >
+                                <option value="">Selecione o aeroporto de origem</option>
+                                {obterOpcoesAeroporto(form.origemIda).map((aeroporto) => (
+                                  <option key={aeroporto.value} value={aeroporto.value}>{aeroporto.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-destino-ida" className="text-xs">Destino</Label>
+                              <select
+                                  id="pacote-destino-ida"
+                                  className={`mt-1 flex h-9 w-full rounded-md border border-input px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 ${!form.destinoIda ? 'bg-yellow-50' : 'bg-white'}`}
+                                  value={form.destinoIda || ""}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, destinoIda: e.target.value, destino: e.target.value }))}
+                              >
+                                <option value="">Selecione o aeroporto de destino</option>
+                                {obterOpcoesAeroporto(form.destinoIda).map((aeroporto) => (
+                                  <option key={aeroporto.value} value={aeroporto.value}>{aeroporto.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-duracao-ida" className="text-xs">Duração</Label>
+                              <Input id="pacote-duracao-ida" className={`mt-1 ${!form.duracaoIda ? 'bg-yellow-50' : 'bg-white'}`} placeholder="Ex: 11h 30min" value={form.duracaoIda || ""} onChange={(e) => setForm((prev) => ({ ...prev, duracaoIda: e.target.value }))} />
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-saida-ida" className="text-xs">Horário de Saída</Label>
+                              <Input id="pacote-saida-ida" className={`mt-1 ${!form.horaSaidaIda ? 'bg-yellow-50' : 'bg-white'}`} placeholder="Ex: 14:30" value={form.horaSaidaIda || ""} onChange={(e) => setForm((prev) => ({ ...prev, horaSaidaIda: e.target.value }))} />
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-chegada-ida" className="text-xs">Horário de Chegada</Label>
+                              <Input id="pacote-chegada-ida" className={`mt-1 ${!form.horaChegadaIda ? 'bg-yellow-50' : 'bg-white'}`} placeholder="Ex: 05:30" value={form.horaChegadaIda || ""} onChange={(e) => setForm((prev) => ({ ...prev, horaChegadaIda: e.target.value }))} />
+                            </div>
+                          </div>
+                          )}
+                        </section>
+
+                        <section className="sm:col-span-2 rounded-xl border border-orange-100 bg-orange-50/60 p-4">
+                          <div className={`flex cursor-pointer select-none items-center justify-between ${trechoVoltaMinimizado ? "" : "mb-4"}`} onClick={() => setTrechoVoltaMinimizado((prev) => !prev)}>
+                            <h5 className="font-semibold text-orange-800">Trecho de Volta</h5>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                aria-expanded={!trechoVoltaMinimizado}
+                                aria-controls="campos-trecho-volta"
+                                onClick={(e) => { e.stopPropagation(); setTrechoVoltaMinimizado((prev) => !prev); }}
+                                className="h-7 gap-1 px-1.5 text-orange-700 hover:text-orange-900"
+                            >
+                              {trechoVoltaMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                              <span className="sr-only">{trechoVoltaMinimizado ? "Expandir trecho de volta" : "Recolher trecho de volta"}</span>
+                            </Button>
+                          </div>
+                          {!trechoVoltaMinimizado && (
+                          <div id="campos-trecho-volta" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            <div>
+                              <Label htmlFor="pacote-data-volta" className="text-xs">Data</Label>
+                              <Input id="pacote-data-volta" type="date" className={`mt-1 ${!form.dataVolta ? 'bg-yellow-50' : 'bg-white'}`} value={form.dataVolta || ""} onChange={(e) => setForm((prev) => ({ ...prev, dataVolta: e.target.value }))} />
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-cia-volta" className="text-xs">CIA Aérea</Label>
+                              <select
+                                  id="pacote-cia-volta"
+                                  className={`mt-1 flex h-9 w-full rounded-md border border-input px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 ${!form.ciaAereaVolta ? 'bg-yellow-50' : 'bg-white'}`}
+                                  value={form.ciaAereaVolta || ""}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, ciaAereaVolta: e.target.value }))}
+                              >
+                                <option value="">Selecione uma companhia</option>
+                                {obterOpcoesCiaAerea(form.ciaAereaVolta).map((ciaAerea) => (
+                                  <option key={ciaAerea} value={ciaAerea}>{ciaAerea}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-reserva-volta" className="text-xs">Nº de Reserva/Localizador</Label>
+                              <Input id="pacote-reserva-volta" className={`mt-1 ${!form.reservaVolta ? 'bg-yellow-50' : 'bg-white'}`} placeholder={form.reserva ? `Ex: ${form.reserva}` : "Ex: ABC123"} value={form.reservaVolta || ""} onChange={(e) => setForm((prev) => ({ ...prev, reservaVolta: e.target.value }))} />
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-voo-volta" className="text-xs">Nº do Voo</Label>
+                              <Input id="pacote-voo-volta" className={`mt-1 ${!form.numeroVooVolta ? 'bg-yellow-50' : 'bg-white'}`} placeholder="Ex: LA 4754" value={form.numeroVooVolta || ""} onChange={(e) => setForm((prev) => ({ ...prev, numeroVooVolta: e.target.value }))} />
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-bagagem-volta" className="text-xs">Bagagem</Label>
+                              <Input id="pacote-bagagem-volta" className={`mt-1 ${!form.bagagemVolta ? 'bg-yellow-50' : 'bg-white'}`} placeholder="Ex: 1 mala de 23 kg" value={form.bagagemVolta || ""} onChange={(e) => setForm((prev) => ({ ...prev, bagagemVolta: e.target.value }))} />
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-link-volta" className="text-xs">Link</Label>
+                              <div className="relative mt-1">
+                                <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                <Input id="pacote-link-volta" type="url" placeholder="https://..." className={`pl-8 ${!form.linkVolta ? 'bg-yellow-50' : 'bg-white'}`} value={form.linkVolta || ""} onChange={(e) => setForm((prev) => ({ ...prev, linkVolta: e.target.value }))} />
+                              </div>
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-origem-volta" className="text-xs">Origem</Label>
+                              <select
+                                  id="pacote-origem-volta"
+                                  className={`mt-1 flex h-9 w-full rounded-md border border-input px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 ${!form.origemVolta ? 'bg-yellow-50' : 'bg-white'}`}
+                                  value={form.origemVolta || ""}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, origemVolta: e.target.value }))}
+                              >
+                                <option value="">Selecione o aeroporto de origem</option>
+                                {obterOpcoesAeroporto(form.origemVolta).map((aeroporto) => (
+                                  <option key={aeroporto.value} value={aeroporto.value}>{aeroporto.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-destino-volta" className="text-xs">Destino</Label>
+                              <select
+                                  id="pacote-destino-volta"
+                                  className={`mt-1 flex h-9 w-full rounded-md border border-input px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 ${!form.destinoVolta ? 'bg-yellow-50' : 'bg-white'}`}
+                                  value={form.destinoVolta || ""}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, destinoVolta: e.target.value }))}
+                              >
+                                <option value="">Selecione o aeroporto de destino</option>
+                                {obterOpcoesAeroporto(form.destinoVolta).map((aeroporto) => (
+                                  <option key={aeroporto.value} value={aeroporto.value}>{aeroporto.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-duracao-volta" className="text-xs">Duração</Label>
+                              <Input id="pacote-duracao-volta" className={`mt-1 ${!form.duracaoVolta ? 'bg-yellow-50' : 'bg-white'}`} placeholder="Ex: 11h 30min" value={form.duracaoVolta || ""} onChange={(e) => setForm((prev) => ({ ...prev, duracaoVolta: e.target.value }))} />
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-saida-volta" className="text-xs">Horário de Saída</Label>
+                              <Input id="pacote-saida-volta" className={`mt-1 ${!form.horaSaidaVolta ? 'bg-yellow-50' : 'bg-white'}`} placeholder="Ex: 18:30" value={form.horaSaidaVolta || ""} onChange={(e) => setForm((prev) => ({ ...prev, horaSaidaVolta: e.target.value }))} />
+                            </div>
+                            <div>
+                              <Label htmlFor="pacote-chegada-volta" className="text-xs">Horário de Chegada</Label>
+                              <Input id="pacote-chegada-volta" className={`mt-1 ${!form.horaChegadaVolta ? 'bg-yellow-50' : 'bg-white'}`} placeholder="Ex: 02:30" value={form.horaChegadaVolta || ""} onChange={(e) => setForm((prev) => ({ ...prev, horaChegadaVolta: e.target.value }))} />
+                            </div>
+                          </div>
+                          )}
+                        </section>
+
+                        <div className="sm:col-span-2">
+                          <Label className="text-xs">Passageiros</Label>
+                          <Input className={`mt-1 ${!form.passageiros ? 'bg-yellow-50' : 'bg-white'}`} placeholder="Ex: 2 adultos, 1 criança" value={form.passageiros || ""} onChange={(e) => setForm((prev) => ({ ...prev, passageiros: e.target.value }))} />
+                        </div>
+
+
+
+                        <div className="sm:col-span-2 rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+                          <div className="flex cursor-pointer select-none items-center justify-between" onClick={() => setPoliticaCancelamentoMinimizado((prev) => !prev)}>
+                            <Label className="cursor-pointer text-xs font-semibold text-gray-700">Política de Alteração e Cancelamento</Label>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                aria-expanded={!politicaCancelamentoMinimizado}
+                                aria-controls="campos-politica-cancelamento"
+                                onClick={(e) => { e.stopPropagation(); setPoliticaCancelamentoMinimizado((prev) => !prev); }}
                                 className="gap-1 text-gray-600 hover:text-gray-900 h-7 px-1.5"
                             >
                               {politicaCancelamentoMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-                              <span className="text-xs">{politicaCancelamentoMinimizado ? " " : " "}</span>
+                              <span className="sr-only">{politicaCancelamentoMinimizado ? "Expandir política de alteração e cancelamento" : "Recolher política de alteração e cancelamento"}</span>
                             </Button>
                           </div>
                           {!politicaCancelamentoMinimizado && (
                               <Textarea
+                                  id="campos-politica-cancelamento"
                                   className={`mt-1 min-h-28 ${!form.politicaAlteracoesCancelamentos ? 'bg-yellow-50' : 'bg-white'}`}
                                   placeholder="Texto extraído do voucher sobre alterações e cancelamentos"
                                   value={form.politicaAlteracoesCancelamentos || ""}
@@ -3203,6 +4072,26 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                             className={`mt-1 ${!form.hospedagemCheckout ? 'bg-yellow-50' : 'bg-white'}`}
                             value={form.hospedagemCheckout || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, hospedagemCheckout: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Horário de Check-in</Label>
+                        <Input
+                            className={`mt-1 ${!form.hospedagemHorarioCheckin ? 'bg-yellow-50' : 'bg-white'}`}
+                            placeholder="Ex: a partir das 14:00"
+                            value={form.hospedagemHorarioCheckin || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, hospedagemHorarioCheckin: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Horário de Check-out</Label>
+                        <Input
+                            className={`mt-1 ${!form.hospedagemHorarioCheckout ? 'bg-yellow-50' : 'bg-white'}`}
+                            placeholder="Ex: até 12:00"
+                            value={form.hospedagemHorarioCheckout || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, hospedagemHorarioCheckout: e.target.value }))}
                         />
                       </div>
 
@@ -3491,6 +4380,110 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                               <img src={form.hospedagemFoto} alt="Prévia da foto da hospedagem" className="h-28 w-full object-cover" />
                             </div>
                         )}
+                      </div>
+                    </div>
+                )}
+
+                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t cursor-pointer select-none" onClick={() => setSeguroMinimizado((prev) => !prev)}>
+                  <h4 className="flex items-center gap-2 font-semibold text-gray-900">
+                    <ShieldCheck className="h-4 w-4 text-indigo-500" />
+                    Seguro
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); atualizarDetalhesSeguro(); }}
+                        className="gap-2"
+                        title="Atualizar seguro com dados analisados"
+                    >
+                      <Sparkles className={`w-4 h-4 ${atualizando === "seguro" ? "animate-spin" : ""}`} />
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); setSeguroMinimizado((prev) => !prev); }}
+                        className="gap-2 text-gray-600 hover:text-gray-900"
+                    >
+                      {seguroMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                {!seguroMinimizado && (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mt-4">
+                      <div>
+                        <Label className="text-xs">Empresa de Assistência</Label>
+                        <Input className="mt-1" placeholder="Ex: Universal Assistance" value={form.seguroAssistencia || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroAssistencia: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Seguradora</Label>
+                        <Input className="mt-1" placeholder="Seguradora garantidora" value={form.seguroSeguradora || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroSeguradora: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Plano / Produto</Label>
+                        <Input className="mt-1" value={form.seguroPlano || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroPlano: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Apólice / Certificado</Label>
+                        <Input className="mt-1" value={form.seguroApoliceCertificado || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroApoliceCertificado: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Número da Reserva</Label>
+                        <Input className="mt-1" value={form.seguroNumeroReserva || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroNumeroReserva: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Número da Confirmação</Label>
+                        <Input className="mt-1" value={form.seguroNumeroConfirmacao || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroNumeroConfirmacao: e.target.value }))} />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs">Passageiros / Segurados</Label>
+                        <Textarea className="mt-1 min-h-20" value={form.seguroSegurados || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroSegurados: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Destino</Label>
+                        <Input className="mt-1" value={form.seguroDestino || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroDestino: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Âmbito de Cobertura</Label>
+                        <Input className="mt-1" placeholder="Ex: Nacional" value={form.seguroAmbitoCobertura || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroAmbitoCobertura: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Início da Vigência</Label>
+                        <Input type="date" className="mt-1" value={form.seguroVigenciaInicio || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroVigenciaInicio: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Fim da Vigência</Label>
+                        <Input type="date" className="mt-1" value={form.seguroVigenciaFim || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroVigenciaFim: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Valor</Label>
+                        <Input
+                            className="mt-1"
+                            inputMode="numeric"
+                            placeholder="R$ 0,00"
+                            value={seguroValorInput}
+                            onChange={(e) => {
+                              const valorFormatado = formatarMoedaInput(e.target.value);
+                              setSeguroValorInput(valorFormatado);
+                              setForm((prev) => ({ ...prev, seguroValor: parseMoeda(valorFormatado) }));
+                            }}
+                            onBlur={() => {
+                              const valorNumerico = parseMoeda(seguroValorInput);
+                              setSeguroValorInput(valorNumerico > 0 ? formatarMoeda(valorNumerico) : "");
+                              setForm((prev) => ({ ...prev, seguroValor: valorNumerico }));
+                            }}
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs">Coberturas</Label>
+                        <Textarea className="mt-1 min-h-28" placeholder="Coberturas e respectivos limites" value={form.seguroCoberturas || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroCoberturas: e.target.value }))} />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs">Observações</Label>
+                        <Textarea className="mt-1 min-h-24" value={form.seguroObservacoes || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroObservacoes: e.target.value }))} />
                       </div>
                     </div>
                 )}

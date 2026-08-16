@@ -79,10 +79,13 @@ interface Pacote {
   id: number;
   operador: string;
   ciaAerea?: string;
+  ciaAereaVolta?: string;
   origem?: string;
   destino?: string;
   reserva?: string;
+  reservaVolta?: string;
   link?: string;
+  linkVolta?: string;
   descricao?: string;
   foto: string | null;
   valor?: number;
@@ -114,6 +117,20 @@ interface Pacote {
   hospedagemLink?: string;
   hospedagemFoto?: string | null;
   hospedagemValor?: number;
+  seguroAssistencia?: string;
+  seguroSeguradora?: string;
+  seguroPlano?: string;
+  seguroNumeroReserva?: string;
+  seguroNumeroConfirmacao?: string;
+  seguroApoliceCertificado?: string;
+  seguroSegurados?: string;
+  seguroDestino?: string;
+  seguroAmbitoCobertura?: string;
+  seguroVigenciaInicio?: string;
+  seguroVigenciaFim?: string;
+  seguroCoberturas?: string;
+  seguroValor?: number;
+  seguroObservacoes?: string;
   trasladoTipo?: string;
   trasladoData?: string;
   trasladoHorario?: string;
@@ -353,7 +370,7 @@ export default function ResumoOrcamento() {
                       <span>{p.operador || "Pacote"}</span>
                       {p.reserva && (
                         <span className="ml-auto text-xs font-normal bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full px-2 py-0.5 flex items-center gap-1">
-                          <Hash className="w-3 h-3" /> Reserva: {p.reserva}
+                          <Hash className="w-3 h-3" /> Reserva (Ida): {p.reserva}
                         </span>
                       )}
                     </CardTitle>
@@ -385,7 +402,7 @@ export default function ResumoOrcamento() {
                     )}
 
                     {/* Voo de Ida */}
-                    {(p.origemIda || p.destinoIda || p.dataIda || p.ciaAerea) && (
+                    {(p.origemIda || p.destinoIda || p.dataIda || p.ciaAerea || p.link) && (
                       <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 space-y-1">
                         <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide flex items-center gap-1">
                           <Plane className="w-3.5 h-3.5" /> Voo de Ida
@@ -404,15 +421,22 @@ export default function ResumoOrcamento() {
                             {p.duracaoIda && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{p.duracaoIda}</span>}
                           </div>
                         )}
+                        {p.link?.trim() && (
+                          <a href={p.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline">
+                            <Link2 className="w-3 h-3" /> Link do trecho de ida
+                          </a>
+                        )}
                       </div>
                     )}
 
                     {/* Voo de Volta */}
-                    {(p.origemVolta || p.destinoVolta || p.dataVolta) && (
+                    {(p.origemVolta || p.destinoVolta || p.dataVolta || p.ciaAereaVolta || p.reservaVolta || p.linkVolta) && (
                       <div className="rounded-lg border border-sky-100 bg-sky-50 p-3 space-y-1">
                         <p className="text-xs font-semibold text-sky-700 uppercase tracking-wide flex items-center gap-1">
                           <Plane className="w-3.5 h-3.5 rotate-180" /> Voo de Volta
                         </p>
+                        {(p.ciaAereaVolta || p.ciaAerea) && <p className="text-sm text-gray-700">{p.ciaAereaVolta || p.ciaAerea}</p>}
+                        {(p.reservaVolta || p.reserva) && <p className="text-xs text-gray-500">Reserva: <strong>{p.reservaVolta || p.reserva}</strong></p>}
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
                           {(p.origemVolta || p.destinoVolta) && (
                             <span>{p.origemVolta || "?"} → {p.destinoVolta || "?"}</span>
@@ -425,6 +449,11 @@ export default function ResumoOrcamento() {
                             {p.horaChegadaVolta && <span>Chegada: <strong>{p.horaChegadaVolta}</strong></span>}
                             {p.duracaoVolta && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{p.duracaoVolta}</span>}
                           </div>
+                        )}
+                        {p.linkVolta?.trim() && (
+                          <a href={p.linkVolta} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline">
+                            <Link2 className="w-3 h-3" /> Link do trecho de volta
+                          </a>
                         )}
                       </div>
                     )}
@@ -472,6 +501,31 @@ export default function ResumoOrcamento() {
                             <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap">{p.hospedagemPoliticasCondicoesInformacoesEspeciais}</p>
                           </details>
                         )}
+                      </div>
+                    )}
+
+                    {/* Seguro do Pacote */}
+                    {(p.seguroAssistencia?.trim() || p.seguroSeguradora?.trim() || p.seguroPlano?.trim() || p.seguroApoliceCertificado?.trim()) && (
+                      <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 space-y-1">
+                        <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5" /> Seguro
+                        </p>
+                        <p className="text-sm font-medium text-gray-800">
+                          {[p.seguroAssistencia, p.seguroPlano].filter(Boolean).join(" — ") || p.seguroSeguradora}
+                        </p>
+                        {(p.seguroVigenciaInicio || p.seguroVigenciaFim) && (
+                          <p className="text-xs text-gray-600">
+                            Vigência: <strong>{fmtData(p.seguroVigenciaInicio)}</strong>
+                            {p.seguroVigenciaFim && <> → <strong>{fmtData(p.seguroVigenciaFim)}</strong></>}
+                          </p>
+                        )}
+                        {p.seguroSegurados?.trim() && <p className="text-xs text-gray-600 whitespace-pre-wrap">Segurados: {p.seguroSegurados}</p>}
+                        {(p.seguroDestino?.trim() || p.seguroAmbitoCobertura?.trim()) && (
+                          <p className="text-xs text-gray-500">{[p.seguroDestino, p.seguroAmbitoCobertura].filter(Boolean).join(" · ")}</p>
+                        )}
+                        {p.seguroCoberturas?.trim() && <p className="text-xs text-gray-500 whitespace-pre-wrap">{p.seguroCoberturas}</p>}
+                        {p.seguroValor ? <p className="text-xs font-semibold text-emerald-700">{moeda(p.seguroValor)}</p> : null}
+                        {p.seguroObservacoes?.trim() && <p className="text-xs text-gray-500 italic whitespace-pre-wrap">{p.seguroObservacoes}</p>}
                       </div>
                     )}
 
@@ -545,12 +599,6 @@ export default function ResumoOrcamento() {
                       </details>
                     )}
 
-                    {/* Link do pacote */}
-                    {p.link?.trim() && (
-                      <a href={p.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline">
-                        <Link2 className="w-3 h-3" /> Ver pacote completo
-                      </a>
-                    )}
                   </CardContent>
                 </Card>
               ))}

@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import {
   Share2, X, Instagram, Mail, MessageCircle, Car, MapPin, Globe,
   Phone, Mail as MailIcon, Calendar, Bed, Star, Coffee,
-  ExternalLink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp
+  ExternalLink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldCheck
 } from "lucide-react";
 import { JSX, useEffect, useRef, useState } from "react";
 import { listarFuncionarios, type Funcionario } from "../data/funcionariosApi";
@@ -43,6 +43,10 @@ function DayByDayReferenceIcon({ className = "" }: { className?: string }) {
       <path d="M11.66,3.91c0,1.11,0,2.21,0,3.31,0,.82-.04,1.64.07,2.44.26,1.87,1.99,3.23,3.83,3.1,1.97-.14,3.48-1.69,3.5-3.64.02-1.59,0-3.19,0-4.78,0-.14,0-.28,0-.45h11.87c0,.17,0,.31,0,.45,0,1.56,0,3.11,0,4.67,0,2.11,1.63,3.76,3.7,3.76,2.05,0,3.7-1.67,3.7-3.76,0-1.56,0-3.11,0-4.67,0-.14,0-.28,0-.41.05-.03.07-.05.1-.05,1.68.01,3.38-.07,5.05.05,2.77.2,4.86,2.71,4.87,5.66,0,4.01,0,8.01,0,12.02,0,7.49,0,14.99,0,22.48,0,2.78-1.77,5.02-4.42,5.59-.39.08-.8.12-1.2.12-11.25,0-22.51,0-33.76,0-.96,0-1.94.05-2.87-.12-2.68-.51-4.46-2.78-4.46-5.58,0-4.6,0-9.2,0-13.81,0-6.88,0-13.77,0-20.65,0-2.75,1.65-4.95,4.22-5.6.42-.11.87-.16,1.31-.17,1.4-.02,2.8,0,4.2,0,.09,0,.18.02.29.03ZM3.88,18.08c0,.18,0,.31,0,.43,0,8.52,0,17.04,0,25.55,0,2.12,1.41,3.52,3.54,3.52,11.73,0,23.47,0,35.2,0,2.08,0,3.5-1.41,3.5-3.48,0-8.53,0-17.06,0-25.59v-.43H3.88Z" />
     </svg>
   );
+}
+
+function SeguroReferenceIcon({ className = "" }: { className?: string }) {
+  return <ShieldCheck className={className} />;
 }
 
 function VooReferenceIcon({ className = "" }: { className?: string }) {
@@ -138,19 +142,34 @@ interface ItemOrc {
   desconto: number;
 }
 
+interface DocumentoPacote {
+  id: number;
+  nome: string;
+  tipo: string;
+  arquivo: string;
+  exibirNoRoteiro?: boolean;
+}
+
 interface Pacote {
   id: number;
   operador: string;
   link: string;
+  linkVolta?: string;
   descricao: string;
   foto?: string | null;
   fotoNome?: string;
   valor?: number;
   // Extended fields from PacotesForm
   ciaAerea?: string;
+  ciaAereaVolta?: string;
+  numeroVooIda?: string;
+  numeroVooVolta?: string;
+  bagagemIda?: string;
+  bagagemVolta?: string;
   origem?: string;
   destino?: string;
   reserva?: string;
+  reservaVolta?: string;
   dataIda?: string;
   dataVolta?: string;
   passageiros?: string;
@@ -160,6 +179,10 @@ interface Pacote {
   origemVolta?: string;
   destinoVolta?: string;
   duracaoVolta?: string;
+  horaSaidaIda?: string;
+  horaChegadaIda?: string;
+  horaSaidaVolta?: string;
+  horaChegadaVolta?: string;
   politicaAlteracoesCancelamentos?: string;
   hospedagemNome?: string;
   hospedagemEndereco?: string;
@@ -167,6 +190,8 @@ interface Pacote {
   hospedagemEmail?: string;
   hospedagemCheckin?: string;
   hospedagemCheckout?: string;
+  hospedagemHorarioCheckin?: string;
+  hospedagemHorarioCheckout?: string;
   hospedagemTipoQuarto?: string;
   hospedagemRegime?: string;
   hospedagemComodidades?: string;
@@ -174,6 +199,20 @@ interface Pacote {
   hospedagemNoites?: string;
   hospedagemLink?: string;
   hospedagemFoto?: string | null;
+  seguroAssistencia?: string;
+  seguroSeguradora?: string;
+  seguroPlano?: string;
+  seguroNumeroReserva?: string;
+  seguroNumeroConfirmacao?: string;
+  seguroApoliceCertificado?: string;
+  seguroSegurados?: string;
+  seguroDestino?: string;
+  seguroAmbitoCobertura?: string;
+  seguroVigenciaInicio?: string;
+  seguroVigenciaFim?: string;
+  seguroCoberturas?: string;
+  seguroValor?: number;
+  seguroObservacoes?: string;
   trasladoTipo?: string;
   trasladoData?: string;
   trasladoHorario?: string;
@@ -186,6 +225,8 @@ interface Pacote {
   ingressoHorario?: string;
   ingressoQuantidade?: string;
   ingressoObservacoes?: string;
+  urlOperador?: string[];
+  documentos?: DocumentoPacote[];
 }
 
 interface Orcamento {
@@ -257,7 +298,7 @@ function limparLinhaRoteiro(linha: string): string {
 }
 
 function normalizarTextoRoteiro(texto: string): string {
-  return String(texto || '')
+  return sanitizarTextoPublico(texto)
     .replace(/\r\n/g, '\n')
     .replace(/\*\*/g, '')
     .replace(/__/g, '')
@@ -266,6 +307,36 @@ function normalizarTextoRoteiro(texto: string): string {
     .replace(/\s+(Dia a dia sugerido|Resumo inspirador)/gi, '\n\n$1')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+function ehMensagemTecnicaProvedor(texto?: string | null): boolean {
+  const valor = String(texto || "").trim().toLowerCase();
+  if (!valor) return false;
+
+  return [
+    /nenhum provedor (?:encontrou|retornou|respondeu)/,
+    /resposta sem url/,
+    /incorrect api key/,
+    /api key (?:provided|invalid|missing)/,
+    /\b(?:401|403|429)\b.{0,80}\b(?:api|status|unauthorized|forbidden|quota|rate limit|no body)\b/,
+    /\b(?:groq|openai|gemini|openrouter|cloudflare)\s*:.{0,120}\b(?:erro|error|status|resposta sem|api key)\b/,
+    /^\s*\{?"?error"?\s*:/,
+  ].some((padrao) => padrao.test(valor));
+}
+
+function sanitizarTextoPublico(texto?: string | null): string {
+  return String(texto || "")
+    .split(/\r?\n/)
+    .filter((linha) => !ehMensagemTecnicaProvedor(linha))
+    .join("\n")
+    .trim();
+}
+
+function obterImagemPublicaSegura(valor?: string | null): string {
+  const imagem = valor?.trim();
+  if (!imagem || ehMensagemTecnicaProvedor(imagem)) return "";
+  if (/^(?:data:image\/|blob:)/i.test(imagem)) return imagem;
+  return obterLinkExternoSeguro(imagem);
 }
 
 function normalizarFotosHospedagem(hosp: any): string[] {
@@ -277,7 +348,7 @@ function normalizarFotosHospedagem(hosp: any): string[] {
   return Array.from(
     new Set(
       [...fotosNovas, ...fotoAntiga]
-        .map((foto) => String(foto || '').trim())
+        .map((foto) => obterImagemPublicaSegura(String(foto || '')))
         .filter(Boolean)
     )
   );
@@ -678,6 +749,138 @@ function formatarDataVooCurta(data?: string | null) {
   }).format(date);
 }
 
+function obterLinkExternoSeguro(link?: string | null): string {
+  const valor = link?.trim();
+  if (!valor || ehMensagemTecnicaProvedor(valor)) return "";
+
+  try {
+    const url = new URL(/^www\./i.test(valor) ? `https://${valor}` : valor);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function pacotePossuiDadosVoo(pacote?: Partial<Pacote> | null): boolean {
+  if (!pacote) return false;
+  return [
+    pacote.dataIda,
+    pacote.ciaAerea,
+    pacote.reserva,
+    pacote.link,
+    pacote.origemIda,
+    pacote.origem,
+    pacote.destinoIda,
+    pacote.destino,
+    pacote.duracaoIda,
+    pacote.horaSaidaIda,
+    pacote.horaChegadaIda,
+    pacote.dataVolta,
+    pacote.ciaAereaVolta,
+    pacote.numeroVooVolta,
+    pacote.bagagemVolta,
+    pacote.reservaVolta,
+    pacote.linkVolta,
+    pacote.origemVolta,
+    pacote.destinoVolta,
+    pacote.duracaoVolta,
+    pacote.horaSaidaVolta,
+    pacote.horaChegadaVolta,
+  ].some((valor) => typeof valor === "string" && valor.trim());
+}
+
+function pacotePossuiTrechoVolta(pacote: Partial<Pacote>): boolean {
+  return [
+    pacote.dataVolta,
+    pacote.ciaAereaVolta,
+    pacote.reservaVolta,
+    pacote.linkVolta,
+    pacote.origemVolta,
+    pacote.destinoVolta,
+    pacote.duracaoVolta,
+    pacote.horaSaidaVolta,
+    pacote.horaChegadaVolta,
+  ].some((valor) => typeof valor === "string" && valor.trim());
+}
+
+interface DadosTrechoVoo {
+  data?: string;
+  ciaAerea?: string;
+  numeroVoo?: string;
+  bagagem?: string;
+  reserva?: string;
+  link?: string;
+  origem?: string;
+  destino?: string;
+  duracao?: string;
+  horaSaida?: string;
+  horaChegada?: string;
+}
+
+function BlocoTrechoVoo({
+  tipo,
+  dados,
+}: {
+  tipo: "ida" | "volta";
+  dados: DadosTrechoVoo;
+}) {
+  const linkSeguro = obterLinkExternoSeguro(dados.link);
+  const campos = [
+    { label: "Data", valor: dados.data ? formatarDataVooCurta(dados.data) : "" },
+    { label: "CIA Aérea", valor: dados.ciaAerea },
+    { label: "Nº do Voo", valor: dados.numeroVoo },
+    { label: "Nº de Reserva/Localizador", valor: dados.reserva },
+    { label: "Origem", valor: dados.origem },
+    { label: "Destino", valor: dados.destino },
+    { label: "Duração", valor: dados.duracao },
+    { label: "Horário de Saída", valor: dados.horaSaida },
+    { label: "Horário de Chegada", valor: dados.horaChegada },
+    { label: "Bagagem", valor: dados.bagagem },
+  ];
+  const possuiDados = Boolean(linkSeguro) || campos.some(({ valor }) => valor?.trim());
+  if (!possuiDados) return null;
+
+  const ida = tipo === "ida";
+  return (
+    <section className={`min-w-0 max-w-full rounded-xl border p-4 ${ida ? "border-blue-200 bg-blue-50/70" : "border-orange-200 bg-orange-50/70"}`}>
+      <div className={`mb-4 flex min-w-0 items-center gap-2 ${ida ? "text-blue-800" : "text-orange-800"}`}>
+        <VooReferenceIcon className={`h-5 w-5 shrink-0 ${ida ? "" : "-rotate-180"}`} />
+        <h3 className="break-words text-sm font-extrabold uppercase tracking-[0.14em]">
+          {ida ? "Trecho de Ida" : "Trecho de Volta"}
+        </h3>
+      </div>
+      <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {campos.slice(0, 3).map(({ label, valor }) => valor?.trim() ? (
+          <div key={label} className="min-w-0">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+            <p className="mt-1 max-w-full break-words text-sm font-bold text-[#0a0534] [overflow-wrap:anywhere]">{valor}</p>
+          </div>
+        ) : null)}
+        {linkSeguro && (
+          <div className="min-w-0">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Link</p>
+            <a
+              href={linkSeguro}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`mt-1 inline-flex max-w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-bold transition-colors ${ida ? "bg-blue-100 text-blue-800 hover:bg-blue-200" : "bg-orange-100 text-orange-800 hover:bg-orange-200"}`}
+            >
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Abrir link</span>
+            </a>
+          </div>
+        )}
+        {campos.slice(3).map(({ label, valor }) => valor?.trim() ? (
+          <div key={label} className="min-w-0">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+            <p className="mt-1 max-w-full break-words text-sm font-bold text-[#0a0534] [overflow-wrap:anywhere]">{valor}</p>
+          </div>
+        ) : null)}
+      </div>
+    </section>
+  );
+}
+
 function Countdown({ targetDate, checkoutDate }: { targetDate: string; checkoutDate?: string | null }) {
   const calcularDiferenca = (referencia: number) => {
     const alvo = +new Date(targetDate + 'T00:00:00');
@@ -955,7 +1158,9 @@ export default function RoteiroOrcamento() {
     return (
       <div className="px-4 py-8 max-w-lg mx-auto">
         <Card className="p-4 text-center">
-          <p className="text-sm text-gray-600">{erroCarregamento || "Roteiro não disponível."}</p>
+          <p className="text-sm text-gray-600">
+            {sanitizarTextoPublico(erroCarregamento) || "Roteiro não disponível."}
+          </p>
         </Card>
       </div>
     );
@@ -994,9 +1199,8 @@ export default function RoteiroOrcamento() {
   const destinoPrincipal = obterDestinoPrincipal(orc);
 
   // Also check pacotes for flight/city info
-  const pacoteComVoo = (orc.pacotes || []).find(
-    (p: any) => p?.origemIda?.trim() || p?.destinoIda?.trim() || p?.dataIda?.trim()
-  );
+  const pacotesComVoo = (orc.pacotes || []).filter(pacotePossuiDadosVoo);
+  const pacoteComVoo = pacotesComVoo[0];
   const pacoteComHospedagem = (orc.pacotes || []).find(
     (p: any) => p?.hospedagemNome?.trim() || p?.hospedagemCheckin?.trim() || p?.hospedagemCheckout?.trim()
   );
@@ -1005,8 +1209,9 @@ export default function RoteiroOrcamento() {
   const possuiHospedagem = Boolean(orc.hospedagem?.length) || Boolean(pacoteComHospedagem);
   const possuiPlanejamentoBase = possuiVoo || possuiHospedagem;
 
-  const fotoPacoteDestaque =
-    (orc.pacotes || []).find((item) => typeof item?.foto === "string" && item.foto.trim())?.foto || "";
+  const fotoPacoteDestaque = (orc.pacotes || [])
+    .map((item) => obterImagemPublicaSegura(item?.foto))
+    .find(Boolean) || "";
 
   // Data de check-in/checkout: primeiro tenta da hospedagem direta, depois dos pacotes
   const dataCheckinHospedagem = orc.hospedagem && orc.hospedagem.length > 0 ? orc.hospedagem[0].checkin : null;
@@ -1059,6 +1264,23 @@ export default function RoteiroOrcamento() {
     ? orc.passageiros.map((nome) => String(nome || "").trim()).filter(Boolean)
     : [];
   const passageirosTexto = listaPassageiros.length > 0 ? listaPassageiros.join(", ") : "Sem passageiros adicionais";
+  const segurosPacotes = (orc.pacotes || []).filter((pacote) => Boolean(
+    pacote.seguroAssistencia?.trim() ||
+    pacote.seguroSeguradora?.trim() ||
+    pacote.seguroPlano?.trim() ||
+    pacote.seguroNumeroReserva?.trim() ||
+    pacote.seguroNumeroConfirmacao?.trim() ||
+    pacote.seguroApoliceCertificado?.trim() ||
+    pacote.seguroSegurados?.trim() ||
+    pacote.seguroDestino?.trim() ||
+    pacote.seguroAmbitoCobertura?.trim() ||
+    pacote.seguroVigenciaInicio?.trim() ||
+    pacote.seguroVigenciaFim?.trim() ||
+    pacote.seguroCoberturas?.trim() ||
+    Number(pacote.seguroValor) > 0 ||
+    pacote.seguroObservacoes?.trim()
+  ));
+  const possuiSeguro = segurosPacotes.length > 0 || Boolean(orc.seguro?.length);
   const agente = orc.agenteViagem
     ? funcionarios.find((funcionario) => funcionario.name === orc.agenteViagem)
     : null;
@@ -1092,10 +1314,10 @@ export default function RoteiroOrcamento() {
     { id: "hospedagem", titulo: "Hospedagens", icone: HospedagemReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: possuiHospedagem },
     { id: "roteiro", titulo: "Roteiro", icone: RoteiroReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: Boolean(orc.roteiro) },
     { id: "dia-a-dia", titulo: "Day by Day", icone: DayByDayReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: true },
+    { id: "seguro", titulo: "Seguro", icone: SeguroReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: possuiSeguro },
     { id: "transporte", titulo: "Transportes", icone: TransportesReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: Boolean(orc.transporte?.length) },
     { id: "restaurantes", titulo: "Restaurantes", icone: RestaurantesReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: Boolean(orc.restaurante?.length) },
     { id: "experiencias", titulo: "Experiencias", icone: ExperienciasReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: Boolean(orc.experiencias?.length) },
-    { id: "seguro", titulo: "Seguro", icone: RoteiroReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: Boolean(orc.seguro?.length) },
     { id: "passageiros", titulo: "Passageiros", icone: RoteiroReferenceIcon, classe: "bg-[#0a0534] text-white hover:bg-[#140a4d]", disponivel: Boolean(listaPassageiros.length) },
   ].filter((item) => item.disponivel);
 
@@ -1202,17 +1424,28 @@ export default function RoteiroOrcamento() {
             {orc.pacotes.map((pacote: any, idx: number) => {
               const pacoteId = Number(pacote.id ?? idx);
               const politicaCancelamentoMinimizadaParaPacote = politicaCancelamentoMinimizada[pacoteId] ?? true;
+              const documentosVisiveis = (pacote.documentos || []).filter(
+                (doc: DocumentoPacote) => doc.exibirNoRoteiro !== false,
+              );
+              const dadosClientePublicos = sanitizarTextoPublico(pacote.dadosCliente);
+              const informacoesAdicionaisPublicas = sanitizarTextoPublico(pacote.informacoesAdicionais);
+              const politicaCancelamentoPublica = sanitizarTextoPublico(pacote.politicaAlteracoesCancelamentos);
+              const linkPacoteSeguro = obterLinkExternoSeguro(pacote.link);
+              const urlsOperadorSeguras = (pacote.urlOperador || [])
+                .map((url: string) => obterLinkExternoSeguro(url))
+                .filter(Boolean);
 
               // Verifica se há campos estruturados preenchidos
               const temEstrutura = pacote.operador || pacote.destino || pacote.origem ||
-                pacote.reserva || pacote.informacoesAdicionais ||
-                pacote.politicaAlteracoesCancelamentos || pacote.dadosCliente ||
-                pacote.link || pacote.urlOperador?.length > 0 || pacote.documentos?.length > 0;
+                pacote.reserva || informacoesAdicionaisPublicas ||
+                politicaCancelamentoPublica || dadosClientePublicos ||
+                pacote.seguroAssistencia || pacote.seguroSeguradora || pacote.seguroPlano ||
+                linkPacoteSeguro || urlsOperadorSeguras.length > 0 || documentosVisiveis.length > 0;
 
               // Descrição livre usada apenas quando não há campos estruturados
               // OU quando contém texto além do gerado automaticamente pelo gerarResumoPacote
-              const descricaoOriginal = (pacote.descricao || "").replace(/AgaxTur\s*/gi, "").trim();
-              const resumoGerado = gerarResumoPacote(pacote as any).replace(/AgaxTur\s*/gi, "").trim();
+              const descricaoOriginal = sanitizarTextoPublico(pacote.descricao).replace(/AgaxTur\s*/gi, "").trim();
+              const resumoGerado = sanitizarTextoPublico(gerarResumoPacote(pacote as any)).replace(/AgaxTur\s*/gi, "").trim();
               const descricaoExtra = descricaoOriginal !== resumoGerado ? descricaoOriginal : "";
 
               return (
@@ -1239,18 +1472,18 @@ export default function RoteiroOrcamento() {
                   )}
 
                   {/* Dados do cliente */}
-                  {pacote.dadosCliente && (
+                  {dadosClientePublicos && (
                     <div>
                       <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/40 mb-1">Dados do Cliente</p>
-                      <p className="text-xs text-white/75 leading-5 whitespace-pre-wrap">{pacote.dadosCliente}</p>
+                      <p className="text-xs text-white/75 leading-5 whitespace-pre-wrap">{dadosClientePublicos}</p>
                     </div>
                   )}
 
                   {/* Informações adicionais */}
-                  {pacote.informacoesAdicionais && (
+                  {informacoesAdicionaisPublicas && (
                     <div>
                       <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/40 mb-1">Informações Adicionais</p>
-                      <p className="text-xs text-white/75 leading-5 whitespace-pre-wrap">{pacote.informacoesAdicionais}</p>
+                      <p className="text-xs text-white/75 leading-5 whitespace-pre-wrap">{informacoesAdicionaisPublicas}</p>
                     </div>
                   )}
 
@@ -1278,22 +1511,22 @@ export default function RoteiroOrcamento() {
                   )}
 
                   {/* Links e documentos */}
-                  {(pacote.link || pacote.urlOperador?.length > 0 || pacote.documentos?.length > 0) && (
+                  {(linkPacoteSeguro || urlsOperadorSeguras.length > 0 || documentosVisiveis.length > 0) && (
                     <div className="pt-2 border-t border-white/10 flex flex-col gap-1">
                       <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/40 mb-1">Arquivos Anexados</p>
-                      {pacote.link && (
-                        <a href={pacote.link} target="_blank" rel="noopener noreferrer"
+                      {linkPacoteSeguro && (
+                        <a href={linkPacoteSeguro} target="_blank" rel="noopener noreferrer"
                           className="text-xs text-indigo-300 hover:text-indigo-100 underline">
-                          🔗 {pacote.link}
+                          🔗 Abrir link do pacote
                         </a>
                       )}
-                      {(pacote.urlOperador || []).map((url: string, uIdx: number) => (
+                      {urlsOperadorSeguras.map((url: string, uIdx: number) => (
                         <a key={uIdx} href={url} target="_blank" rel="noopener noreferrer"
                           className="text-xs text-indigo-300 hover:text-indigo-100 underline break-all">
-                          🔗 {url}
+                          🔗 Abrir link da operadora
                         </a>
                       ))}
-                      {(pacote.documentos || []).map((doc: any, dIdx: number) => (
+                      {documentosVisiveis.map((doc: DocumentoPacote, dIdx: number) => (
                         <button key={dIdx} onClick={() => abrirVoucherPdf(doc.arquivo)}
                           className="text-xs text-indigo-300 hover:text-indigo-100 underline text-left">
                           📎 {doc.nome || `Documento ${dIdx + 1}`}
@@ -1303,7 +1536,7 @@ export default function RoteiroOrcamento() {
                   )}
 
                   {/* Política de cancelamento */}
-                  {pacote.politicaAlteracoesCancelamentos && (
+                  {politicaCancelamentoPublica && (
                     <div className="pt-2 border-t border-white/10">
                       <button
                         type="button"
@@ -1323,7 +1556,7 @@ export default function RoteiroOrcamento() {
                       </button>
                       {!politicaCancelamentoMinimizadaParaPacote && (
                         <div className="mt-2 rounded-md border border-white/10 bg-white/[0.02] p-2.5">
-                          {pacote.politicaAlteracoesCancelamentos
+                          {politicaCancelamentoPublica
                             .split(/\n\s*\n|\n/)
                             .map((paragrafo: string, index: number) => {
                               const texto = paragrafo.trim();
@@ -1348,152 +1581,52 @@ export default function RoteiroOrcamento() {
 
       {/* VOOS */}
       {possuiVoo && itemAtivo === "voos" && (
-        <Card id="voos" className="overflow-hidden mb-6 scroll-mt-4">
+        <Card id="voos" className="mb-6 max-w-full overflow-hidden scroll-mt-4">
           <div className="p-3" style={{ backgroundColor: COR_PRINCIPAL }}>
             <TituloSecao titulo="Voos" Icone={VooReferenceIcon} />
           </div>
-          <div className="p-4 space-y-4">
-            {(orc.pacotes || [])
-              .filter((p: any) => p?.origemIda?.trim() || p?.destinoIda?.trim() || p?.dataIda?.trim() || p?.origemVolta?.trim() || p?.destinoVolta?.trim() || p?.dataVolta?.trim())
-              .map((p: any, idx: number) => (
-              <div key={idx} className="overflow-hidden rounded-[26px] bg-white shadow-[0_10px_30px_rgba(10,5,52,0.12)]">
-                <div className="px-4 py-4 sm:px-5 sm:py-5">
-                  {/* CIA / Reserva */}
-                  {(p.ciaAerea || p.reserva) && (
-                    <div className="flex flex-wrap gap-4 mb-4 pb-3 border-b border-slate-100">
-                      {p.ciaAerea && (
-                        <div>
-                          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">CIA Aérea</p>
-                          <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.ciaAerea}</p>
-                        </div>
-                      )}
-                      {p.reserva && (
-                        <div>
-                          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Nº Reserva</p>
-                          <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.reserva}</p>
-                        </div>
-                      )}
-                      {p.passageiros && (
-                        <div>
-                          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Passageiros</p>
-                          <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.passageiros}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
+          <div className="min-w-0 space-y-4 p-4 sm:p-5">
+            {pacotesComVoo.map((pacote, idx) => {
+                const possuiVolta = pacotePossuiTrechoVolta(pacote);
+                const trechoIda: DadosTrechoVoo = {
+                  data: pacote.dataIda,
+                  ciaAerea: pacote.ciaAerea,
+                  numeroVoo: pacote.numeroVooIda,
+                  bagagem: pacote.bagagemIda,
+                  reserva: pacote.reserva,
+                  link: pacote.link,
+                  origem: pacote.origemIda || pacote.origem,
+                  destino: pacote.destinoIda || pacote.destino,
+                  duracao: pacote.duracaoIda,
+                  horaSaida: pacote.horaSaidaIda,
+                  horaChegada: pacote.horaChegadaIda,
+                };
+                const trechoVolta: DadosTrechoVoo = {
+                  data: pacote.dataVolta,
+                  ciaAerea: pacote.ciaAereaVolta || (possuiVolta ? pacote.ciaAerea : ""),
+                  numeroVoo: pacote.numeroVooVolta,
+                  bagagem: pacote.bagagemVolta,
+                  reserva: pacote.reservaVolta || (possuiVolta ? pacote.reserva : ""),
+                  link: pacote.linkVolta || (possuiVolta ? pacote.link : ""),
+                  origem: pacote.origemVolta,
+                  destino: pacote.destinoVolta,
+                  duracao: pacote.duracaoVolta,
+                  horaSaida: pacote.horaSaidaVolta,
+                  horaChegada: pacote.horaChegadaVolta,
+                };
 
-                  {/* Trecho de Ida */}
-                  {(p.origemIda || p.destinoIda || p.dataIda) && (
-                    <div className="mb-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <VooReferenceIcon className="h-5 w-5 text-[#e07b20]" />
-                        <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-[#e07b20]">IDA</span>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 border-t border-slate-100 pt-3">
-                        {p.origemIda && (
-                          <div>
-                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Origem</p>
-                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.origemIda}</p>
-                          </div>
-                        )}
-                        {p.destinoIda && (
-                          <div>
-                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Destino</p>
-                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.destinoIda}</p>
-                          </div>
-                        )}
-                        {p.dataIda && (
-                          <div>
-                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Data</p>
-                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{formatarDataVooCurta(p.dataIda)}</p>
-                          </div>
-                        )}
-                        {p.horaSaidaIda && (
-                          <div>
-                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Saída</p>
-                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.horaSaidaIda}</p>
-                          </div>
-                        )}
-                        {p.horaChegadaIda && (
-                          <div>
-                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Chegada</p>
-                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.horaChegadaIda}</p>
-                          </div>
-                        )}
-                        {p.duracaoIda && (
-                          <div>
-                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Duração</p>
-                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.duracaoIda}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Trecho de Volta */}
-                  {(p.origemVolta || p.destinoVolta || p.dataVolta) && (
-                    <div className="mt-4 pt-4 border-t border-slate-200">
-                      <div className="flex items-center gap-2 mb-3">
-                        <VooReferenceIcon className="h-5 w-5 text-[#e07b20] -rotate-180" />
-                        <span className="text-sm font-extrabold uppercase tracking-[0.18em] text-[#e07b20]">VOLTA</span>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 border-t border-slate-100 pt-3">
-                        {p.origemVolta && (
-                          <div>
-                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Origem</p>
-                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.origemVolta}</p>
-                          </div>
-                        )}
-                        {p.destinoVolta && (
-                          <div>
-                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Destino</p>
-                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.destinoVolta}</p>
-                          </div>
-                        )}
-                        {p.dataVolta && (
-                          <div>
-                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Data</p>
-                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{formatarDataVooCurta(p.dataVolta)}</p>
-                          </div>
-                        )}
-                        {p.horaSaidaVolta && (
-                          <div>
-                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Saída</p>
-                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.horaSaidaVolta}</p>
-                          </div>
-                        )}
-                        {p.horaChegadaVolta && (
-                          <div>
-                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Chegada</p>
-                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.horaChegadaVolta}</p>
-                          </div>
-                        )}
-                        {p.duracaoVolta && (
-                          <div>
-                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Duração</p>
-                            <p className="mt-1 text-sm font-extrabold text-[#0a0534] sm:text-base">{p.duracaoVolta}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Link do voucher */}
-                  {p.link && (
-                    <div className="mt-4 border-t border-gray-200 pt-3 flex justify-end">
-                      <a
-                        href={p.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
-                      >
-                        Abrir voucher do voo
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+                return (
+                  <article key={pacote.id || idx} className="min-w-0 max-w-full space-y-3 rounded-[22px] border border-slate-200 bg-white p-3 shadow-[0_10px_30px_rgba(10,5,52,0.10)] sm:p-4">
+                    {pacotesComVoo.length > 1 && (
+                      <p className="px-1 text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500">
+                        Pacote {idx + 1}
+                      </p>
+                    )}
+                    <BlocoTrechoVoo tipo="ida" dados={trechoIda} />
+                    {possuiVolta && <BlocoTrechoVoo tipo="volta" dados={trechoVolta} />}
+                  </article>
+                );
+              })}
           </div>
         </Card>
       )}
@@ -1679,6 +1812,8 @@ export default function RoteiroOrcamento() {
                 const email       = p.hospedagemEmail       || "";
                 const checkin     = p.hospedagemCheckin     || "";
                 const checkout    = p.hospedagemCheckout    || "";
+                const horarioCheckin = p.hospedagemHorarioCheckin || "";
+                const horarioCheckout = p.hospedagemHorarioCheckout || "";
                 const tipoQuarto  = p.hospedagemTipoQuarto  || "";
                 const regime      = p.hospedagemRegime      || "";
                 const comodidades = p.hospedagemComodidades || "";
@@ -1688,13 +1823,13 @@ export default function RoteiroOrcamento() {
                   const l: string[] = [];
                   if (Array.isArray(p.hospedagemLinks)) l.push(...p.hospedagemLinks.filter(Boolean));
                   if (p.hospedagemLink && !l.includes(p.hospedagemLink)) l.push(p.hospedagemLink);
-                  return l;
+                  return l.map(obterLinkExternoSeguro).filter(Boolean);
                 })();
                 const fotos: string[] = (() => {
                   const f: string[] = [];
                   if (Array.isArray(p.hospedagemFotos)) f.push(...p.hospedagemFotos.filter(Boolean));
                   if (p.hospedagemFoto && !f.includes(p.hospedagemFoto)) f.push(p.hospedagemFoto);
-                  return f;
+                  return f.map(obterImagemPublicaSegura).filter(Boolean);
                 })();
                 return (
                   <div key={`pp-${p.id ?? idx}`} className="overflow-hidden rounded-[22px] bg-[#1c1848] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
@@ -1712,13 +1847,13 @@ export default function RoteiroOrcamento() {
                           {checkin && (
                             <div className="rounded-xl bg-white/8 px-3 py-2.5">
                               <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">Check-in</p>
-                              <div className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-white/60 shrink-0" /><p className="text-[13px] font-semibold text-white">{formatarDataCurta(checkin)}</p></div>
+                              <div className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-white/60 shrink-0" /><p className="text-[13px] font-semibold text-white">{formatarDataCurta(checkin)}{horarioCheckin ? ` · ${horarioCheckin}` : ""}</p></div>
                             </div>
                           )}
                           {checkout && (
                             <div className="rounded-xl bg-white/8 px-3 py-2.5">
                               <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">Check-out</p>
-                              <div className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-white/60 shrink-0" /><p className="text-[13px] font-semibold text-white">{formatarDataCurta(checkout)}</p></div>
+                              <div className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-white/60 shrink-0" /><p className="text-[13px] font-semibold text-white">{formatarDataCurta(checkout)}{horarioCheckout ? ` · ${horarioCheckout}` : ""}</p></div>
                             </div>
                           )}
                           {noites && (
@@ -1980,9 +2115,9 @@ export default function RoteiroOrcamento() {
                     ))}
                   </div>
                 )}
-                {t.urlOperador && t.urlOperador.length > 0 && (
+                {(t.urlOperador || []).some((url: string) => obterLinkExternoSeguro(url)) && (
                   <div className="mt-1 flex flex-col gap-0.5">
-                    {t.urlOperador.map((url: string, uIdx: number) => (
+                    {(t.urlOperador || []).map((url: string) => obterLinkExternoSeguro(url)).filter(Boolean).map((url: string, uIdx: number) => (
                       <a
                         key={uIdx}
                         href={url}
@@ -1990,7 +2125,7 @@ export default function RoteiroOrcamento() {
                         rel="noopener noreferrer"
                         className="text-xs text-blue-600 hover:text-blue-800 underline break-all"
                       >
-                        🔗 {url}
+                        🔗 Abrir link da operadora
                       </a>
                     ))}
                   </div>
@@ -2024,11 +2159,13 @@ export default function RoteiroOrcamento() {
                     {r.preco > 0 && <span className="font-semibold text-indigo-600">{formatarMoeda(r.preco)}</span>}
                   </div>
 
-                  {r.observacoes && <p className="text-xs text-gray-500 mt-1 italic">{r.observacoes}</p>}
+                  {sanitizarTextoPublico(r.observacoes) && (
+                    <p className="text-xs text-gray-500 mt-1 italic">{sanitizarTextoPublico(r.observacoes)}</p>
+                  )}
 
                   <div className="mt-2 flex flex-col items-start gap-1.5 text-xs">
-                    {r.website && (
-                      <a href={r.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1.5">
+                    {obterLinkExternoSeguro(r.website) && (
+                      <a href={obterLinkExternoSeguro(r.website)} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1.5">
                         <Globe className="w-3.5 h-3.5" />
                         Website
                       </a>
@@ -2099,17 +2236,84 @@ export default function RoteiroOrcamento() {
       )}
 
       {/* SEGURO */}
-      {orc.seguro && orc.seguro.length > 0 && itemAtivo === "seguro" && (
+      {possuiSeguro && itemAtivo === "seguro" && (
         <Card id="seguro" className="overflow-hidden mb-6 scroll-mt-4">
           <div className="p-3" style={{ backgroundColor: COR_PRINCIPAL }}>
-            <TituloSecao titulo="Seguro" />
+            <TituloSecao titulo="Seguro" Icone={SeguroReferenceIcon} />
           </div>
-          <div className="p-4 space-y-3">
-            {orc.seguro.map((s: any, idx: number) => (
-              <div key={idx} className="p-3 bg-gray-50 rounded-lg space-y-1.5">
+          <div className="p-4 space-y-4">
+            {segurosPacotes.length > 0 && (
+              <div className="space-y-4">
+                {segurosPacotes.map((pacote, idx) => (
+                  <article key={pacote.id ?? idx} className="min-w-0 space-y-3 overflow-hidden rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+                    <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                          {segurosPacotes.length > 1 ? `Seguro ${idx + 1}` : "Seguro do pacote"}
+                        </p>
+                        <h3 className="mt-1 break-words text-base font-semibold text-gray-900 [overflow-wrap:anywhere]">
+                          {[pacote.seguroAssistencia, pacote.seguroPlano].filter(Boolean).join(" — ") || pacote.seguroSeguradora || "Seguro viagem"}
+                        </h3>
+                      </div>
+                      {Number(pacote.seguroValor) > 0 && (
+                        <span className="max-w-full shrink-0 break-words rounded-full bg-white px-3 py-1 text-sm font-semibold text-emerald-700 shadow-sm [overflow-wrap:anywhere]">
+                          {formatarMoeda(Number(pacote.seguroValor))}
+                        </span>
+                      )}
+                    </div>
+
+                    {(pacote.seguroSeguradora || pacote.seguroAmbitoCobertura || pacote.seguroDestino) && (
+                      <div className="flex min-w-0 max-w-full flex-wrap gap-2 text-xs">
+                        {pacote.seguroSeguradora && <span className="max-w-full break-words rounded-full bg-white px-2.5 py-1 text-gray-700 [overflow-wrap:anywhere]">{pacote.seguroSeguradora}</span>}
+                        {pacote.seguroAmbitoCobertura && <span className="max-w-full break-words rounded-full bg-white px-2.5 py-1 text-gray-700 [overflow-wrap:anywhere]">{pacote.seguroAmbitoCobertura}</span>}
+                        {pacote.seguroDestino && <span className="max-w-full break-words rounded-full bg-white px-2.5 py-1 text-gray-700 [overflow-wrap:anywhere]">{pacote.seguroDestino}</span>}
+                      </div>
+                    )}
+
+                    {(pacote.seguroVigenciaInicio || pacote.seguroVigenciaFim) && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Vigência</p>
+                        <p className="text-sm text-gray-700">
+                          {pacote.seguroVigenciaInicio ? formatarDataCurta(pacote.seguroVigenciaInicio) : "Não informado"}
+                          {" → "}
+                          {pacote.seguroVigenciaFim ? formatarDataCurta(pacote.seguroVigenciaFim) : "Não informado"}
+                        </p>
+                      </div>
+                    )}
+
+                    {(pacote.seguroNumeroReserva || pacote.seguroNumeroConfirmacao || pacote.seguroApoliceCertificado) && (
+                      <div className="grid min-w-0 max-w-full grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                        {pacote.seguroNumeroReserva && <p className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="text-gray-400">Reserva:</span> <span className="font-mono font-semibold text-gray-700">{pacote.seguroNumeroReserva}</span></p>}
+                        {pacote.seguroNumeroConfirmacao && <p className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="text-gray-400">Confirmação:</span> <span className="font-mono font-semibold text-gray-700">{pacote.seguroNumeroConfirmacao}</span></p>}
+                        {pacote.seguroApoliceCertificado && <p className="min-w-0 break-words [overflow-wrap:anywhere] sm:col-span-2"><span className="text-gray-400">Apólice/Certificado:</span> <span className="font-mono font-semibold text-gray-700">{pacote.seguroApoliceCertificado}</span></p>}
+                      </div>
+                    )}
+
+                    {pacote.seguroSegurados && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Segurados</p>
+                        <p className="mt-1 max-w-full whitespace-pre-wrap break-words text-sm leading-6 text-gray-700 [overflow-wrap:anywhere]">{pacote.seguroSegurados}</p>
+                      </div>
+                    )}
+                    {pacote.seguroCoberturas && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Coberturas</p>
+                        <p className="mt-1 max-w-full whitespace-pre-wrap break-words text-sm leading-6 text-gray-700 [overflow-wrap:anywhere]">{pacote.seguroCoberturas}</p>
+                      </div>
+                    )}
+                    {pacote.seguroObservacoes && (
+                      <p className="max-w-full whitespace-pre-wrap break-words border-t border-emerald-100 pt-3 text-xs italic leading-5 text-gray-500 [overflow-wrap:anywhere]">{pacote.seguroObservacoes}</p>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+
+            {(orc.seguro || []).map((s: any, idx: number) => (
+              <div key={idx} className="box-border min-w-0 max-w-full space-y-1.5 overflow-hidden rounded-lg bg-gray-50 p-3 break-words [overflow-wrap:anywhere]">
 
                 {/* Cabeçalho: tipo + seguradora */}
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex min-w-0 max-w-full items-center gap-2 flex-wrap">
                   {s.tipo && <span className="font-semibold text-gray-900 text-sm">{s.tipo}</span>}
                   {s.seguradora && (
                     <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">{s.seguradora}</span>
@@ -2120,7 +2324,7 @@ export default function RoteiroOrcamento() {
                 </div>
 
                 {/* Apólice / Certificado */}
-                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                <div className="flex min-w-0 max-w-full flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
                   {s.apolice && <span>Apólice: <span className="font-mono font-semibold text-gray-700">{s.apolice}</span></span>}
                   {s.nrCertificado && <span>Certificado: <span className="font-mono font-semibold text-gray-700">{s.nrCertificado}</span></span>}
                 </div>
@@ -2137,7 +2341,7 @@ export default function RoteiroOrcamento() {
                 )}
 
                 {/* Valores */}
-                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                <div className="flex min-w-0 max-w-full flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
                   {s.valor > 0 && <span className="font-semibold text-indigo-600">{formatarMoeda(s.valor)}</span>}
                   {s.limiteCobertura && <span>Limite: <span className="font-medium text-gray-700">{s.limiteCobertura}</span></span>}
                   {s.franquia && <span>Franquia: <span className="font-medium text-gray-700">{s.franquia}</span></span>}
@@ -2158,34 +2362,34 @@ export default function RoteiroOrcamento() {
                 )}
 
                 {/* Contato / Sinistro */}
-                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                <div className="flex min-w-0 max-w-full flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
                   {s.assistencia24h && <span>Assistência 24h: <span className="font-medium text-gray-700">{s.assistencia24h}</span></span>}
                   {s.telefoneEmergencia && <span>Tel. emergência: <span className="font-medium text-gray-700">{s.telefoneEmergencia}</span></span>}
                   {s.contatoEmergencia && <span>Contato: <span className="font-medium text-gray-700">{s.contatoEmergencia}</span></span>}
                   {s.emailSinistro && (
-                    <a href={`mailto:${s.emailSinistro}`} className="text-blue-600 hover:underline">
+                    <a href={`mailto:${s.emailSinistro}`} className="max-w-full break-words text-blue-600 hover:underline [overflow-wrap:anywhere]">
                       {s.emailSinistro}
                     </a>
                   )}
-                  {s.siteSinistro && (
-                    <a href={s.siteSinistro.startsWith("http") ? s.siteSinistro : `https://${s.siteSinistro}`}
+                  {obterLinkExternoSeguro(s.siteSinistro) && (
+                    <a href={obterLinkExternoSeguro(s.siteSinistro)}
                       target="_blank" rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline">
-                      🔗 {s.siteSinistro}
+                      className="max-w-full break-words text-blue-600 hover:underline [overflow-wrap:anywhere]">
+                      🔗 Abrir site de sinistro
                     </a>
                   )}
                 </div>
 
                 {/* Observações */}
-                {s.observacoes && (
-                  <p className="text-xs text-gray-500 italic">{s.observacoes}</p>
+                {sanitizarTextoPublico(s.observacoes) && (
+                  <p className="text-xs text-gray-500 italic">{sanitizarTextoPublico(s.observacoes)}</p>
                 )}
 
                 {/* Voucher principal */}
                 {s.voucher && (
                   <button
                     onClick={() => abrirVoucherPdf(s.voucher)}
-                    className="text-xs text-indigo-600 hover:text-indigo-800 underline mt-1 inline-block"
+                    className="mt-1 inline-block max-w-full break-words text-xs text-indigo-600 underline hover:text-indigo-800 [overflow-wrap:anywhere]"
                   >
                     📎 {s.voucherNome || "Ver voucher"}
                   </button>
@@ -2193,12 +2397,12 @@ export default function RoteiroOrcamento() {
 
                 {/* Documentos anexados */}
                 {s.documentos && s.documentos.length > 0 && (
-                  <div className="mt-1 flex flex-col gap-0.5">
+                  <div className="mt-1 flex min-w-0 max-w-full flex-col gap-0.5">
                     {s.documentos.map((doc: any, dIdx: number) => (
                       <button
                         key={dIdx}
                         onClick={() => abrirVoucherPdf(doc.arquivo)}
-                        className="text-xs text-indigo-600 hover:text-indigo-800 underline text-left"
+                        className="max-w-full break-words text-left text-xs text-indigo-600 underline hover:text-indigo-800 [overflow-wrap:anywhere]"
                       >
                         📎 {doc.nome || `Documento ${dIdx + 1}`}
                       </button>
@@ -2236,12 +2440,12 @@ export default function RoteiroOrcamento() {
         </Card>
       )}
 
-      {orc.observacoes && (
+      {sanitizarTextoPublico(orc.observacoes) && (
         <Card className="overflow-hidden mb-6">
           <div className="p-3" style={{ backgroundColor: COR_PRINCIPAL }}>
             <TituloSecao titulo="Observacoes" />
           </div>
-          <p className="text-sm text-gray-600 whitespace-pre-wrap p-4">{orc.observacoes}</p>
+          <p className="text-sm text-gray-600 whitespace-pre-wrap p-4">{sanitizarTextoPublico(orc.observacoes)}</p>
         </Card>
       )}
 

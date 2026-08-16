@@ -79,10 +79,13 @@ interface Pacote {
   id: number;
   operador: string;
   ciaAerea?: string;
+  ciaAereaVolta?: string;
   origem?: string;
   destino?: string;
   reserva?: string;
+  reservaVolta?: string;
   link?: string;
+  linkVolta?: string;
   descricao?: string;
   foto: string | null;
   valor?: number;
