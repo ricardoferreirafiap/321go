@@ -83,14 +83,6 @@ export default function Funcionario() {
     }
   }
 
-  const totalAprovado = orcamentos
-    .filter((o) => o.status === "Aprovado")
-    .reduce((acc, o) => acc + calcularTotalOrcamento(o), 0);
-
-  const totalNaoAprovado = orcamentos
-    .filter((o) => o.status !== "Aprovado")
-    .reduce((acc, o) => acc + calcularTotalOrcamento(o), 0);
-
   const stats = [
     {
       icon: User,
