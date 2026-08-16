@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent } from "react";
-import { User, UserCheck, UserX, Plus, Edit2, X, Camera, Maximize2, Minimize2 } from "lucide-react";
+import { User, UserCheck, UserX, Plus, Edit2, X, Camera, Maximize2, Minimize2, Eye, EyeOff } from "lucide-react";
 import { Card } from "./ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
 import { Button } from "./ui/button";
@@ -24,6 +24,7 @@ export default function Funcionario() {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [saudacoesExpandido, setSaudacoesExpandido] = useState(false);
+  const [senhaVisivel, setSenhaVisivel] = useState(false);
 
   async function carregarDados() {
     setErro(null);
@@ -41,9 +42,9 @@ export default function Funcionario() {
     carregarDados();
   }, []);
 
-  function abrirNovo() { setErro(null); setEditando(null); setForm(funcionarioVazio); setSaudacoesExpandido(false); setModalAberto(true); }
-  function abrirEdicao(func: Funcionario) { setErro(null); setEditando(func); setForm({ ...func, saudacoes: func.saudacoes || "", password: "" }); setSaudacoesExpandido(false); setModalAberto(true); }
-  function fecharModal() { setModalAberto(false); setEditando(null); setSaudacoesExpandido(false); }
+  function abrirNovo() { setErro(null); setEditando(null); setForm(funcionarioVazio); setSaudacoesExpandido(false); setSenhaVisivel(false); setModalAberto(true); }
+  function abrirEdicao(func: Funcionario) { setErro(null); setEditando(func); setForm({ ...func, saudacoes: func.saudacoes || "", password: "" }); setSaudacoesExpandido(false); setSenhaVisivel(false); setModalAberto(true); }
+  function fecharModal() { setModalAberto(false); setEditando(null); setSaudacoesExpandido(false); setSenhaVisivel(false); }
 
   function selecionarFoto(event: ChangeEvent<HTMLInputElement>) {
     const arquivo = event.target.files?.[0];
@@ -212,7 +213,27 @@ export default function Funcionario() {
                 </div>
                 <div>
                   <Label htmlFor="password">Senha</Label>
-                  <Input id="password" type="password" value={form.password ?? ""} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder={editando ? "Deixe em branco para não alterar" : "Senha de acesso"} className="mt-1" />
+                  <div className="relative mt-1">
+                    <Input
+                      id="password"
+                      type={senhaVisivel ? "text" : "password"}
+                      value={form.password ?? ""}
+                      onChange={(e) => setForm({ ...form, password: e.target.value })}
+                      placeholder={editando ? "Deixe em branco para não alterar" : "Senha de acesso"}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSenhaVisivel((atual) => !atual)}
+                      aria-label={senhaVisivel ? "Ocultar senha" : "Exibir senha"}
+                      aria-pressed={senhaVisivel}
+                      className="absolute right-0 top-0 h-full w-10 text-gray-500 hover:text-gray-700"
+                    >
+                      {senhaVisivel ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
