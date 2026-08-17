@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronUp, Pencil, Plus, Trash2, Link2, Package2, Image, Upload, FileText, X, Sparkles, RefreshCw, ExternalLink, ShieldCheck } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -402,6 +402,17 @@ const pacoteVazio: Omit<Pacote, "id"> = {
 
 function formatarMoeda(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function formatarMoedaInput(valor: string): string {
+  // Remove todos os caracteres exceto números e vírgula
+  const limpo = valor.replace(/[^\d,]/g, "");
+  // Garante que tenha apenas uma vírgula
+  const partes = limpo.split(",");
+  if (partes.length > 2) {
+    return partes[0] + "," + partes.slice(1).join("");
+  }
+  return limpo;
 }
 
 function parseMoeda(valorTexto: string) {
@@ -1967,22 +1978,46 @@ function mapearDetalhesSeguro<T extends Pick<
     | "seguroValor"
     | "seguroObservacoes"
 >>(formAtual: T, dadosIA: NonNullable<Documento["dadosIA"]>): T {
+  // Verificar se há dados de seguro disponíveis
+  const temDadosSeguro = possuiDadosSeguro(dadosIA);
+  
+  if (!temDadosSeguro) {
+    // Limpar todos os campos de seguro quando não houver dados
+    return {
+      ...formAtual,
+      seguroAssistencia: "",
+      seguroSeguradora: "",
+      seguroPlano: "",
+      seguroNumeroReserva: "",
+      seguroNumeroConfirmacao: "",
+      seguroApoliceCertificado: "",
+      seguroSegurados: "",
+      seguroDestino: "",
+      seguroAmbitoCobertura: "",
+      seguroVigenciaInicio: "",
+      seguroVigenciaFim: "",
+      seguroCoberturas: "",
+      seguroValor: 0,
+      seguroObservacoes: "",
+    };
+  }
+  
   return {
     ...formAtual,
-    seguroAssistencia: dadosIA.seguroAssistencia || formAtual.seguroAssistencia || "",
-    seguroSeguradora: dadosIA.seguroSeguradora || formAtual.seguroSeguradora || "",
-    seguroPlano: dadosIA.seguroPlano || formAtual.seguroPlano || "",
-    seguroNumeroReserva: dadosIA.seguroNumeroReserva || formAtual.seguroNumeroReserva || "",
-    seguroNumeroConfirmacao: dadosIA.seguroNumeroConfirmacao || formAtual.seguroNumeroConfirmacao || "",
-    seguroApoliceCertificado: dadosIA.seguroApoliceCertificado || formAtual.seguroApoliceCertificado || "",
-    seguroSegurados: dadosIA.seguroSegurados || formAtual.seguroSegurados || "",
-    seguroDestino: dadosIA.seguroDestino || formAtual.seguroDestino || "",
-    seguroAmbitoCobertura: dadosIA.seguroAmbitoCobertura || formAtual.seguroAmbitoCobertura || "",
-    seguroVigenciaInicio: dadosIA.seguroVigenciaInicio || formAtual.seguroVigenciaInicio || "",
-    seguroVigenciaFim: dadosIA.seguroVigenciaFim || formAtual.seguroVigenciaFim || "",
-    seguroCoberturas: dadosIA.seguroCoberturas || formAtual.seguroCoberturas || "",
-    seguroValor: dadosIA.seguroValor ? parseMoeda(dadosIA.seguroValor) : (formAtual.seguroValor || 0),
-    seguroObservacoes: dadosIA.seguroObservacoes || formAtual.seguroObservacoes || "",
+    seguroAssistencia: dadosIA.seguroAssistencia || "",
+    seguroSeguradora: dadosIA.seguroSeguradora || "",
+    seguroPlano: dadosIA.seguroPlano || "",
+    seguroNumeroReserva: dadosIA.seguroNumeroReserva || "",
+    seguroNumeroConfirmacao: dadosIA.seguroNumeroConfirmacao || "",
+    seguroApoliceCertificado: dadosIA.seguroApoliceCertificado || "",
+    seguroSegurados: dadosIA.seguroSegurados || "",
+    seguroDestino: dadosIA.seguroDestino || "",
+    seguroAmbitoCobertura: dadosIA.seguroAmbitoCobertura || "",
+    seguroVigenciaInicio: dadosIA.seguroVigenciaInicio || "",
+    seguroVigenciaFim: dadosIA.seguroVigenciaFim || "",
+    seguroCoberturas: dadosIA.seguroCoberturas || "",
+    seguroValor: dadosIA.seguroValor ? parseMoeda(dadosIA.seguroValor) : 0,
+    seguroObservacoes: dadosIA.seguroObservacoes || "",
   };
 }
 
@@ -2108,6 +2143,10 @@ function encontrarDocumentoIngresso(documentos: Documento[]) {
   return documentos.find((doc) => possuiDadosIngresso(obterDadosIADocumento(doc)));
 }
 
+function encontrarDocumentosSeguro(documentos: Documento[]) {
+  return documentos.filter((doc) => possuiDadosSeguro(obterDadosIADocumento(doc)));
+}
+
 export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onHospedagensChange }: PacotesFormProps) {
   const [form, setForm] = useState<Omit<Pacote, "id">>(pacoteVazio);
   const [valorInput, setValorInput] = useState("");
@@ -2122,6 +2161,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
   const [trechoVoltaMinimizado, setTrechoVoltaMinimizado] = useState(false);
   const [hospedagemMinimizado, setHospedagemMinimizado] = useState(true);
   const [seguroMinimizado, setSeguroMinimizado] = useState(true);
+  const [seguroManualMinimizado, setSeguroManualMinimizado] = useState(false);
   const [trasladoMinimizado, setTrasladoMinimizado] = useState(true);
   const [ingressoMinimizado, setIngressoMinimizado] = useState(true);
   const [logAnaliseMinimizado, setLogAnaliseMinimizado] = useState(true);
@@ -2132,9 +2172,33 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
   const [urlOperadorMinimizado, setUrlOperadorMinimizado] = useState(true);
   const [relatoriosMinimizado, setRelatoriosMinimizado] = useState(true);
   const [relatoriosExpandidos, setRelatoriosExpandidos] = useState<Set<number>>(new Set());
+  const [seguroFormsExpandidos, setSeguroFormsExpandidos] = useState<Set<number>>(new Set());
+  const [seguroFormsDados, setSeguroFormsDados] = useState<Record<number, Partial<Pacote>>>({});
   const [analisandoIA, setAnalisandoIA] = useState(false);
   const [buscandoLinkHotelIA, setBuscandoLinkHotelIA] = useState(false);
   const [buscandoFotoHotelIA, setBuscandoFotoHotelIA] = useState(false);
+
+  // Limpar campos de seguro ao carregar o componente
+  useEffect(() => {
+    setForm((prev) => ({
+      ...prev,
+      seguroAssistencia: "",
+      seguroSeguradora: "",
+      seguroPlano: "",
+      seguroNumeroReserva: "",
+      seguroNumeroConfirmacao: "",
+      seguroApoliceCertificado: "",
+      seguroSegurados: "",
+      seguroDestino: "",
+      seguroAmbitoCobertura: "",
+      seguroVigenciaInicio: "",
+      seguroVigenciaFim: "",
+      seguroCoberturas: "",
+      seguroValor: 0,
+      seguroObservacoes: "",
+    }));
+    setSeguroValorInput("");
+  }, []);
   const [erroFotoHotelIA, setErroFotoHotelIA] = useState("");
   const [hospedagemFotoInput, setHospedagemFotoInput] = useState("");
   const [hospedagemLinkInput, setHospedagemLinkInput] = useState("");
@@ -2561,10 +2625,32 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
   }
 
   function editarPacote(pacote: Pacote) {
+    // Se já está editando este pacote, cancela a edição e volta ao estado inicial
+    if (editandoId === pacote.id) {
+      setEditandoId(null);
+      setForm(pacoteVazio);
+      setVouchersMinimizado(true);
+      setFormMinimizado(true);
+      setTrechoIdaMinimizado(false);
+      setTrechoVoltaMinimizado(false);
+      setSeguroManualMinimizado(true);
+      setHospedagemMinimizado(true);
+      setSeguroMinimizado(true);
+      setPoliticaCancelamentoMinimizado(true);
+      setComodidadesMinimizado(true);
+      setLogAnaliseIA([]);
+      setValorInput("");
+      setHospedagemValorInput("");
+      setSeguroValorInput("");
+      setHospedagemLinkInput("");
+      return;
+    }
+
     setVouchersMinimizado(false);
     setFormMinimizado(true);
     setTrechoIdaMinimizado(false);
     setTrechoVoltaMinimizado(false);
+    setSeguroManualMinimizado(true);
     setHospedagemMinimizado(true);
     setSeguroMinimizado(true);
     setPoliticaCancelamentoMinimizado(true); // Manter minimizado ao abrir edição
@@ -2626,20 +2712,20 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       hospedagemLinks: Array.isArray(pacote.hospedagemLinks) ? pacote.hospedagemLinks : (pacote.hospedagemLink ? [pacote.hospedagemLink] : []),
       hospedagemFoto: pacote.hospedagemFoto || null,
       hospedagemFotos: Array.isArray(pacote.hospedagemFotos) ? pacote.hospedagemFotos : (pacote.hospedagemFoto ? [pacote.hospedagemFoto] : []),
-      seguroAssistencia: pacote.seguroAssistencia || "",
-      seguroSeguradora: pacote.seguroSeguradora || "",
-      seguroPlano: pacote.seguroPlano || "",
-      seguroNumeroReserva: pacote.seguroNumeroReserva || "",
-      seguroNumeroConfirmacao: pacote.seguroNumeroConfirmacao || "",
-      seguroApoliceCertificado: pacote.seguroApoliceCertificado || "",
-      seguroSegurados: pacote.seguroSegurados || "",
-      seguroDestino: pacote.seguroDestino || "",
-      seguroAmbitoCobertura: pacote.seguroAmbitoCobertura || "",
-      seguroVigenciaInicio: pacote.seguroVigenciaInicio || "",
-      seguroVigenciaFim: pacote.seguroVigenciaFim || "",
-      seguroCoberturas: pacote.seguroCoberturas || "",
-      seguroValor: Number(pacote.seguroValor) || 0,
-      seguroObservacoes: pacote.seguroObservacoes || "",
+      seguroAssistencia: "",
+      seguroSeguradora: "",
+      seguroPlano: "",
+      seguroNumeroReserva: "",
+      seguroNumeroConfirmacao: "",
+      seguroApoliceCertificado: "",
+      seguroSegurados: "",
+      seguroDestino: "",
+      seguroAmbitoCobertura: "",
+      seguroVigenciaInicio: "",
+      seguroVigenciaFim: "",
+      seguroCoberturas: "",
+      seguroValor: 0,
+      seguroObservacoes: "",
       trasladoTipo: pacote.trasladoTipo || "",
       trasladoData: pacote.trasladoData || "",
       trasladoHorario: pacote.trasladoHorario || "",
@@ -2665,7 +2751,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     });
     setValorInput(pacote.valor ? formatarMoeda(Number(pacote.valor) || 0) : "");
     setHospedagemValorInput(pacote.hospedagemValor ? formatarMoeda(Number(pacote.hospedagemValor) || 0) : "");
-    setSeguroValorInput(pacote.seguroValor ? formatarMoeda(Number(pacote.seguroValor) || 0) : "");
+    setSeguroValorInput("");
     setErro("");
   }
 
@@ -2776,7 +2862,32 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     let novoForm = { ...form };
     novoForm = mapearDetalhesVoo(novoForm, dados);
     novoForm = mapearDetalhesHospedagem(novoForm, dados);
-    if (possuiDadosSeguro(dados)) novoForm = mapearDetalhesSeguro(novoForm, dados);
+    
+    // Sempre limpar campos de seguro primeiro
+    novoForm = {
+      ...novoForm,
+      seguroAssistencia: "",
+      seguroSeguradora: "",
+      seguroPlano: "",
+      seguroNumeroReserva: "",
+      seguroNumeroConfirmacao: "",
+      seguroApoliceCertificado: "",
+      seguroSegurados: "",
+      seguroDestino: "",
+      seguroAmbitoCobertura: "",
+      seguroVigenciaInicio: "",
+      seguroVigenciaFim: "",
+      seguroCoberturas: "",
+      seguroValor: 0,
+      seguroObservacoes: "",
+    };
+    setSeguroValorInput("");
+    
+    // Só popular se houver dados de seguro
+    if (possuiDadosSeguro(dados)) {
+      novoForm = mapearDetalhesSeguro(novoForm, dados);
+    }
+    
     if (possuiDadosTraslado(dados)) novoForm = mapearDetalhesTraslado(novoForm, dados);
     if (possuiDadosIngresso(dados)) novoForm = mapearDetalhesIngresso(novoForm, dados);
     if (novoForm.valor > 0) setValorInput(formatarMoeda(novoForm.valor));
@@ -2847,7 +2958,275 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     setForm((f) => ({ ...novoForm, documentos: f.documentos }));
     propagarAoPai({ ...novoForm, documentos: form.documentos });
     setSeguroMinimizado(false);
+    setSeguroManualMinimizado(true); // Minimizar formulário manual quando dados são populados
     setTimeout(() => setAtualizando(null), 800);
+  }
+
+  function toggleSeguroForm(docId: number) {
+    setSeguroFormsExpandidos((prev) => {
+      const novo = new Set(prev);
+      if (novo.has(docId)) {
+        novo.delete(docId);
+      } else {
+        novo.add(docId);
+        // Inicializar dados do formulário com dados do documento
+        const doc = form.documentos?.find((d) => d.id === docId);
+        if (doc?.dadosIA) {
+          // Verificar se há dados de seguro disponíveis
+          const temDadosSeguro = possuiDadosSeguro(doc.dadosIA);
+          
+          setSeguroFormsDados((prevDados) => ({
+            ...prevDados,
+            [docId]: {
+              seguroAssistencia: temDadosSeguro ? (doc.dadosIA.seguroAssistencia || "") : "",
+              seguroSeguradora: temDadosSeguro ? (doc.dadosIA.seguroSeguradora || "") : "",
+              seguroPlano: temDadosSeguro ? (doc.dadosIA.seguroPlano || "") : "",
+              seguroNumeroReserva: temDadosSeguro ? (doc.dadosIA.seguroNumeroReserva || "") : "",
+              seguroNumeroConfirmacao: temDadosSeguro ? (doc.dadosIA.seguroNumeroConfirmacao || "") : "",
+              seguroApoliceCertificado: temDadosSeguro ? (doc.dadosIA.seguroApoliceCertificado || "") : "",
+              seguroSegurados: temDadosSeguro ? (doc.dadosIA.seguroSegurados || "") : "",
+              seguroDestino: temDadosSeguro ? (doc.dadosIA.seguroDestino || "") : "",
+              seguroAmbitoCobertura: temDadosSeguro ? (doc.dadosIA.seguroAmbitoCobertura || "") : "",
+              seguroVigenciaInicio: temDadosSeguro ? (doc.dadosIA.seguroVigenciaInicio || "") : "",
+              seguroVigenciaFim: temDadosSeguro ? (doc.dadosIA.seguroVigenciaFim || "") : "",
+              seguroCoberturas: temDadosSeguro ? (doc.dadosIA.seguroCoberturas || "") : "",
+              seguroValor: temDadosSeguro ? (doc.dadosIA.seguroValor ? parseMoeda(doc.dadosIA.seguroValor) : 0) : 0,
+              seguroObservacoes: temDadosSeguro ? (doc.dadosIA.seguroObservacoes || "") : "",
+            },
+          }));
+        }
+      }
+      return novo;
+    });
+  }
+
+  function atualizarSeguroForm(docId: number, campo: string, valor: string | number) {
+    setSeguroFormsDados((prev) => ({
+      ...prev,
+      [docId]: {
+        ...prev[docId],
+        [campo]: valor,
+      },
+    }));
+  }
+
+  function salvarSeguroForm(docId: number) {
+    const dadosForm = seguroFormsDados[docId];
+    if (!dadosForm) return;
+
+    // Mesclar dados do formulário individual com o formulário principal
+    const novoForm = { ...form, ...dadosForm };
+    setForm(novoForm);
+    propagarAoPai(novoForm);
+
+    // Fechar o formulário após salvar
+    setSeguroFormsExpandidos((prev) => {
+      const novo = new Set(prev);
+      novo.delete(docId);
+      return novo;
+    });
+  }
+
+  function renderSeguroFormPorDocumento(doc: Documento) {
+    const dadosForm = seguroFormsDados[doc.id] || {};
+    const expandido = seguroFormsExpandidos.has(doc.id);
+    const dadosIA = obterDadosIADocumento(doc);
+
+    if (!dadosIA || !possuiDadosSeguro(dadosIA)) return null;
+
+    return (
+      <div key={doc.id} className="border border-gray-200 rounded-md bg-white overflow-hidden mb-2">
+        {/* Header do documento */}
+        <div 
+          className="flex items-center gap-2 px-3 py-2 bg-gray-50"
+        >
+          <FileText className="h-4 w-4 flex-shrink-0 text-indigo-400" />
+          <a href={doc.arquivo} download={doc.nome} className="flex-1 truncate text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+            {doc.nome}
+          </a>
+          <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0">
+            Seguro
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => toggleSeguroForm(doc.id)}
+              className="h-6 gap-1 px-2 text-[10px] text-gray-500 hover:text-gray-700"
+            >
+              {expandido ? (
+                <>
+                  <ChevronUp className="h-3 w-3" />
+                  Minimizar
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-3 w-3" />
+                  Maximizar
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Resumo dos dados do seguro */}
+        {!expandido && (
+          <div className="border-t border-gray-100 px-3 py-2 bg-indigo-50/40">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-0.5 text-xs text-gray-700">
+              {dadosIA.seguroAssistencia && <p><span className="text-gray-400">Assistência:</span> {dadosIA.seguroAssistencia}</p>}
+              {dadosIA.seguroSeguradora && <p><span className="text-gray-400">Seguradora:</span> {dadosIA.seguroSeguradora}</p>}
+              {dadosIA.seguroPlano && <p><span className="text-gray-400">Plano:</span> {dadosIA.seguroPlano}</p>}
+              {dadosIA.seguroVigenciaInicio && <p><span className="text-gray-400">Início:</span> {formatarDataIsoBr(dadosIA.seguroVigenciaInicio)}</p>}
+              {dadosIA.seguroVigenciaFim && <p><span className="text-gray-400">Fim:</span> {formatarDataIsoBr(dadosIA.seguroVigenciaFim)}</p>}
+              {dadosIA.seguroValor && <p><span className="text-gray-400">Valor:</span> R$ {dadosIA.seguroValor}</p>}
+            </div>
+          </div>
+        )}
+
+        {/* Formulário de edição */}
+        {expandido && (
+          <div className="border-t border-indigo-100 px-3 pb-3 pt-2">
+            <p className="text-[10px] font-semibold text-indigo-700 uppercase tracking-wide mb-2 flex items-center gap-1">
+              <ShieldCheck className="h-3 w-3" /> Editar Seguro - {doc.nome}
+            </p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+              <div>
+                <Label className="text-xs">Empresa de Assistência</Label>
+                <Input 
+                  className="mt-1" 
+                  placeholder="Ex: Universal Assistance" 
+                  value={dadosForm.seguroAssistencia || dadosIA.seguroAssistencia || ""} 
+                  onChange={(e) => atualizarSeguroForm(doc.id, "seguroAssistencia", e.target.value)} 
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Seguradora</Label>
+                <Input 
+                  className="mt-1" 
+                  placeholder="Seguradora garantidora" 
+                  value={dadosForm.seguroSeguradora || dadosIA.seguroSeguradora || ""} 
+                  onChange={(e) => atualizarSeguroForm(doc.id, "seguroSeguradora", e.target.value)} 
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Plano / Produto</Label>
+                <Input 
+                  className="mt-1" 
+                  value={dadosForm.seguroPlano || dadosIA.seguroPlano || ""} 
+                  onChange={(e) => atualizarSeguroForm(doc.id, "seguroPlano", e.target.value)} 
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Apólice / Certificado</Label>
+                <Input 
+                  className="mt-1" 
+                  value={dadosForm.seguroApoliceCertificado || dadosIA.seguroApoliceCertificado || ""} 
+                  onChange={(e) => atualizarSeguroForm(doc.id, "seguroApoliceCertificado", e.target.value)} 
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Número da Reserva</Label>
+                <Input 
+                  className="mt-1" 
+                  value={dadosForm.seguroNumeroReserva || dadosIA.seguroNumeroReserva || ""} 
+                  onChange={(e) => atualizarSeguroForm(doc.id, "seguroNumeroReserva", e.target.value)} 
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Número da Confirmação</Label>
+                <Input 
+                  className="mt-1" 
+                  value={dadosForm.seguroNumeroConfirmacao || dadosIA.seguroNumeroConfirmacao || ""} 
+                  onChange={(e) => atualizarSeguroForm(doc.id, "seguroNumeroConfirmacao", e.target.value)} 
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label className="text-xs">Passageiros / Segurados</Label>
+                <Textarea 
+                  className="mt-1 min-h-16" 
+                  value={dadosForm.seguroSegurados || dadosIA.seguroSegurados || ""} 
+                  onChange={(e) => atualizarSeguroForm(doc.id, "seguroSegurados", e.target.value)} 
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Destino</Label>
+                <Input 
+                  className="mt-1" 
+                  value={dadosForm.seguroDestino || dadosIA.seguroDestino || ""} 
+                  onChange={(e) => atualizarSeguroForm(doc.id, "seguroDestino", e.target.value)} 
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Âmbito de Cobertura</Label>
+                <Input 
+                  className="mt-1" 
+                  placeholder="Ex: Nacional" 
+                  value={dadosForm.seguroAmbitoCobertura || dadosIA.seguroAmbitoCobertura || ""} 
+                  onChange={(e) => atualizarSeguroForm(doc.id, "seguroAmbitoCobertura", e.target.value)} 
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Início da Vigência</Label>
+                <Input 
+                  type="date" 
+                  className="mt-1" 
+                  value={dadosForm.seguroVigenciaInicio || dadosIA.seguroVigenciaInicio || ""} 
+                  onChange={(e) => atualizarSeguroForm(doc.id, "seguroVigenciaInicio", e.target.value)} 
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Fim da Vigência</Label>
+                <Input 
+                  type="date" 
+                  className="mt-1" 
+                  value={dadosForm.seguroVigenciaFim || dadosIA.seguroVigenciaFim || ""} 
+                  onChange={(e) => atualizarSeguroForm(doc.id, "seguroVigenciaFim", e.target.value)} 
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Valor (R$)</Label>
+                <Input
+                  className="mt-1"
+                  inputMode="numeric"
+                  placeholder="R$ 0,00"
+                  value={dadosForm.seguroValor !== undefined ? formatarMoeda(dadosForm.seguroValor) : (dadosIA.seguroValor || "")}
+                  onChange={(e) => {
+                    const valorNumerico = parseMoeda(e.target.value);
+                    atualizarSeguroForm(doc.id, "seguroValor", valorNumerico);
+                  }}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label className="text-xs">Coberturas</Label>
+                <Textarea 
+                  className="mt-1 min-h-24" 
+                  placeholder="Coberturas e respectivos limites" 
+                  value={dadosForm.seguroCoberturas || dadosIA.seguroCoberturas || ""} 
+                  onChange={(e) => atualizarSeguroForm(doc.id, "seguroCoberturas", e.target.value)} 
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label className="text-xs">Observações</Label>
+                <Textarea 
+                  className="mt-1 min-h-20" 
+                  value={dadosForm.seguroObservacoes || dadosIA.seguroObservacoes || ""} 
+                  onChange={(e) => atualizarSeguroForm(doc.id, "seguroObservacoes", e.target.value)} 
+                />
+              </div>
+            </div>
+
+            <Button 
+              onClick={() => salvarSeguroForm(doc.id)} 
+              className="w-full gap-2 bg-green-600 hover:bg-green-700 text-sm"
+            >
+              <Plus className="w-4 h-4" />Salvar Seguro
+            </Button>
+          </div>
+        )}
+      </div>
+    );
   }
 
   function atualizarDetalhesIngresso() {
@@ -2875,7 +3254,32 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     let novoForm = { ...form };
     novoForm = mapearDetalhesVoo(novoForm, dados);
     novoForm = mapearDetalhesHospedagem(novoForm, dados);
-    if (possuiDadosSeguro(dados)) novoForm = mapearDetalhesSeguro(novoForm, dados);
+    
+    // Sempre limpar campos de seguro primeiro
+    novoForm = {
+      ...novoForm,
+      seguroAssistencia: "",
+      seguroSeguradora: "",
+      seguroPlano: "",
+      seguroNumeroReserva: "",
+      seguroNumeroConfirmacao: "",
+      seguroApoliceCertificado: "",
+      seguroSegurados: "",
+      seguroDestino: "",
+      seguroAmbitoCobertura: "",
+      seguroVigenciaInicio: "",
+      seguroVigenciaFim: "",
+      seguroCoberturas: "",
+      seguroValor: 0,
+      seguroObservacoes: "",
+    };
+    setSeguroValorInput("");
+    
+    // Só popular se houver dados de seguro
+    if (possuiDadosSeguro(dados)) {
+      novoForm = mapearDetalhesSeguro(novoForm, dados);
+    }
+    
     if (possuiDadosTraslado(dados)) novoForm = mapearDetalhesTraslado(novoForm, dados);
     if (possuiDadosIngresso(dados)) novoForm = mapearDetalhesIngresso(novoForm, dados);
     novoForm = { ...novoForm, descricao: gerarResumoPacote(novoForm) };
@@ -3385,7 +3789,31 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       if (temDadosExtraidos(dadosUnificados)) {
         novoFormCalculado = mapearDetalhesVoo(novoFormCalculado, dadosUnificados);
         novoFormCalculado = mapearDetalhesHospedagem(novoFormCalculado, dadosUnificados);
-        if (possuiDadosSeguro(dadosUnificados)) novoFormCalculado = mapearDetalhesSeguro(novoFormCalculado, dadosUnificados);
+        
+        // Sempre limpar campos de seguro primeiro
+        novoFormCalculado = {
+          ...novoFormCalculado,
+          seguroAssistencia: "",
+          seguroSeguradora: "",
+          seguroPlano: "",
+          seguroNumeroReserva: "",
+          seguroNumeroConfirmacao: "",
+          seguroApoliceCertificado: "",
+          seguroSegurados: "",
+          seguroDestino: "",
+          seguroAmbitoCobertura: "",
+          seguroVigenciaInicio: "",
+          seguroVigenciaFim: "",
+          seguroCoberturas: "",
+          seguroValor: 0,
+          seguroObservacoes: "",
+        };
+        
+        // Só popular se houver dados de seguro
+        if (possuiDadosSeguro(dadosUnificados)) {
+          novoFormCalculado = mapearDetalhesSeguro(novoFormCalculado, dadosUnificados);
+        }
+        
         if (possuiDadosTraslado(dadosUnificados)) novoFormCalculado = mapearDetalhesTraslado(novoFormCalculado, dadosUnificados);
         if (possuiDadosIngresso(dadosUnificados)) novoFormCalculado = mapearDetalhesIngresso(novoFormCalculado, dadosUnificados);
         novoFormCalculado = { ...novoFormCalculado, descricao: gerarResumoPacote(novoFormCalculado) };
@@ -3396,6 +3824,8 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       }
       if (novoFormCalculado.seguroValor) {
         setSeguroValorInput(formatarMoeda(novoFormCalculado.seguroValor));
+      } else {
+        setSeguroValorInput("");
       }
 
       // Preservar documentos do tipo URL que foram adicionados durante a análise de URLs
@@ -3424,6 +3854,121 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
 
   return (
       <div className="space-y-4">
+        {/* Lista de Pacotes Adicionados */}
+        <div className="space-y-3">
+          {pacotes.map((pacote, index) => (
+              <Card key={pacote.id} className="p-4">
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400">Voucher {index + 1}</p>
+                    <p className="font-semibold text-gray-900">{pacote.operador || "Sem operador"}</p>
+                    {pacote.reserva && (
+                        <p className="text-xs text-gray-500 mt-0.5">Reserva: {pacote.reserva}</p>
+                    )}
+                    {(pacote.origemIda || pacote.destinoIda || pacote.origem || pacote.destino) && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Ida: {pacote.origemIda || pacote.origem || "Origem"} → {pacote.destinoIda || pacote.destino || "Destino"}
+                          {pacote.duracaoIda ? ` (${pacote.duracaoIda})` : ""}
+                        </p>
+                    )}
+                    {(pacote.origemVolta || pacote.destinoVolta) && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Volta: {pacote.origemVolta || "Origem"} → {pacote.destinoVolta || "Destino"}
+                          {pacote.duracaoVolta ? ` (${pacote.duracaoVolta})` : ""}
+                        </p>
+                    )}
+                    {pacote.hospedagemNome && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Hotel: {pacote.hospedagemNome}
+                          {pacote.hospedagemCheckin && pacote.hospedagemCheckout
+                              ? ` (${pacote.hospedagemCheckin} → ${pacote.hospedagemCheckout})`
+                              : ""}
+                          {pacote.hospedagemValor && ` - R$ ${pacote.hospedagemValor}`}
+                        </p>
+                    )}
+                    {(pacote.trasladoTipo ||
+                        pacote.trasladoLocalPartida ||
+                        pacote.trasladoLocalChegada ||
+                        pacote.trasladoData ||
+                        pacote.trasladoHorario ||
+                        pacote.trasladoVeiculoEmpresa) && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Traslado: {pacote.trasladoTipo || "Tipo não informado"}
+                          {pacote.trasladoLocalPartida && pacote.trasladoLocalChegada
+                              ? ` (${pacote.trasladoLocalPartida} → ${pacote.trasladoLocalChegada})`
+                              : ""}
+                          {pacote.trasladoData || pacote.trasladoHorario
+                              ? ` - ${[pacote.trasladoData, pacote.trasladoHorario].filter(Boolean).join(" ")}`
+                              : ""}
+                          {pacote.trasladoVeiculoEmpresa ? ` - ${pacote.trasladoVeiculoEmpresa}` : ""}
+                        </p>
+                    )}
+                    {pacote.trasladoObservacoes && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Obs. Traslado: {pacote.trasladoObservacoes}
+                        </p>
+                    )}
+                    {/* Exibe todos os ingressos do array; fallback para campo legado */}
+                    {((pacote.ingressos && pacote.ingressos.length > 0)
+                      ? pacote.ingressos
+                      : pacote.ingressoNomeAtracao
+                        ? [{ nomeAtracao: pacote.ingressoNomeAtracao, quantidade: pacote.ingressoQuantidade || "", data: pacote.ingressoData || "", horario: pacote.ingressoHorario || "", observacoes: "" }]
+                        : []
+                    ).map((ing, i) => (
+                      <p key={i} className="text-xs text-gray-500 mt-0.5">
+                        🎟 {ing.nomeAtracao}
+                        {ing.quantidade ? ` (${ing.quantidade})` : ""}
+                        {ing.data ? ` — ${ing.data}` : ""}
+                        {ing.horario ? ` ${ing.horario}` : ""}
+                      </p>
+                    ))}
+                    {pacote.descricao && (
+                        <p className="text-xs text-gray-600 mt-2 italic">
+                          "{pacote.descricao}"
+                        </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                        type="button"
+                        onClick={() => editarPacote(pacote)}
+                        className="rounded p-1.5 text-blue-600 hover:bg-blue-50"
+                        title="Editar pacote"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <AlertDialog open={voucherParaExcluir === pacote.id} onOpenChange={(open) => !open && setVoucherParaExcluir(null)}>
+                      <AlertDialogTrigger asChild>
+                        <button
+                            type="button"
+                            onClick={() => setVoucherParaExcluir(pacote.id)}
+                            className="rounded p-1.5 text-red-500 hover:bg-red-50"
+                            title="Remover pacote"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Deseja realmente excluir o Voucher {index + 1} ({pacote.operador || "Sem operador"})? Esta ação não pode ser desfeita.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => removerPacote(pacote.id)} className="bg-red-600 hover:bg-red-700">
+                            Excluir
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              </Card>
+          ))}
+        </div>
+
         {/* Seção de Anexos e Análise com IA */}
         <Card className="p-4">
           <div className="mb-4 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => setVouchersMinimizado((prev) => !prev)}>
@@ -4395,77 +4940,151 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                 </div>
 
                 {!seguroMinimizado && (
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mt-4">
-                      <div>
-                        <Label className="text-xs">Empresa de Assistência</Label>
-                        <Input className="mt-1" placeholder="Ex: Universal Assistance" value={form.seguroAssistencia || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroAssistencia: e.target.value }))} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Seguradora</Label>
-                        <Input className="mt-1" placeholder="Seguradora garantidora" value={form.seguroSeguradora || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroSeguradora: e.target.value }))} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Plano / Produto</Label>
-                        <Input className="mt-1" value={form.seguroPlano || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroPlano: e.target.value }))} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Apólice / Certificado</Label>
-                        <Input className="mt-1" value={form.seguroApoliceCertificado || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroApoliceCertificado: e.target.value }))} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Número da Reserva</Label>
-                        <Input className="mt-1" value={form.seguroNumeroReserva || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroNumeroReserva: e.target.value }))} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Número da Confirmação</Label>
-                        <Input className="mt-1" value={form.seguroNumeroConfirmacao || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroNumeroConfirmacao: e.target.value }))} />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <Label className="text-xs">Passageiros / Segurados</Label>
-                        <Textarea className="mt-1 min-h-20" value={form.seguroSegurados || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroSegurados: e.target.value }))} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Destino</Label>
-                        <Input className="mt-1" value={form.seguroDestino || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroDestino: e.target.value }))} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Âmbito de Cobertura</Label>
-                        <Input className="mt-1" placeholder="Ex: Nacional" value={form.seguroAmbitoCobertura || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroAmbitoCobertura: e.target.value }))} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Início da Vigência</Label>
-                        <Input type="date" className="mt-1" value={form.seguroVigenciaInicio || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroVigenciaInicio: e.target.value }))} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Fim da Vigência</Label>
-                        <Input type="date" className="mt-1" value={form.seguroVigenciaFim || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroVigenciaFim: e.target.value }))} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Valor</Label>
-                        <Input
-                            className="mt-1"
-                            inputMode="numeric"
-                            placeholder="R$ 0,00"
-                            value={seguroValorInput}
-                            onChange={(e) => {
-                              const valorFormatado = formatarMoedaInput(e.target.value);
-                              setSeguroValorInput(valorFormatado);
-                              setForm((prev) => ({ ...prev, seguroValor: parseMoeda(valorFormatado) }));
-                            }}
-                            onBlur={() => {
-                              const valorNumerico = parseMoeda(seguroValorInput);
-                              setSeguroValorInput(valorNumerico > 0 ? formatarMoeda(valorNumerico) : "");
-                              setForm((prev) => ({ ...prev, seguroValor: valorNumerico }));
-                            }}
-                        />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <Label className="text-xs">Coberturas</Label>
-                        <Textarea className="mt-1 min-h-28" placeholder="Coberturas e respectivos limites" value={form.seguroCoberturas || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroCoberturas: e.target.value }))} />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <Label className="text-xs">Observações</Label>
-                        <Textarea className="mt-1 min-h-24" value={form.seguroObservacoes || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroObservacoes: e.target.value }))} />
+                    <div className="mt-4">
+                      {/* Formulários individuais por documento com dados de seguro */}
+                      {encontrarDocumentosSeguro(form.documentos || []).length > 0 && (
+                        <div className="mb-4">
+                          <p className="text-xs text-gray-500 mb-2">Documentos com dados de seguro:</p>
+                          {(form.documentos || []).map((doc) => renderSeguroFormPorDocumento(doc))}
+                        </div>
+                      )}
+
+                      {/* Formulário principal para edição manual */}
+                      <div className="border-t border-gray-200 pt-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <button
+                            type="button"
+                            onClick={() => setSeguroManualMinimizado((prev) => !prev)}
+                            className="flex items-center gap-2 text-sm font-semibold text-gray-900 hover:text-indigo-600 cursor-pointer"
+                          >
+                            {seguroManualMinimizado ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronUp className="h-4 w-4" />
+                            )}
+                            Incluir Novo
+                          </button>
+                        </div>
+                        {!seguroManualMinimizado && (
+                          <>
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                              <div>
+                                <Label className="text-xs">Empresa de Assistência</Label>
+                                <Input className="mt-1" placeholder="Ex: Universal Assistance" value={form.seguroAssistencia || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroAssistencia: e.target.value }))} />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Seguradora</Label>
+                                <Input className="mt-1" placeholder="Seguradora garantidora" value={form.seguroSeguradora || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroSeguradora: e.target.value }))} />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Plano / Produto</Label>
+                                <Input className="mt-1" value={form.seguroPlano || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroPlano: e.target.value }))} />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Apólice / Certificado</Label>
+                                <Input className="mt-1" value={form.seguroApoliceCertificado || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroApoliceCertificado: e.target.value }))} />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Número da Reserva</Label>
+                                <Input className="mt-1" value={form.seguroNumeroReserva || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroNumeroReserva: e.target.value }))} />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Número da Confirmação</Label>
+                                <Input className="mt-1" value={form.seguroNumeroConfirmacao || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroNumeroConfirmacao: e.target.value }))} />
+                              </div>
+                              <div className="sm:col-span-2">
+                                <Label className="text-xs">Passageiros / Segurados</Label>
+                                <Textarea className="mt-1 min-h-20" value={form.seguroSegurados || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroSegurados: e.target.value }))} />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Destino</Label>
+                                <Input className="mt-1" value={form.seguroDestino || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroDestino: e.target.value }))} />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Âmbito de Cobertura</Label>
+                                <Input className="mt-1" placeholder="Ex: Nacional" value={form.seguroAmbitoCobertura || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroAmbitoCobertura: e.target.value }))} />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Início da Vigência</Label>
+                                <Input type="date" className="mt-1" value={form.seguroVigenciaInicio || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroVigenciaInicio: e.target.value }))} />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Fim da Vigência</Label>
+                                <Input type="date" className="mt-1" value={form.seguroVigenciaFim || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroVigenciaFim: e.target.value }))} />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Valor</Label>
+                                <Input
+                                    className="mt-1"
+                                    inputMode="numeric"
+                                    placeholder="R$ 0,00"
+                                    value={seguroValorInput}
+                                    onChange={(e) => {
+                                      const valorFormatado = formatarMoedaInput(e.target.value);
+                                      setSeguroValorInput(valorFormatado);
+                                      setForm((prev) => ({ ...prev, seguroValor: parseMoeda(valorFormatado) }));
+                                    }}
+                                    onBlur={() => {
+                                      const valorNumerico = parseMoeda(seguroValorInput);
+                                      setSeguroValorInput(valorNumerico > 0 ? formatarMoeda(valorNumerico) : "");
+                                      setForm((prev) => ({ ...prev, seguroValor: valorNumerico }));
+                                    }}
+                                />
+                              </div>
+                              <div className="sm:col-span-2">
+                                <Label className="text-xs">Coberturas</Label>
+                                <Textarea className="mt-1 min-h-28" placeholder="Coberturas e respectivos limites" value={form.seguroCoberturas || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroCoberturas: e.target.value }))} />
+                              </div>
+                              <div className="sm:col-span-2">
+                                <Label className="text-xs">Observações</Label>
+                                <Textarea className="mt-1 min-h-24" value={form.seguroObservacoes || ""} onChange={(e) => setForm((prev) => ({ ...prev, seguroObservacoes: e.target.value }))} />
+                              </div>
+                            </div>
+                            <Button 
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                console.log("Botão Salvar Seguro clicado");
+                                console.log("editandoId:", editandoId);
+                                console.log("form atual:", form);
+                                console.log("pacotes atuais:", pacotes);
+                                
+                                if (editandoId !== null) {
+                                  // Atualizar pacote existente (voucher corrente)
+                                  console.log("Atualizando voucher corrente com ID:", editandoId);
+                                  const pacoteAtualizado = {
+                                    ...form,
+                                    id: editandoId
+                                  };
+                                  console.log("Pacote atualizado:", pacoteAtualizado);
+                                  
+                                  onPacotesChange(
+                                    pacotes.map((item) =>
+                                      item.id === editandoId ? pacoteAtualizado : item
+                                    )
+                                  );
+                                  setErro("Seguro salvo no voucher corrente com sucesso!");
+                                } else {
+                                  // Criar novo pacote
+                                  console.log("Criando novo pacote");
+                                  const novoPacote = {
+                                    ...form,
+                                    id: Date.now(),
+                                  };
+                                  onPacotesChange([...pacotes, novoPacote]);
+                                  setErro("Seguro adicionado com sucesso!");
+                                }
+                                
+                                // Limpar erro após 3 segundos
+                                setTimeout(() => setErro(""), 3000);
+                              }}
+                              className="w-full gap-2 bg-green-600 hover:bg-green-700 text-sm mt-4"
+                            >
+                              <Plus className="w-4 h-4" />
+                              Salvar Seguro
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                 )}
@@ -4827,121 +5446,6 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
           )}
 
         </Card>
-
-        {/* Lista de Pacotes Adicionados */}
-        <div className="space-y-3">
-          {pacotes.map((pacote, index) => (
-              <Card key={pacote.id} className="p-4">
-                <div className="mb-2 flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400">Voucher {index + 1}</p>
-                    <p className="font-semibold text-gray-900">{pacote.operador || "Sem operador"}</p>
-                    {pacote.reserva && (
-                        <p className="text-xs text-gray-500 mt-0.5">Reserva: {pacote.reserva}</p>
-                    )}
-                    {(pacote.origemIda || pacote.destinoIda || pacote.origem || pacote.destino) && (
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          Ida: {pacote.origemIda || pacote.origem || "Origem"} → {pacote.destinoIda || pacote.destino || "Destino"}
-                          {pacote.duracaoIda ? ` (${pacote.duracaoIda})` : ""}
-                        </p>
-                    )}
-                    {(pacote.origemVolta || pacote.destinoVolta) && (
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          Volta: {pacote.origemVolta || "Origem"} → {pacote.destinoVolta || "Destino"}
-                          {pacote.duracaoVolta ? ` (${pacote.duracaoVolta})` : ""}
-                        </p>
-                    )}
-                    {pacote.hospedagemNome && (
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          Hotel: {pacote.hospedagemNome}
-                          {pacote.hospedagemCheckin && pacote.hospedagemCheckout
-                              ? ` (${pacote.hospedagemCheckin} → ${pacote.hospedagemCheckout})`
-                              : ""}
-                          {pacote.hospedagemValor && ` - R$ ${pacote.hospedagemValor}`}
-                        </p>
-                    )}
-                    {(pacote.trasladoTipo ||
-                        pacote.trasladoLocalPartida ||
-                        pacote.trasladoLocalChegada ||
-                        pacote.trasladoData ||
-                        pacote.trasladoHorario ||
-                        pacote.trasladoVeiculoEmpresa) && (
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          Traslado: {pacote.trasladoTipo || "Tipo não informado"}
-                          {pacote.trasladoLocalPartida && pacote.trasladoLocalChegada
-                              ? ` (${pacote.trasladoLocalPartida} → ${pacote.trasladoLocalChegada})`
-                              : ""}
-                          {pacote.trasladoData || pacote.trasladoHorario
-                              ? ` - ${[pacote.trasladoData, pacote.trasladoHorario].filter(Boolean).join(" ")}`
-                              : ""}
-                          {pacote.trasladoVeiculoEmpresa ? ` - ${pacote.trasladoVeiculoEmpresa}` : ""}
-                        </p>
-                    )}
-                    {pacote.trasladoObservacoes && (
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          Obs. Traslado: {pacote.trasladoObservacoes}
-                        </p>
-                    )}
-                    {/* Exibe todos os ingressos do array; fallback para campo legado */}
-                    {((pacote.ingressos && pacote.ingressos.length > 0)
-                      ? pacote.ingressos
-                      : pacote.ingressoNomeAtracao
-                        ? [{ nomeAtracao: pacote.ingressoNomeAtracao, quantidade: pacote.ingressoQuantidade || "", data: pacote.ingressoData || "", horario: pacote.ingressoHorario || "", observacoes: "" }]
-                        : []
-                    ).map((ing, i) => (
-                      <p key={i} className="text-xs text-gray-500 mt-0.5">
-                        🎟 {ing.nomeAtracao}
-                        {ing.quantidade ? ` (${ing.quantidade})` : ""}
-                        {ing.data ? ` — ${ing.data}` : ""}
-                        {ing.horario ? ` ${ing.horario}` : ""}
-                      </p>
-                    ))}
-                    {pacote.descricao && (
-                        <p className="text-xs text-gray-600 mt-2 italic">
-                          "{pacote.descricao}"
-                        </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                        type="button"
-                        onClick={() => editarPacote(pacote)}
-                        className="rounded p-1.5 text-blue-600 hover:bg-blue-50"
-                        title="Editar pacote"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <AlertDialog open={voucherParaExcluir === pacote.id} onOpenChange={(open) => !open && setVoucherParaExcluir(null)}>
-                      <AlertDialogTrigger asChild>
-                        <button
-                            type="button"
-                            onClick={() => setVoucherParaExcluir(pacote.id)}
-                            className="rounded p-1.5 text-red-500 hover:bg-red-50"
-                            title="Remover pacote"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Deseja realmente excluir o Voucher {index + 1} ({pacote.operador || "Sem operador"})? Esta ação não pode ser desfeita.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => removerPacote(pacote.id)} className="bg-red-600 hover:bg-red-700">
-                            Excluir
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-              </Card>
-          ))}
-        </div>
       </div>
   );
 }

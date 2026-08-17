@@ -15,6 +15,7 @@ import {
   prepararRoteiroSemAnexos,
   salvarFuncionariosNoCache,
   salvarRoteiroNoCache,
+  ROTEIRO_REFRESH_INTERVAL_MS,
 } from "../data/roteiroCache";
 import { gerarResumoPacote } from "./PacotesForm";
 
@@ -972,7 +973,10 @@ export default function RoteiroOrcamento() {
 
       let carregouDoCache = false;
       const cached = await obterRoteiroDoCache(numero);
-      if (cached) {
+      const agora = Date.now();
+      const cacheMuitoAntigo = cached && (agora - cached.savedAt) > ROTEIRO_REFRESH_INTERVAL_MS;
+      
+      if (cached && !cacheMuitoAntigo) {
         if (active) {
           setOrc(cached.value);
           setCarregando(false);
@@ -1264,6 +1268,10 @@ export default function RoteiroOrcamento() {
     ? orc.passageiros.map((nome) => String(nome || "").trim()).filter(Boolean)
     : [];
   const passageirosTexto = listaPassageiros.length > 0 ? listaPassageiros.join(", ") : "Sem passageiros adicionais";
+  
+  console.log('[RoteiroOrcamento] orc.seguro:', orc.seguro);
+  console.log('[RoteiroOrcamento] orc.pacotes:', orc.pacotes);
+  
   const segurosPacotes = (orc.pacotes || []).filter((pacote) => Boolean(
     pacote.seguroAssistencia?.trim() ||
     pacote.seguroSeguradora?.trim() ||
@@ -1280,6 +1288,10 @@ export default function RoteiroOrcamento() {
     Number(pacote.seguroValor) > 0 ||
     pacote.seguroObservacoes?.trim()
   ));
+  
+  console.log('[RoteiroOrcamento] segurosPacotes filtrados:', segurosPacotes);
+  console.log('[RoteiroOrcamento] possuiSeguro:', segurosPacotes.length > 0 || Boolean(orc.seguro?.length));
+  
   const possuiSeguro = segurosPacotes.length > 0 || Boolean(orc.seguro?.length);
   const agente = orc.agenteViagem
     ? funcionarios.find((funcionario) => funcionario.name === orc.agenteViagem)
@@ -2303,109 +2315,110 @@ export default function RoteiroOrcamento() {
               </div>
             )}
 
-            {(orc.seguro || []).map((s: any, idx: number) => (
-              <div key={idx} className="box-border min-w-0 max-w-full space-y-1.5 overflow-hidden rounded-lg bg-gray-50 p-3 break-words [overflow-wrap:anywhere]">
+            {(orc.seguro || []).length > 0 && (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Seguros adicionais</p>
+                {(orc.seguro || []).map((s: any, idx: number) => (
+                  <article key={idx} className="min-w-0 space-y-3 overflow-hidden rounded-xl border border-blue-100 bg-blue-50 p-4">
+                    <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                          {orc.seguro.length > 1 ? `Seguro adicional ${idx + 1}` : "Seguro adicional"}
+                        </p>
+                        <h3 className="mt-1 break-words text-base font-semibold text-gray-900 [overflow-wrap:anywhere]">
+                          {s.tipo || s.seguradora || "Seguro viagem"}
+                        </h3>
+                      </div>
+                      {s.valor > 0 && (
+                        <span className="max-w-full shrink-0 break-words rounded-full bg-white px-3 py-1 text-sm font-semibold text-blue-700 shadow-sm [overflow-wrap:anywhere]">
+                          {formatarMoeda(s.valor)}
+                        </span>
+                      )}
+                    </div>
 
-                {/* Cabeçalho: tipo + seguradora */}
-                <div className="flex min-w-0 max-w-full items-center gap-2 flex-wrap">
-                  {s.tipo && <span className="font-semibold text-gray-900 text-sm">{s.tipo}</span>}
-                  {s.seguradora && (
-                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">{s.seguradora}</span>
-                  )}
-                  {s.areaCobertura && (
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">{s.areaCobertura}</span>
-                  )}
-                </div>
+                    {/* Cabeçalho: seguradora + área de cobertura */}
+                    <div className="flex min-w-0 max-w-full flex-wrap gap-2 text-xs">
+                      {s.seguradora && <span className="max-w-full break-words rounded-full bg-white px-2.5 py-1 text-gray-700 [overflow-wrap:anywhere]">{s.seguradora}</span>}
+                      {s.areaCobertura && <span className="max-w-full break-words rounded-full bg-white px-2.5 py-1 text-gray-700 [overflow-wrap:anywhere]">{s.areaCobertura}</span>}
+                    </div>
 
-                {/* Apólice / Certificado */}
-                <div className="flex min-w-0 max-w-full flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
-                  {s.apolice && <span>Apólice: <span className="font-mono font-semibold text-gray-700">{s.apolice}</span></span>}
-                  {s.nrCertificado && <span>Certificado: <span className="font-mono font-semibold text-gray-700">{s.nrCertificado}</span></span>}
-                </div>
+                    {/* Apólice / Certificado */}
+                    {(s.apolice || s.nrCertificado) && (
+                      <div className="grid min-w-0 max-w-full grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                        {s.apolice && <p className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="text-gray-400">Apólice:</span> <span className="font-mono font-semibold text-gray-700">{s.apolice}</span></p>}
+                        {s.nrCertificado && <p className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="text-gray-400">Certificado:</span> <span className="font-mono font-semibold text-gray-700">{s.nrCertificado}</span></p>}
+                      </div>
+                    )}
 
-                {/* Vigência */}
-                {(s.dataInicio || s.dataFim) && (
-                  <p className="text-xs text-gray-500">
-                    Vigência:{" "}
-                    {s.dataInicio ? new Date(s.dataInicio + "T00:00:00").toLocaleDateString("pt-BR") : "?"}
-                    {" → "}
-                    {s.dataFim ? new Date(s.dataFim + "T00:00:00").toLocaleDateString("pt-BR") : "?"}
-                    {s.prazoCarencia && <span className="ml-2 text-gray-400">• Carência: {s.prazoCarencia}</span>}
-                  </p>
-                )}
+                    {/* Vigência */}
+                    {(s.dataInicio || s.dataFim) && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Vigência</p>
+                        <p className="text-sm text-gray-700">
+                          {s.dataInicio ? new Date(s.dataInicio + "T00:00:00").toLocaleDateString("pt-BR") : "Não informado"}
+                          {" → "}
+                          {s.dataFim ? new Date(s.dataFim + "T00:00:00").toLocaleDateString("pt-BR") : "Não informado"}
+                          {s.prazoCarencia && <span className="ml-2 text-gray-500">• Carência: {s.prazoCarencia}</span>}
+                        </p>
+                      </div>
+                    )}
 
-                {/* Valores */}
-                <div className="flex min-w-0 max-w-full flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
-                  {s.valor > 0 && <span className="font-semibold text-indigo-600">{formatarMoeda(s.valor)}</span>}
-                  {s.limiteCobertura && <span>Limite: <span className="font-medium text-gray-700">{s.limiteCobertura}</span></span>}
-                  {s.franquia && <span>Franquia: <span className="font-medium text-gray-700">{s.franquia}</span></span>}
-                </div>
+                    {/* Valores */}
+                    {(s.limiteCobertura || s.franquia) && (
+                      <div className="flex min-w-0 max-w-full flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                        {s.limiteCobertura && <span>Limite: <span className="font-medium text-gray-700">{s.limiteCobertura}</span></span>}
+                        {s.franquia && <span>Franquia: <span className="font-medium text-gray-700">{s.franquia}</span></span>}
+                      </div>
+                    )}
 
-                {/* Cobertura */}
-                {s.cobertura && (
-                  <p className="text-xs text-gray-600">
-                    <span className="text-gray-400">Cobertura: </span>{s.cobertura}
-                  </p>
-                )}
+                    {/* Cobertura */}
+                    {s.cobertura && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Cobertura</p>
+                        <p className="mt-1 max-w-full whitespace-pre-wrap break-words text-sm leading-6 text-gray-700 [overflow-wrap:anywhere]">{s.cobertura}</p>
+                      </div>
+                    )}
 
-                {/* Beneficiários */}
-                {s.beneficiarios && (
-                  <p className="text-xs text-gray-600">
-                    <span className="text-gray-400">Beneficiários: </span>{s.beneficiarios}
-                  </p>
-                )}
+                    {/* Beneficiários */}
+                    {s.beneficiarios && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Beneficiários</p>
+                        <p className="mt-1 max-w-full whitespace-pre-wrap break-words text-sm leading-6 text-gray-700 [overflow-wrap:anywhere]">{s.beneficiarios}</p>
+                      </div>
+                    )}
 
-                {/* Contato / Sinistro */}
-                <div className="flex min-w-0 max-w-full flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
-                  {s.assistencia24h && <span>Assistência 24h: <span className="font-medium text-gray-700">{s.assistencia24h}</span></span>}
-                  {s.telefoneEmergencia && <span>Tel. emergência: <span className="font-medium text-gray-700">{s.telefoneEmergencia}</span></span>}
-                  {s.contatoEmergencia && <span>Contato: <span className="font-medium text-gray-700">{s.contatoEmergencia}</span></span>}
-                  {s.emailSinistro && (
-                    <a href={`mailto:${s.emailSinistro}`} className="max-w-full break-words text-blue-600 hover:underline [overflow-wrap:anywhere]">
-                      {s.emailSinistro}
-                    </a>
-                  )}
-                  {obterLinkExternoSeguro(s.siteSinistro) && (
-                    <a href={obterLinkExternoSeguro(s.siteSinistro)}
-                      target="_blank" rel="noopener noreferrer"
-                      className="max-w-full break-words text-blue-600 hover:underline [overflow-wrap:anywhere]">
-                      🔗 Abrir site de sinistro
-                    </a>
-                  )}
-                </div>
+                    {/* Contato / Sinistro */}
+                    {(s.assistencia24h || s.telefoneEmergencia || s.contatoEmergencia || s.emailSinistro || s.siteSinistro) && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Contatos emergenciais</p>
+                        <div className="flex min-w-0 max-w-full flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                          {s.assistencia24h && <span>Assistência 24h: <span className="font-medium text-gray-700">{s.assistencia24h}</span></span>}
+                          {s.telefoneEmergencia && <span>Tel. emergência: <span className="font-medium text-gray-700">{s.telefoneEmergencia}</span></span>}
+                          {s.contatoEmergencia && <span>Contato: <span className="font-medium text-gray-700">{s.contatoEmergencia}</span></span>}
+                          {s.emailSinistro && (
+                            <a href={`mailto:${s.emailSinistro}`} className="max-w-full break-words text-blue-600 hover:underline [overflow-wrap:anywhere]">
+                              {s.emailSinistro}
+                            </a>
+                          )}
+                          {obterLinkExternoSeguro(s.siteSinistro) && (
+                            <a href={obterLinkExternoSeguro(s.siteSinistro)}
+                              target="_blank" rel="noopener noreferrer"
+                              className="max-w-full break-words text-blue-600 hover:underline [overflow-wrap:anywhere]">
+                              🔗 Site de sinistro
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
-                {/* Observações */}
-                {sanitizarTextoPublico(s.observacoes) && (
-                  <p className="text-xs text-gray-500 italic">{sanitizarTextoPublico(s.observacoes)}</p>
-                )}
-
-                {/* Voucher principal */}
-                {s.voucher && (
-                  <button
-                    onClick={() => abrirVoucherPdf(s.voucher)}
-                    className="mt-1 inline-block max-w-full break-words text-xs text-indigo-600 underline hover:text-indigo-800 [overflow-wrap:anywhere]"
-                  >
-                    📎 {s.voucherNome || "Ver voucher"}
-                  </button>
-                )}
-
-                {/* Documentos anexados */}
-                {s.documentos && s.documentos.length > 0 && (
-                  <div className="mt-1 flex min-w-0 max-w-full flex-col gap-0.5">
-                    {s.documentos.map((doc: any, dIdx: number) => (
-                      <button
-                        key={dIdx}
-                        onClick={() => abrirVoucherPdf(doc.arquivo)}
-                        className="max-w-full break-words text-left text-xs text-indigo-600 underline hover:text-indigo-800 [overflow-wrap:anywhere]"
-                      >
-                        📎 {doc.nome || `Documento ${dIdx + 1}`}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
+                    {/* Observações */}
+                    {sanitizarTextoPublico(s.observacoes) && (
+                      <p className="max-w-full whitespace-pre-wrap break-words border-t border-blue-100 pt-3 text-xs italic leading-5 text-gray-500 [overflow-wrap:anywhere]">{sanitizarTextoPublico(s.observacoes)}</p>
+                    )}
+                  </article>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         </Card>
       )}

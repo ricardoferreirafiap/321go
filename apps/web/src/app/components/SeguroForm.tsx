@@ -105,7 +105,7 @@ export default function SeguroForm({ seguros, onSegurosChange }: SeguroFormProps
   const [erroAnaliseIA, setErroAnaliseIA] = useState<string | null>(null);
   const [editandoSeguroId, setEditandoSeguroId] = useState<number | null>(null);
   const [formEdicaoSeguro, setFormEdicaoSeguro] = useState<CamposSeguro>(camposVazio);
-  const [infoEditMinimizado, setInfoEditMinimizado] = useState(false);
+  const [infoEditMinimizado, setInfoEditMinimizado] = useState(true);
   const [sugestoesEditCobertura, setSugestoesEditCobertura] = useState(false);
   const docFileInputRef = useRef<HTMLInputElement>(null);
 
