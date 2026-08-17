@@ -15,7 +15,6 @@ import DayByDayForm from "./DayByDayForm";
 import TransporteForm from "./TransporteForm";
 import RestauranteForm from "./RestauranteForm";
 import ExperienciasForm from "./ExperienciasForm";
-import SeguroForm from "./SeguroForm";
 import ResumoOrcamentoInline from "./ResumoOrcamentoInline";
 import { listarClientes, type Cliente } from "../data/clientesApi";
 import { listarFuncionarios, type Funcionario } from "../data/funcionariosApi";
@@ -165,7 +164,7 @@ const statusViagemConfig: Record<StatusViagem, { bg: string; cor: string }> = {
 };
 
 const allStatus: StatusOrc[] = ["Rascunho", "Enviado", "Aprovado", "Rejeitado", "Cancelado"];
-const secoesOrcamento = ["Pacotes", "Roteiro", "Day by Day", "Transporte", "Restaurante", "Experiências", "Seguro", "Vendas"] as const;
+const secoesOrcamento = ["Pacotes", "Roteiro", "Day by Day", "Transporte", "Restaurante", "Experiências", "Vendas"] as const;
 type SecaoOrcamento = typeof secoesOrcamento[number];
 
 type CategoriaPerfilViagem = {
@@ -472,7 +471,6 @@ function montarLinhasDescricao(orc: Orcamento): ItemOrc[] {
     { titulo: "Transporte", dados: orc.transporte },
     { titulo: "Restaurante", dados: orc.restaurante },
     { titulo: "Experiências", dados: orc.experiencias },
-    { titulo: "Seguro", dados: orc.seguro },
   ];
 
   const linhasSecoes = secoes.flatMap((secao) => {
@@ -572,7 +570,6 @@ export default function Orcamentos() {
   const [promptRoteiroIA, setPromptRoteiroIA] = useState("");
   const [restaurante, setRestaurante] = useState<any[]>([]);
   const [experiencias, setExperiencias] = useState<any[]>([]);
-  const [seguro, setSeguro] = useState<any[]>([]);
   const [funcionariosAtivos, setFuncionariosAtivos] = useState<Funcionario[]>([]);
   const [clientesAtivos, setClientesAtivos] = useState<Cliente[]>([]);
   const [fornecedoresAtivos, setFornecedoresAtivos] = useState<Fornecedor[]>([]);
@@ -701,9 +698,8 @@ export default function Orcamentos() {
     const totalTransporte = transporte.reduce((acc, item) => acc + (Number(item?.valor) || 0), 0);
     const totalRestaurante = restaurante.reduce((acc, item) => acc + (Number(item?.preco) || 0), 0);
     const totalExperiencias = experiencias.reduce((acc, item) => acc + (Number(item?.preco) || 0), 0);
-    const totalSeguro = seguro.reduce((acc, item) => acc + (Number(item?.valor) || 0), 0);
 
-    return totalVendas + totalPacotes + totalHospedagem + totalTransporte + totalRestaurante + totalExperiencias + totalSeguro;
+    return totalVendas + totalPacotes + totalHospedagem + totalTransporte + totalRestaurante + totalExperiencias;
   }
 
   function abrirCadastroLancamentoFinanceiro() {
@@ -1046,7 +1042,7 @@ export default function Orcamentos() {
       // After initial load, any change marks as changed
       setHouveAlteracoes(true);
     }
-  }, [form, pacotes, voos, hospedagem, roteiro, dayByDay, transporte, restaurante, experiencias, seguro, perfilViagemSelecionado, tela]);
+  }, [form, pacotes, voos, hospedagem, roteiro, dayByDay, transporte, restaurante, experiencias, perfilViagemSelecionado, tela]);
 
   const filtrados = lista.filter((o) => {
     const q = busca.toLowerCase();
@@ -1102,7 +1098,6 @@ export default function Orcamentos() {
     setTransporte([]);
     setRestaurante([]);
     setExperiencias([]);
-    setSeguro([]);
     setDadosClienteMinimizados(true);
     setPerfilViagemSelecionado([]);
     setPromptPerfilViagemIA("");
@@ -1150,7 +1145,6 @@ export default function Orcamentos() {
     setTransporte(completo.transporte || []);
     setRestaurante(completo.restaurante || []);
     setExperiencias(completo.experiencias || []);
-    setSeguro(completo.seguro || []);
     setDadosClienteMinimizados(true);
     setPerfilViagemSelecionado(Array.isArray(completo.perfilViagem) ? completo.perfilViagem.filter((item) => typeof item === "string") : []);
     setPromptPerfilViagemIA(typeof completo.promptPerfilViagemIA === "string" ? completo.promptPerfilViagemIA : "");
@@ -1308,7 +1302,6 @@ export default function Orcamentos() {
       transporte: transporte.length > 0 ? transporte : undefined,
       restaurante: restaurante.length > 0 ? restaurante : undefined,
       experiencias: experiencias.length > 0 ? experiencias : undefined,
-      seguro: seguro.length > 0 ? seguro : undefined,
       perfilViagem: perfilViagemSelecionado,
       promptPerfilViagemIA: promptPerfilViagemIA.trim(),
     };
@@ -1413,7 +1406,6 @@ export default function Orcamentos() {
       transporte: usandoEstadoFormulario ? transporte : orcParaAbrir.transporte,
       restaurante: usandoEstadoFormulario ? restaurante : orcParaAbrir.restaurante,
       experiencias: usandoEstadoFormulario ? experiencias : orcParaAbrir.experiencias,
-      seguro: usandoEstadoFormulario ? seguro : orcParaAbrir.seguro,
       perfilViagem: usandoEstadoFormulario ? perfilViagemSelecionado : orcParaAbrir.perfilViagem,
       promptPerfilViagemIA: usandoEstadoFormulario ? promptPerfilViagemIA : (orcParaAbrir.promptPerfilViagemIA || ""),
     };
@@ -1464,7 +1456,6 @@ export default function Orcamentos() {
       transporte: usandoEstadoFormulario ? transporte : orcParaAbrir.transporte,
       restaurante: usandoEstadoFormulario ? restaurante : orcParaAbrir.restaurante,
       experiencias: usandoEstadoFormulario ? experiencias : orcParaAbrir.experiencias,
-      seguro: usandoEstadoFormulario ? seguro : orcParaAbrir.seguro,
       perfilViagem: usandoEstadoFormulario ? perfilViagemSelecionado : orcParaAbrir.perfilViagem,
       promptPerfilViagemIA: usandoEstadoFormulario ? promptPerfilViagemIA : (orcParaAbrir.promptPerfilViagemIA || ""),
     };
@@ -1812,15 +1803,13 @@ export default function Orcamentos() {
     const totalTransporteResumo = transporte.reduce((acc, item) => acc + (Number(item?.valor) || 0), 0);
     const totalRestauranteResumo = restaurante.reduce((acc, item) => acc + (Number(item?.preco) || 0), 0);
     const totalExperienciasResumo = experiencias.reduce((acc, item) => acc + (Number(item?.preco) || 0), 0);
-    const totalSeguroResumo = seguro.reduce((acc, item) => acc + (Number(item?.valor) || 0), 0);
     const totalVendasResumo = itensVendaComDescricao.reduce((acc, item) => acc + calcItem(item), 0);
     const totalResumo = totalVendasResumo
         + totalPacotesResumo
         + totalHospedagemResumo
         + totalTransporteResumo
         + totalRestauranteResumo
-        + totalExperienciasResumo
-        + totalSeguroResumo;
+        + totalExperienciasResumo;
     const resumeSecoes = [
       { nome: "Pacotes" as const, quantidade: pacotes.length, valor: moeda(totalPacotesResumo) },
       { nome: "Voos" as const, quantidade: voos.length, valor: "—" },
@@ -1829,7 +1818,6 @@ export default function Orcamentos() {
       { nome: "Transporte" as const, quantidade: transporte.length, valor: moeda(totalTransporteResumo) },
       { nome: "Restaurante" as const, quantidade: restaurante.length, valor: moeda(totalRestauranteResumo) },
       { nome: "Experiências" as const, quantidade: experiencias.length, valor: moeda(totalExperienciasResumo) },
-      { nome: "Seguro" as const, quantidade: seguro.length, valor: moeda(totalSeguroResumo) },
     ].filter((secao) => secao.quantidade > 0) as { nome: SecaoOrcamento; quantidade: number; valor: string }[];
     return (
         <div className="px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
@@ -2287,10 +2275,6 @@ export default function Orcamentos() {
 
                         {section === 'Experiências' && (
                             <ExperienciasForm experiencias={experiencias} onExperienciasChange={setExperiencias} />
-                        )}
-
-                        {section === 'Seguro' && (
-                            <SeguroForm seguros={seguro} onSegurosChange={setSeguro} />
                         )}
 
                         {section === 'Vendas' && (

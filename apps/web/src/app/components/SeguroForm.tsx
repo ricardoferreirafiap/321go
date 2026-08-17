@@ -102,6 +102,7 @@ export default function SeguroForm({ seguros, onSegurosChange }: SeguroFormProps
   const [analisandoIA, setAnalisandoIA] = useState(false);
   const [vouchersMinimizado, setVouchersMinimizado] = useState(false);
   const [erros, setErros] = useState<Record<number, string>>({});
+  const [erroAnaliseIA, setErroAnaliseIA] = useState<string | null>(null);
   const [editandoSeguroId, setEditandoSeguroId] = useState<number | null>(null);
   const [formEdicaoSeguro, setFormEdicaoSeguro] = useState<CamposSeguro>(camposVazio);
   const [infoEditMinimizado, setInfoEditMinimizado] = useState(false);
@@ -145,28 +146,30 @@ export default function SeguroForm({ seguros, onSegurosChange }: SeguroFormProps
   async function analisarDocumentosComIA() {
     if (!documentos.length) return;
     setAnalisandoIA(true);
+    setErroAnaliseIA(null);
     const provedores: ("openai"|"groq"|"gemini"|"openrouter"|"cloudflare")[] =
       ["groq","openai","gemini","openrouter","cloudflare"];
 
-    const novasAnalises = await Promise.all(
-      documentos.map(async (doc) => {
-        let contexto = `Nome do arquivo: ${doc.nome}\n\n`;
-        let temConteudo = false;
-        if (doc.tipo === "application/pdf" && doc.arquivo) {
-          try {
-            const pdf = await pdfjsLib.getDocument({ data: atob(doc.arquivo.split(",")[1]) }).promise;
-            let txt = "";
-            for (let i = 1; i <= pdf.numPages; i++) {
-              const pg = await pdf.getPage(i);
-              const ct = await pg.getTextContent();
-              txt += ct.items.map((it: any) => ("str" in it ? it.str : "")).join(" ") + "\n";
-            }
-            contexto += `--- Conteúdo: ${doc.nome} ---\n${txt}\n--- Fim ---\n\n`;
-            temConteudo = true;
-          } catch { contexto += `--- Erro ao ler PDF ---\n`; }
-        }
+    try {
+      const novasAnalises = await Promise.all(
+        documentos.map(async (doc) => {
+          let contexto = `Nome do arquivo: ${doc.nome}\n\n`;
+          let temConteudo = false;
+          if (doc.tipo === "application/pdf" && doc.arquivo) {
+            try {
+              const pdf = await pdfjsLib.getDocument({ data: atob(doc.arquivo.split(",")[1]) }).promise;
+              let txt = "";
+              for (let i = 1; i <= pdf.numPages; i++) {
+                const pg = await pdf.getPage(i);
+                const ct = await pg.getTextContent();
+                txt += ct.items.map((it: any) => ("str" in it ? it.str : "")).join(" ") + "\n";
+              }
+              contexto += `--- Conteúdo: ${doc.nome} ---\n${txt}\n--- Fim ---\n\n`;
+              temConteudo = true;
+            } catch { contexto += `--- Erro ao ler PDF ---\n`; }
+          }
 
-        const prompt = `Analise o documento de seguro e responda SOMENTE JSON válido sem markdown.
+          const prompt = `Analise o documento de seguro e responda SOMENTE JSON válido sem markdown.
 
 Contexto:
 ${contexto}
@@ -176,24 +179,43 @@ JSON esperado:
 
 Regras: campos não encontrados = "". dataInicio/dataFim = YYYY-MM-DD. valor/limiteCobertura/franquia = número sem R$. tipo = um de: Saúde / Médico, Bagagem, Cancelamento, Multirisco, Assistência Viagem, Automóvel (Locação), Outro. Não invente dados.${!temConteudo ? " Conteúdo ilegível, use nome do arquivo." : ""}`;
 
-        try {
-          let data: any;
-          for (const p of provedores) {
-            try { data = await enviarMensagemIA([{ role: "user", content: prompt }], p); if (data) break; } catch { /* next */ }
+          try {
+            let data: any;
+            let ultimoErro: string = "";
+            for (const p of provedores) {
+              try {
+                data = await enviarMensagemIA([{ role: "user", content: prompt }], p);
+                if (data) break;
+              } catch (err) {
+                ultimoErro = err instanceof Error ? err.message : "Erro desconhecido";
+                console.error(`Erro com provedor ${p}:`, ultimoErro);
+              }
+            }
+            if (!data) {
+              throw new Error(`Todos os provedores falharam. Último erro: ${ultimoErro}`);
+            }
+            const limpo = data.reply.replace(/^```json\s*/i,"").replace(/^```\s*/i,"").replace(/```\s*$/i,"").trim();
+            const j: CamposSeguro = JSON.parse(limpo);
+            const fe = diaParaIAParaForm(j, camposVazio);
+            return { ...doc, dadosIA: j, analise: "ok", expandido: true, mostrarForm: true, formEdicao: fe };
+          } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : "Erro desconhecido";
+            console.error("Erro ao analisar documento:", errorMsg);
+            return { ...doc, analise: "erro", expandido: true };
           }
-          if (!data) throw new Error();
-          const limpo = data.reply.replace(/^```json\s*/i,"").replace(/^```\s*/i,"").replace(/```\s*$/i,"").trim();
-          const j: CamposSeguro = JSON.parse(limpo);
-          const fe = diaParaIAParaForm(j, camposVazio);
-          return { ...doc, dadosIA: j, analise: "ok", expandido: true, mostrarForm: true, formEdicao: fe };
-        } catch {
-          return { ...doc, analise: "erro", expandido: true };
-        }
-      })
-    );
+        })
+      );
 
-    setDocumentos(novasAnalises);
-    setAnalisandoIA(false);
+      // Manter todos os documentos na lista com seus formulários populados
+      // O usuário poderá editar e salvar cada um individualmente
+      setDocumentos(novasAnalises);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Erro desconhecido";
+      console.error("Erro geral na análise:", errorMsg);
+      setErroAnaliseIA(`Falha na análise com IA: ${errorMsg}`);
+    } finally {
+      setAnalisandoIA(false);
+    }
   }
 
   // ── salvar seguro a partir de um doc ────────────────────────────────────
@@ -439,6 +461,11 @@ Regras: campos não encontrados = "". dataInicio/dataFim = YYYY-MM-DD. valor/lim
               </div>
             )}
 
+            {erroAnaliseIA && (
+              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-xs text-red-600">{erroAnaliseIA}</p>
+              </div>
+            )}
             <Button type="button" variant="outline" size="sm"
               onClick={analisarDocumentosComIA}
               disabled={analisandoIA || documentos.length === 0}
