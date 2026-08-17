@@ -3563,38 +3563,6 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                   </Button>
                 </div>
 
-                {logAnaliseIA.length > 0 && (
-                    <div className="mt-3 rounded-md border border-indigo-200 bg-indigo-50 text-xs text-indigo-800">
-                      <div className="flex items-center justify-between gap-2 p-2">
-                        <span className="font-medium">Log de Análise IA</span>
-                        <div className="flex items-center gap-1">
-                          <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setLogAnaliseMinimizado((prev) => !prev)}
-                              className="h-6 gap-1 px-2 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900"
-                          >
-                            {logAnaliseMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-                          </Button>
-                          <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setLogAnaliseIA([])}
-                              className="h-6 gap-1 px-2 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                      {!logAnaliseMinimizado && (
-                          <div className="whitespace-pre-wrap border-t border-indigo-200 px-2 pb-2 pt-2 max-h-60 overflow-y-auto">
-                            {logAnaliseIA.join('\n')}
-                          </div>
-                      )}
-                    </div>
-                )}
 
                 {(form.documentos || []).filter(doc => doc.analise && doc.tipo === "text/url").length > 0 && (
                     <div className="mt-3 rounded-md border border-indigo-200 bg-indigo-50 text-xs text-indigo-800">
