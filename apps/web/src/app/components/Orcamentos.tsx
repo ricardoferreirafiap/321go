@@ -621,7 +621,19 @@ export default function Orcamentos() {
   const [houveAlteracoes, setHouveAlteracoes] = useState(false);
   const formularioCarregadoRef = useRef(false);
   const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automático" | "cloudflare" | "deepseek" | "gemini" | "groq" | "huggingface" | "openai" | "openrouter">("automático");
+  const [iaRoteiroExibida, setIaRoteiroExibida] = useState("Automático");
   const [novaUrlOperadorItem, setNovaUrlOperadorItem] = useState("");
+
+  const nomesProvedorIA: Record<typeof provedorRoteiroIA, string> = {
+    automático: "Automático",
+    cloudflare: "Cloudflare",
+    deepseek: "DeepSeek",
+    gemini: "Gemini",
+    groq: "Groq",
+    huggingface: "HuggingFace",
+    openai: "OpenAI",
+    openrouter: "OpenRouter",
+  };
   
   function adicionarUrlOperadorItem(itemId: number) {
     const url = novaUrlOperadorItem.trim();
@@ -1746,7 +1758,10 @@ export default function Orcamentos() {
         for (const provedor of provedores) {
           try {
             respostaFinal = await tentarComProvedor(provedor);
-            if (respostaFinal) break;
+            if (respostaFinal) {
+              setIaRoteiroExibida(nomesProvedorIA[provedor]);
+              break;
+            }
           } catch (error) {
             const erroMsg = error instanceof Error ? error.message : JSON.stringify(error);
             errosProvedores.push(`${provedor.toUpperCase()}: ${erroMsg}`);
@@ -1760,6 +1775,7 @@ export default function Orcamentos() {
       } else {
         if (provedorRoteiroIA !== "automático") {
           respostaFinal = await tentarComProvedor(provedorRoteiroIA);
+          setIaRoteiroExibida(nomesProvedorIA[provedorRoteiroIA]);
         }
       }
 
@@ -2235,12 +2251,20 @@ export default function Orcamentos() {
                                   Instruções específicas para personalizar a sugestão de roteiro gerada pela IA.
                                 </p>
                               </div>
-                              <div className="flex justify-between items-center mb-2">
+                              <div className="flex justify-between items-center mb-2 gap-3">
                                 <Label htmlFor="roteiro-texto">Descrição do Roteiro</Label>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap justify-end">
+                                  <div className="flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1.5">
+                                    <span className="text-[10px] font-semibold uppercase tracking-wide text-indigo-600">IA</span>
+                                    <span className="text-xs font-medium text-indigo-700">{iaRoteiroExibida}</span>
+                                  </div>
                                   <select
                                     value={provedorRoteiroIA}
-                                    onChange={(e) => setProvedorRoteiroIA(e.target.value as any)}
+                                    onChange={(e) => {
+                                      const valor = e.target.value as typeof provedorRoteiroIA;
+                                      setProvedorRoteiroIA(valor);
+                                      setIaRoteiroExibida(nomesProvedorIA[valor]);
+                                    }}
                                     className="px-3 py-1.5 text-sm border border-indigo-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
                                     disabled={gerandoRoteiro}
                                   >
