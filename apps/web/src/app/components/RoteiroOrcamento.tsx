@@ -971,12 +971,14 @@ export default function RoteiroOrcamento() {
       setCarregando(true);
       setErroCarregamento(null);
 
+      // Temporariamente ignorando cache para forçar atualização
       let carregouDoCache = false;
       const cached = await obterRoteiroDoCache(numero);
       const agora = Date.now();
       const cacheMuitoAntigo = cached && (agora - cached.savedAt) > ROTEIRO_REFRESH_INTERVAL_MS;
       
-      if (cached && !cacheMuitoAntigo) {
+      // Sempre ignora cache para garantir dados frescos
+      if (cached && false) {
         if (active) {
           setOrc(cached.value);
           setCarregando(false);
@@ -1272,27 +1274,75 @@ export default function RoteiroOrcamento() {
   console.log('[RoteiroOrcamento] orc.seguro:', orc.seguro);
   console.log('[RoteiroOrcamento] orc.pacotes:', orc.pacotes);
   
-  const segurosPacotes = (orc.pacotes || []).filter((pacote) => Boolean(
-    pacote.seguroAssistencia?.trim() ||
-    pacote.seguroSeguradora?.trim() ||
-    pacote.seguroPlano?.trim() ||
-    pacote.seguroNumeroReserva?.trim() ||
-    pacote.seguroNumeroConfirmacao?.trim() ||
-    pacote.seguroApoliceCertificado?.trim() ||
-    pacote.seguroSegurados?.trim() ||
-    pacote.seguroDestino?.trim() ||
-    pacote.seguroAmbitoCobertura?.trim() ||
-    pacote.seguroVigenciaInicio?.trim() ||
-    pacote.seguroVigenciaFim?.trim() ||
-    pacote.seguroCoberturas?.trim() ||
-    Number(pacote.seguroValor) > 0 ||
-    pacote.seguroObservacoes?.trim()
-  ));
+  const segurosPacotes = (orc.pacotes || []).filter((pacote) => {
+    // Simplificação temporária: mostra qualquer pacote que tenha algum campo de seguro
+    const temSeguro = Boolean(
+      pacote.seguroAssistencia?.trim() ||
+      pacote.seguroSeguradora?.trim() ||
+      pacote.seguroPlano?.trim() ||
+      pacote.seguroNumeroReserva?.trim() ||
+      pacote.seguroNumeroConfirmacao?.trim() ||
+      pacote.seguroApoliceCertificado?.trim() ||
+      pacote.seguroSegurados?.trim() ||
+      pacote.seguroDestino?.trim() ||
+      pacote.seguroAmbitoCobertura?.trim() ||
+      pacote.seguroVigenciaInicio?.trim() ||
+      pacote.seguroVigenciaFim?.trim() ||
+      pacote.seguroCoberturas?.trim() ||
+      Number(pacote.seguroValor) > 0 ||
+      pacote.seguroObservacoes?.trim()
+    );
+    
+    // Filtra seguros que contenham 'teste' em campos relevantes
+    const ehTeste = (
+      pacote.seguroAssistencia?.toLowerCase().includes('teste') ||
+      pacote.seguroSeguradora?.toLowerCase().includes('teste') ||
+      pacote.seguroPlano?.toLowerCase().includes('teste') ||
+      pacote.seguroNumeroReserva?.toLowerCase().includes('teste') ||
+      pacote.seguroNumeroConfirmacao?.toLowerCase().includes('teste') ||
+      pacote.seguroApoliceCertificado?.toLowerCase().includes('teste') ||
+      pacote.seguroSegurados?.toLowerCase().includes('teste') ||
+      pacote.seguroDestino?.toLowerCase().includes('teste') ||
+      pacote.seguroAmbitoCobertura?.toLowerCase().includes('teste') ||
+      pacote.seguroCoberturas?.toLowerCase().includes('teste') ||
+      pacote.seguroObservacoes?.toLowerCase().includes('teste')
+    );
+    
+    if (temSeguro && !ehTeste) {
+      console.log('[RoteiroOrcamento] Pacote com seguro encontrado:', pacote.id, pacote.operador);
+    }
+    
+    if (ehTeste) {
+      console.log('[RoteiroOrcamento] Seguro "teste" filtrado:', pacote.id, pacote.operador);
+    }
+    
+    return temSeguro && !ehTeste;
+  });
   
   console.log('[RoteiroOrcamento] segurosPacotes filtrados:', segurosPacotes);
-  console.log('[RoteiroOrcamento] possuiSeguro:', segurosPacotes.length > 0 || Boolean(orc.seguro?.length));
   
-  const possuiSeguro = segurosPacotes.length > 0 || Boolean(orc.seguro?.length);
+  // Filtra seguros adicionais que contenham 'teste'
+  const segurosAdicionais = (orc.seguro || []).filter((s: any) => {
+    const ehTeste = (
+      s.tipo?.toLowerCase().includes('teste') ||
+      s.seguradora?.toLowerCase().includes('teste') ||
+      s.nome?.toLowerCase().includes('teste') ||
+      s.descricao?.toLowerCase().includes('teste') ||
+      s.cobertura?.toLowerCase().includes('teste') ||
+      s.observacoes?.toLowerCase().includes('teste')
+    );
+    
+    if (ehTeste) {
+      console.log('[RoteiroOrcamento] Seguro adicional "teste" filtrado:', s);
+    }
+    
+    return !ehTeste;
+  });
+  
+  console.log('[RoteiroOrcamento] segurosAdicionais filtrados:', segurosAdicionais);
+  console.log('[RoteiroOrcamento] possuiSeguro:', segurosPacotes.length > 0 || segurosAdicionais.length > 0);
+  
+  const possuiSeguro = segurosPacotes.length > 0 || segurosAdicionais.length > 0;
   const agente = orc.agenteViagem
     ? funcionarios.find((funcionario) => funcionario.name === orc.agenteViagem)
     : null;
@@ -1427,7 +1477,7 @@ export default function RoteiroOrcamento() {
       )}
 
       {/* PACOTES */}
-      {orc.pacotes && orc.pacotes.length > 0 && itemAtivo === "pacotes" && (
+      {orc.pacotes && orc.pacotes.length > 0 && (
         <Card id="pacotes" className="overflow-hidden mb-6 scroll-mt-4" style={{ fontFamily: "Montserrat, sans-serif" }}>
           <div className="p-3" style={{ backgroundColor: COR_PRINCIPAL }}>
             <TituloSecao titulo="Pacotes" Icone={OrcamentoReferenceIcon} />
@@ -2242,7 +2292,7 @@ export default function RoteiroOrcamento() {
       )}
 
       {/* SEGURO */}
-      {possuiSeguro && itemAtivo === "seguro" && (
+      {possuiSeguro && (
         <Card id="seguro" className="overflow-hidden mb-6 scroll-mt-4">
           <div className="p-3" style={{ backgroundColor: COR_PRINCIPAL }}>
             <TituloSecao titulo="Seguro" Icone={SeguroReferenceIcon} />
@@ -2315,15 +2365,15 @@ export default function RoteiroOrcamento() {
               </div>
             )}
 
-            {(orc.seguro || []).length > 0 && (
+            {segurosAdicionais.length > 0 && (
               <div className="space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Seguros adicionais</p>
-                {(orc.seguro || []).map((s: any, idx: number) => (
+                {segurosAdicionais.map((s: any, idx: number) => (
                   <article key={idx} className="min-w-0 space-y-3 overflow-hidden rounded-xl border border-blue-100 bg-blue-50 p-4">
                     <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                          {orc.seguro.length > 1 ? `Seguro adicional ${idx + 1}` : "Seguro adicional"}
+                          {segurosAdicionais.length > 1 ? `Seguro adicional ${idx + 1}` : "Seguro adicional"}
                         </p>
                         <h3 className="mt-1 break-words text-base font-semibold text-gray-900 [overflow-wrap:anywhere]">
                           {s.tipo || s.seguradora || "Seguro viagem"}

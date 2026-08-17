@@ -3,7 +3,8 @@ app.post('/api/ai/chat', async (req, res) => {
     try {
 
         const reply = await AIService.generate(
-            req.body.messages
+            req.body.messages,
+            req.body.provedor
         );
 
         res.json({
