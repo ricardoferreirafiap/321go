@@ -606,7 +606,6 @@ export default function Orcamentos() {
   const [editandoOcultoLista, setEditandoOcultoLista] = useState(false);
   const [salvandoLancamentoLista, setSalvandoLancamentoLista] = useState(false);
   const [erroLancamentoLista, setErroLancamentoLista] = useState<string | null>(null);
-  const [orcamentoDuplicacaoPendente, setOrcamentoDuplicacaoPendente] = useState<Orcamento | null>(null);
   const [dadosClienteMinimizados, setDadosClienteMinimizados] = useState(true);
   const [perfilViagemMinimizado, setPerfilViagemMinimizado] = useState(true);
   const [categoriasPerfilMinimizadas, setCategoriasPerfilMinimizadas] = useState<Record<string, boolean>>(() => ({ ...todasCategoriasMinimizadas }));
@@ -1332,35 +1331,6 @@ export default function Orcamentos() {
     } finally {
       setSalvando(false);
     }
-  }
-
-  async function duplicar(o: Orcamento) {
-    const novo: OrcamentoPayload = { ...o, numero: gerarNumero([...lista, o]), status: "Rascunho", dataCriacao: new Date().toISOString().split("T")[0] };
-    delete (novo as any).id;
-    try {
-      await criarOrcamento(novo);
-      await carregarOrcamentos();
-    } catch (error) {
-      setErro(error instanceof Error ? error.message : "Erro ao duplicar orçamento.");
-    }
-  }
-
-  function confirmarDuplicacao(o: Orcamento) {
-    setOrcamentoDuplicacaoPendente(o);
-  }
-
-  function cancelarDuplicacao() {
-    setOrcamentoDuplicacaoPendente(null);
-  }
-
-  async function executarDuplicacaoConfirmada() {
-    if (!orcamentoDuplicacaoPendente) {
-      return;
-    }
-
-    const orc = orcamentoDuplicacaoPendente;
-    setOrcamentoDuplicacaoPendente(null);
-    await duplicar(orc);
   }
 
   // Remove dados pesados (base64 de PDFs/imagens e URLs de localhost) antes de salvar
@@ -2730,7 +2700,6 @@ export default function Orcamentos() {
                         <button onClick={() => abrirResumo(orc)} title="Orçamento" className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0"><FileText className="w-4 h-4" /></button>
                         <button onClick={() => void abrirEdicao(orc)} title="Editar" className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0"><Edit2 className="w-4 h-4" /></button>
                         <button onClick={() => gerarRoteiro(orc)} title="Roteiro" className="p-2 rounded-lg text-green-600 hover:bg-green-50 transition-colors flex-shrink-0"><MapPin className="w-4 h-4" /></button>
-                        <button onClick={() => confirmarDuplicacao(orc)} title="Duplicar" className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"><Copy className="w-4 h-4" /></button>
                         <button
                           onClick={() => toggleFavorito(orc.id)}
                           title={favoritos.includes(orc.id) ? "Remover dos favoritos" : "Adicionar aos favoritos"}
@@ -2808,25 +2777,6 @@ export default function Orcamentos() {
             );
           })}
         </div>
-
-        {orcamentoDuplicacaoPendente && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-              <div className="absolute inset-0 bg-black/50" onClick={cancelarDuplicacao} />
-              <div className="relative z-10 w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-                <h3 className="text-lg font-semibold text-gray-900">Duplicar orçamento</h3>
-                <p className="mt-2 text-sm text-gray-600">
-                  Tem certeza que deseja duplicar o orçamento <span className="font-semibold text-gray-800">{orcamentoDuplicacaoPendente.numero}</span>?
-                </p>
-
-                <div className="mt-6 flex justify-end gap-2">
-                  <Button variant="outline" onClick={cancelarDuplicacao}>Cancelar</Button>
-                  <Button onClick={() => void executarDuplicacaoConfirmada()} className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                    Sim, duplicar
-                  </Button>
-                </div>
-              </div>
-            </div>
-        )}
 
         {/* Modal de lançamento financeiro — tela lista */}
         {modalListaLancamentoAberto && (
