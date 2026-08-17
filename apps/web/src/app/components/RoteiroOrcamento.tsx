@@ -1440,7 +1440,7 @@ export default function RoteiroOrcamento() {
                 pacote.reserva || informacoesAdicionaisPublicas ||
                 politicaCancelamentoPublica || dadosClientePublicos ||
                 pacote.seguroAssistencia || pacote.seguroSeguradora || pacote.seguroPlano ||
-                linkPacoteSeguro || urlsOperadorSeguras.length > 0 || documentosVisiveis.length > 0;
+                urlsOperadorSeguras.length > 0 || documentosVisiveis.length > 0;
 
               // Descrição livre usada apenas quando não há campos estruturados
               // OU quando contém texto além do gerado automaticamente pelo gerarResumoPacote
@@ -1511,15 +1511,9 @@ export default function RoteiroOrcamento() {
                   )}
 
                   {/* Links e documentos */}
-                  {(linkPacoteSeguro || urlsOperadorSeguras.length > 0 || documentosVisiveis.length > 0) && (
+                  {(urlsOperadorSeguras.length > 0 || documentosVisiveis.length > 0) && (
                     <div className="pt-2 border-t border-white/10 flex flex-col gap-1">
                       <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/40 mb-1">Arquivos Anexados</p>
-                      {linkPacoteSeguro && (
-                        <a href={linkPacoteSeguro} target="_blank" rel="noopener noreferrer"
-                          className="text-xs text-indigo-300 hover:text-indigo-100 underline">
-                          🔗 Abrir link do pacote
-                        </a>
-                      )}
                       {urlsOperadorSeguras.map((url: string, uIdx: number) => (
                         <a key={uIdx} href={url} target="_blank" rel="noopener noreferrer"
                           className="text-xs text-indigo-300 hover:text-indigo-100 underline break-all">
