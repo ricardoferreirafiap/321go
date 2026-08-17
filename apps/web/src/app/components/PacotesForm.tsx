@@ -476,9 +476,18 @@ export function gerarResumoPacote(dados: Omit<Pacote, "id" | "documentos">): str
     let seguro = `Seguro ${dados.seguroPlano?.trim() || "viagem"}`;
     const fornecedor = dados.seguroAssistencia?.trim() || dados.seguroSeguradora?.trim();
     if (fornecedor) seguro += ` pela ${fornecedor}`;
+    if (dados.seguroNumeroReserva?.trim()) seguro += `, reserva ${dados.seguroNumeroReserva.trim()}`;
+    if (dados.seguroNumeroConfirmacao?.trim()) seguro += `, confirmação ${dados.seguroNumeroConfirmacao.trim()}`;
+    if (dados.seguroApoliceCertificado?.trim()) seguro += `, apólice ${dados.seguroApoliceCertificado.trim()}`;
+    if (dados.seguroSegurados?.trim()) seguro += `, segurados: ${dados.seguroSegurados.trim()}`;
+    if (dados.seguroDestino?.trim()) seguro += `, destino ${dados.seguroDestino.trim()}`;
+    if (dados.seguroAmbitoCobertura?.trim()) seguro +=`, âmbito ${dados.seguroAmbitoCobertura.trim()}`;
     if (dados.seguroVigenciaInicio && dados.seguroVigenciaFim) {
       seguro += `, de ${formatarDataIsoBr(dados.seguroVigenciaInicio)} a ${formatarDataIsoBr(dados.seguroVigenciaFim)}`;
     }
+    if (dados.seguroCoberturas?.trim()) seguro += `. Coberturas: ${dados.seguroCoberturas.trim()}`;
+    if (dados.seguroValor) seguro += `. Valor: R$ ${dados.seguroValor}`;
+    if (dados.seguroObservacoes?.trim()) seguro += `. Obs: ${dados.seguroObservacoes.trim()}`;
     partes.push(`${seguro}.`);
   }
 
@@ -2028,6 +2037,61 @@ function mapearDetalhesIngresso<T extends Pick<
   };
 }
 
+function mapearDetalhesSeguro<T extends Pick<
+    Pacote,
+    | "seguroAssistencia"
+    | "seguroSeguradora"
+    | "seguroPlano"
+    | "seguroNumeroReserva"
+    | "seguroNumeroConfirmacao"
+    | "seguroApoliceCertificado"
+    | "seguroSegurados"
+    | "seguroDestino"
+    | "seguroAmbitoCobertura"
+    | "seguroVigenciaInicio"
+    | "seguroVigenciaFim"
+    | "seguroCoberturas"
+    | "seguroValor"
+    | "seguroObservacoes"
+>>(formAtual: T, dadosIA: NonNullable<Documento["dadosIA"]>): T {
+  return {
+    ...formAtual,
+    seguroAssistencia: dadosIA.seguroAssistencia || formAtual.seguroAssistencia || "",
+    seguroSeguradora: dadosIA.seguroSeguradora || formAtual.seguroSeguradora || "",
+    seguroPlano: dadosIA.seguroPlano || formAtual.seguroPlano || "",
+    seguroNumeroReserva: dadosIA.seguroNumeroReserva || formAtual.seguroNumeroReserva || "",
+    seguroNumeroConfirmacao: dadosIA.seguroNumeroConfirmacao || formAtual.seguroNumeroConfirmacao || "",
+    seguroApoliceCertificado: dadosIA.seguroApoliceCertificado || formAtual.seguroApoliceCertificado || "",
+    seguroSegurados: dadosIA.seguroSegurados || formAtual.seguroSegurados || "",
+    seguroDestino: dadosIA.seguroDestino || formAtual.seguroDestino || "",
+    seguroAmbitoCobertura: dadosIA.seguroAmbitoCobertura || formAtual.seguroAmbitoCobertura || "",
+    seguroVigenciaInicio: dadosIA.seguroVigenciaInicio || formAtual.seguroVigenciaInicio || "",
+    seguroVigenciaFim: dadosIA.seguroVigenciaFim || formAtual.seguroVigenciaFim || "",
+    seguroCoberturas: dadosIA.seguroCoberturas || formAtual.seguroCoberturas || "",
+    seguroValor: dadosIA.seguroValor || formAtual.seguroValor || 0,
+    seguroObservacoes: dadosIA.seguroObservacoes || formAtual.seguroObservacoes || "",
+  };
+}
+
+function possuiDadosSeguro(dados: NonNullable<Documento["dadosIA"]>): boolean {
+  return !!(
+    dados.seguroAssistencia ||
+    dados.seguroSeguradora ||
+    dados.seguroPlano ||
+    dados.seguroNumeroReserva ||
+    dados.seguroNumeroConfirmacao ||
+    dados.seguroApoliceCertificado ||
+    dados.seguroSegurados ||
+    dados.seguroDestino ||
+    dados.seguroAmbitoCobertura ||
+    dados.seguroVigenciaInicio ||
+    dados.seguroVigenciaFim ||
+    dados.seguroCoberturas ||
+    dados.seguroValor ||
+    dados.seguroObservacoes
+  );
+}
+
 function possuiDadosTraslado(dados?: DadosIAExtraidos | null) {
   if (!dados) return false;
   return Boolean(
@@ -2537,7 +2601,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     setTrechoIdaMinimizado(false);
     setTrechoVoltaMinimizado(false);
     setHospedagemMinimizado(true);
-    setSeguroMinimizado(false); // Expandir seção de seguro ao abrir edição
+    setSeguroMinimizado(true); // Manter seção de seguro minimizada ao abrir edição
     setPoliticaCancelamentoMinimizado(true); // Manter minimizado ao abrir edição
     setComodidadesMinimizado(true); // Manter minimizado ao abrir edição
     setHospedagemLinkInput(""); // Limpar input de link ao abrir edição
@@ -4597,10 +4661,19 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
 
                 <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t cursor-pointer select-none" onClick={() => setSeguroMinimizado((prev) => !prev)}>
                   <h4 className="flex items-center gap-2 font-semibold text-gray-900">
-                    <Shield className="h-4 w-4 text-indigo-500" />
-                    Seguro / Voucher
+                    <Plus className="h-4 w-4 text-indigo-500" />
+                    Seguro
                   </h4>
                   <div className="flex items-center gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); atualizarDetalhesSeguro(); }}
+                        className="gap-2"
+                    >
+                      <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
+                    </Button>
                     <Button
                         type="button"
                         variant="ghost"
