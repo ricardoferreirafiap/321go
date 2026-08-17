@@ -953,6 +953,8 @@ export default function RoteiroOrcamento() {
   const [carregando, setCarregando] = useState(true);
   const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
   const [politicaCancelamentoMinimizada, setPoliticaCancelamentoMinimizada] = useState<Record<number, boolean>>({});
+  const [seguroMinimizado, setSeguroMinimizado] = useState(true);
+  const [pacotesMinimizado, setPacotesMinimizado] = useState(false);
   const carrosselHospedagemRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   useEffect(() => {
@@ -1385,6 +1387,19 @@ export default function RoteiroOrcamento() {
 
   const navegarParaItem = (id: string) => {
     setItemAtivo(id);
+    
+    // Ao clicar em Seguro, maximiza Seguro e minimiza Pacotes
+    if (id === "seguro") {
+      setSeguroMinimizado(false);
+      setPacotesMinimizado(true);
+    }
+    
+    // Ao clicar em Pacotes, maximiza Pacotes e minimiza Seguro
+    if (id === "pacotes") {
+      setPacotesMinimizado(false);
+      setSeguroMinimizado(true);
+    }
+    
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -1453,7 +1468,6 @@ export default function RoteiroOrcamento() {
 
       {itensRoteiro.length > 0 && (
         <nav aria-label="Itens do roteiro" className="mb-6 print:hidden">
-          <p className="mb-3 text-center text-sm font-semibold text-gray-700">Itens do roteiro</p>
           <div className="flex flex-wrap items-start justify-center gap-4 px-1 pt-2 pb-3">
             {itensRoteiro.map(({ id, titulo, icone: Icone, classe }) => (
               <Button
@@ -1477,12 +1491,22 @@ export default function RoteiroOrcamento() {
       )}
 
       {/* PACOTES */}
-      {orc.pacotes && orc.pacotes.length > 0 && (
+      {orc.pacotes && orc.pacotes.length > 0 && itemAtivo === "pacotes" && (
         <Card id="pacotes" className="overflow-hidden mb-6 scroll-mt-4" style={{ fontFamily: "Montserrat, sans-serif" }}>
-          <div className="p-3" style={{ backgroundColor: COR_PRINCIPAL }}>
+          <div 
+            className="p-3 cursor-pointer flex items-center justify-between" 
+            style={{ backgroundColor: COR_PRINCIPAL }}
+            onClick={() => setPacotesMinimizado(!pacotesMinimizado)}
+          >
             <TituloSecao titulo="Pacotes" Icone={OrcamentoReferenceIcon} />
+            {pacotesMinimizado ? (
+              <ChevronDown className="h-5 w-5 text-white" />
+            ) : (
+              <ChevronUp className="h-5 w-5 text-white" />
+            )}
           </div>
-          <div className="bg-[#0b0635] p-4 sm:p-5 space-y-4">
+          {!pacotesMinimizado && (
+            <div className="bg-[#0b0635] p-4 sm:p-5 space-y-4">
             {orc.pacotes.map((pacote: any, idx: number) => {
               const pacoteId = Number(pacote.id ?? idx);
               const politicaCancelamentoMinimizadaParaPacote = politicaCancelamentoMinimizada[pacoteId] ?? true;
@@ -1632,6 +1656,7 @@ export default function RoteiroOrcamento() {
               );
             })}
           </div>
+          )}
         </Card>
       )}
 
@@ -2011,12 +2036,9 @@ export default function RoteiroOrcamento() {
 
       {/* ROTEIRO */}
       {orc.roteiro && itemAtivo === "roteiro" && (
-        <Card id="roteiro" className="overflow-hidden mb-6 scroll-mt-4 bg-transparent border-0 shadow-none">
-          <div className="flex items-center justify-between rounded-t-[24px] bg-white px-4 py-3 shadow-sm">
-            <h2 className="text-xl font-extrabold tracking-tight text-[#0a0534] sm:text-2xl">
-              Roteiro
-            </h2>
-            <RoteiroReferenceIcon className="h-8 w-8 text-[#0a0534]" />
+        <Card id="roteiro" className="overflow-hidden mb-6 scroll-mt-4">
+          <div className="p-3" style={{ backgroundColor: COR_PRINCIPAL }}>
+            <TituloSecao titulo="Roteiro" Icone={RoteiroReferenceIcon} />
           </div>
           <div className="bg-[#0b0635] p-4 sm:p-5">
             <RenderRoteiroTexto texto={orc.roteiro} />
@@ -2292,12 +2314,22 @@ export default function RoteiroOrcamento() {
       )}
 
       {/* SEGURO */}
-      {possuiSeguro && (
+      {possuiSeguro && itemAtivo === "seguro" && (
         <Card id="seguro" className="overflow-hidden mb-6 scroll-mt-4">
-          <div className="p-3" style={{ backgroundColor: COR_PRINCIPAL }}>
+          <div 
+            className="p-3 cursor-pointer flex items-center justify-between" 
+            style={{ backgroundColor: COR_PRINCIPAL }}
+            onClick={() => setSeguroMinimizado(!seguroMinimizado)}
+          >
             <TituloSecao titulo="Seguro" Icone={SeguroReferenceIcon} />
+            {seguroMinimizado ? (
+              <ChevronDown className="h-5 w-5 text-white" />
+            ) : (
+              <ChevronUp className="h-5 w-5 text-white" />
+            )}
           </div>
-          <div className="p-4 space-y-4">
+          {!seguroMinimizado && (
+            <div className="p-4 space-y-4">
             {segurosPacotes.length > 0 && (
               <div className="space-y-4">
                 {segurosPacotes.map((pacote, idx) => (
@@ -2470,6 +2502,7 @@ export default function RoteiroOrcamento() {
               </div>
             )}
           </div>
+          )}
         </Card>
       )}
 
