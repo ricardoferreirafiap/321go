@@ -6,6 +6,10 @@ const openai = new OpenAI({
 });
 
 async function generate(messages = []) {
+    if (!process.env.OPENAI_API_KEY) {
+        throw new Error("OPENAI_API_KEY não configurada.");
+    }
+
     const systemMessage = {
         role: "system",
         content: `
@@ -19,16 +23,21 @@ Regras:
 `
     };
 
-    const response = await openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-        messages: [
-            systemMessage,
-            ...messages
-        ],
-        temperature: 0.4,
-    });
+    try {
+        const response = await openai.chat.completions.create({
+            model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+            messages: [
+                systemMessage,
+                ...messages
+            ],
+            temperature: 0.4,
+        });
 
-    return response.choices[0].message.content;
+        return response.choices[0].message.content;
+    } catch (error) {
+        console.error("Erro no OpenAI:", error);
+        throw new Error(`Falha no OpenAI: ${error.message}`);
+    }
 }
 
 module.exports = {

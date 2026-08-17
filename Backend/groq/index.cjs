@@ -5,6 +5,9 @@ const groq = new Groq({
 });
 
 async function generate(messages = []) {
+    if (!process.env.GROQ_API_KEY) {
+        throw new Error("GROQ_API_KEY não configurada.");
+    }
 
     const systemMessage = {
         role: "system",
@@ -19,16 +22,21 @@ Regras:
 `
     };
 
-    const response = await groq.chat.completions.create({
-        model: "llama-3.1-8b-instant",
-        messages: [
-            systemMessage,
-            ...messages
-        ],
-        temperature: 0.4,
-    });
+    try {
+        const response = await groq.chat.completions.create({
+            model: "openai/gpt-oss-120b",
+            messages: [
+                systemMessage,
+                ...messages
+            ],
+            temperature: 0.4,
+        });
 
-    return response.choices[0].message.content;
+        return response.choices[0].message.content;
+    } catch (error) {
+        console.error("Erro no Groq:", error);
+        throw new Error(`Falha no Groq: ${error.message}`);
+    }
 }
 
 module.exports = {

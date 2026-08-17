@@ -621,7 +621,7 @@ export default function Orcamentos() {
   const [roteiroMinimizado, setRoteiroMinimizado] = useState(true);
   const [houveAlteracoes, setHouveAlteracoes] = useState(false);
   const formularioCarregadoRef = useRef(false);
-  const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
+  const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automático" | "cloudflare" | "deepseek" | "gemini" | "groq" | "huggingface" | "openai" | "openrouter">("automático");
   const [novaUrlOperadorItem, setNovaUrlOperadorItem] = useState("");
   
   function adicionarUrlOperadorItem(itemId: number) {
@@ -1714,13 +1714,17 @@ export default function Orcamentos() {
   4) Bloco "Destaques imperdíveis" com 5 a 8 itens.
   5) Bloco "Dicas práticas" (transporte, horários, segurança e clima).
 
-  Escreva em português do Brasil, com tom profissional, bonito e claro para apresentar ao cliente final.
-  Deixe os subtítulos de cada dia bem claros e organizados para fácil leitura.
-  Nao utilize Markdown e nao use simbolos de formatacao como **, __, # ou listas com asterisco.
-  A sugestão deve respeitar explicitamente os dados de voo, hospedagem, traslado, ingressos, passageiros e perfil da viagem fornecidos acima.`;
+  INSTRUÇÕES CRÍTICAS:
+  - Escreva APENAS em português do Brasil. ZERO palavras em inglês.
+  - Traduza todos os termos para português: check-in → entrada no hotel, check-out → saída do hotel, tour → passeio, guide → guia, booking → reserva, ticket → ingresso, airport → aeroporto, flight → voo, restaurant → restaurante, museum → museu, beach → praia, park → parque, city → cidade, street → rua, taxi → táxi, bus → ônibus, subway → metrô, train → trem, breakfast → café da manhã, lunch → almoço, dinner → jantar, weather → clima, temperature → temperatura, sunny → ensolarado, rainy → chuvoso, cold → frio, hot → quente, morning → manhã, afternoon → tarde, evening → noite, today → hoje, tomorrow → amanhã, week → semana, month → mês, year → ano, hour → hora, minute → minuto, price → preço, expensive → caro, cheap → barato, free → gratuito, paid → pago, open → aberto, closed → fechado, available → disponível, famous → famoso, beautiful → bonito, amazing → incrível, wonderful → maravilhoso, excellent → excelente, great → ótimo, good → bom, bad → ruim, important → importante, necessary → necessário, optional → opcional, mandatory → obrigatório, include → incluir, exclude → excluir, visit → visitar, see → ver, enjoy → aproveitar, discover → descobrir, explore → explorar, learn → aprender, know → saber, understand → entender.
+  - Escreva com tom profissional, bonito e claro para apresentar ao cliente final brasileiro.
+  - Deixe os subtítulos de cada dia bem claros e organizados para fácil leitura.
+  - Nao utilize Markdown e nao use simbolos de formatacao como **, __, # ou listas com asterisco.
+  - A sugestão deve respeitar explicitamente os dados de voo, hospedagem, traslado, ingressos, passageiros e perfil da viagem fornecidos acima.`;
 
     try {
       let respostaFinal = "";
+      const errosProvedores: string[] = [];
 
       const tentarComProvedor = async (provedor: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
         const data = await enviarMensagemIA(
@@ -1737,24 +1741,34 @@ export default function Orcamentos() {
             respostaFinal = await tentarComProvedor(provedor);
             if (respostaFinal) break;
           } catch (error) {
+            const erroMsg = error instanceof Error ? error.message : JSON.stringify(error);
+            errosProvedores.push(`${provedor.toUpperCase()}: ${erroMsg}`);
             console.warn(`Falha no provedor ${provedor}, tentando próximo...`, error);
           }
         }
         if (!respostaFinal) {
-          throw new Error("Todos os provedores de IA falharam.");
+          const erroDetalhado = errosProvedores.join("\n\n");
+          throw new Error(`Todos os provedores de IA falharam:\n\n${erroDetalhado}`);
         }
       } else {
-        respostaFinal = await tentarComProvedor(provedorRoteiroIA);
+        if (provedorRoteiroIA !== "automático") {
+          respostaFinal = await tentarComProvedor(provedorRoteiroIA);
+        }
       }
 
       const roteiroGerado = removerSecaoEvidenciasDosLugares(respostaFinal);
-      setRoteiro(roteiroGerado);
+      // Remover tags HTML do roteiro
+      const roteiroSemHTML = roteiroGerado.replace(/<[^>]*>/g, '');
+      setRoteiro(roteiroSemHTML);
+      
+      // Salvar o prompt no banco de dados
+      setPromptRoteiroIA(prompt);
     } catch (error) {
       console.error("Falha ao gerar roteiro com IA:", error);
-      // Mantém a mensagem de erro original que vem da API, que é mais informativa.
+      // Exibe mensagem de erro detalhada com todos os provedores que falharam
       const detalhesErro = error instanceof Error ? error.message : JSON.stringify(error);
       setRoteiro(
-          `Ocorreu um erro ao tentar gerar o roteiro com a IA. Detalhes: ${detalhesErro}`
+          `Ocorreu um erro ao tentar gerar o roteiro com a IA.\n\n${detalhesErro}`
       );
     } finally {
       setGerandoRoteiro(false);
@@ -2216,16 +2230,33 @@ export default function Orcamentos() {
                               </div>
                               <div className="flex justify-between items-center mb-2">
                                 <Label htmlFor="roteiro-texto">Descrição do Roteiro</Label>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={gerarRoteiroComIA}
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    value={provedorRoteiroIA}
+                                    onChange={(e) => setProvedorRoteiroIA(e.target.value as any)}
+                                    className="px-3 py-1.5 text-sm border border-indigo-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
                                     disabled={gerandoRoteiro}
-                                    className="flex items-center gap-2 text-indigo-600 border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
-                                >
-                                  <Sparkles className={`w-4 h-4 ${gerandoRoteiro ? 'animate-spin' : ''}`} /> {gerandoRoteiro ? 'Gerando...' : 'Analisar IA'}
-                                </Button>
+                                  >
+                                    <option value="automático">Automático</option>
+                                    <option value="cloudflare">Cloudflare</option>
+                                    <option value="deepseek">DeepSeek</option>
+                                    <option value="gemini">Gemini</option>
+                                    <option value="groq">Groq</option>
+                                    <option value="huggingface">HuggingFace</option>
+                                    <option value="openai">OpenAI</option>
+                                    <option value="openrouter">OpenRouter</option>
+                                  </select>
+                                  <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={gerarRoteiroComIA}
+                                      disabled={gerandoRoteiro}
+                                      className="flex items-center gap-2 text-indigo-600 border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                                  >
+                                    <Sparkles className={`w-4 h-4 ${gerandoRoteiro ? 'animate-spin' : ''}`} /> {gerandoRoteiro ? 'Gerando...' : 'Analisar IA'}
+                                  </Button>
+                                </div>
                               </div>
                               <RoteiroForm roteiro={roteiro} onRoteiroChange={setRoteiro} />
                             </div>

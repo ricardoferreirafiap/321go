@@ -57,6 +57,10 @@ const AIService = {
                 return OpenRouterService.generate(messages);
             case 'cloudflare':
                 return CloudflareService.generate(messages);
+            case 'deepseek':
+                return DeepSeekService.generate(messages);
+            case 'huggingface':
+                return HuggingFaceService.generate(messages);
             default:
                 return OpenAIService.generate(messages);
         }

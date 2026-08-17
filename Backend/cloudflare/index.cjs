@@ -29,16 +29,21 @@ Regras:
 `
     };
 
-    const response = await cloudflare.chat.completions.create({
-        model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-        messages: [
-            systemMessage,
-            ...messages
-        ],
-        temperature: 0.4,
-    });
+    try {
+        const response = await cloudflare.chat.completions.create({
+            model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+            messages: [
+                systemMessage,
+                ...messages
+            ],
+            temperature: 0.4,
+        });
 
-    return response.choices[0].message.content;
+        return response.choices[0].message.content;
+    } catch (error) {
+        console.error("Erro no Cloudflare:", error);
+        throw new Error(`Falha no Cloudflare: ${error.message}`);
+    }
 }
 
 module.exports = {
