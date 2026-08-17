@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from "react";
-import { ChevronDown, ChevronUp, Pencil, Plus, Trash2, Link2, Package2, Image, Upload, FileText, X, Sparkles, RefreshCw, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Plus, Trash2, Link2, Package2, Image, Upload, FileText, X, Sparkles, RefreshCw, ExternalLink, Shield } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
@@ -2082,6 +2082,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
   const [vouchersMinimizado, setVouchersMinimizado] = useState(true);
   const [comodidadesMinimizado, setComodidadesMinimizado] = useState(true);
   const [politicaCancelamentoMinimizado, setPoliticaCancelamentoMinimizado] = useState(true);
+  const [seguroMinimizado, setSeguroMinimizado] = useState(true);
   const [urlOperadorMinimizado, setUrlOperadorMinimizado] = useState(true);
   const [relatoriosMinimizado, setRelatoriosMinimizado] = useState(true);
   const [relatoriosExpandidos, setRelatoriosExpandidos] = useState<Set<number>>(new Set());
@@ -2405,7 +2406,6 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       setForm(pacoteVazio);
       setValorInput("");
       setHospedagemValorInput("");
-      setSeguroValorInput("");
       setEditandoId(null);
       setFormMinimizado(true);
       setTrechoIdaMinimizado(false);
@@ -2503,8 +2503,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     setForm(pacoteVazio);
     setValorInput("");
     setHospedagemValorInput("");
-    setSeguroValorInput("");
-    setEditandoId(null);
+        setEditandoId(null);
     setFormMinimizado(true);
     setTrechoIdaMinimizado(false);
     setTrechoVoltaMinimizado(false);
@@ -2522,7 +2521,6 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       setFormMinimizado(true);
       setTrechoIdaMinimizado(false);
       setTrechoVoltaMinimizado(false);
-      setSeguroManualMinimizado(true);
       setHospedagemMinimizado(true);
       setSeguroMinimizado(true);
       setPoliticaCancelamentoMinimizado(true);
@@ -2530,7 +2528,6 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       setLogAnaliseIA([]);
       setValorInput("");
       setHospedagemValorInput("");
-      setSeguroValorInput("");
       setHospedagemLinkInput("");
       return;
     }
@@ -2539,9 +2536,8 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     setFormMinimizado(true);
     setTrechoIdaMinimizado(false);
     setTrechoVoltaMinimizado(false);
-    setSeguroManualMinimizado(true);
     setHospedagemMinimizado(true);
-    setSeguroMinimizado(true);
+    setSeguroMinimizado(false); // Expandir seção de seguro ao abrir edição
     setPoliticaCancelamentoMinimizado(true); // Manter minimizado ao abrir edição
     setComodidadesMinimizado(true); // Manter minimizado ao abrir edição
     setHospedagemLinkInput(""); // Limpar input de link ao abrir edição
@@ -2601,20 +2597,20 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       hospedagemLinks: Array.isArray(pacote.hospedagemLinks) ? pacote.hospedagemLinks : (pacote.hospedagemLink ? [pacote.hospedagemLink] : []),
       hospedagemFoto: pacote.hospedagemFoto || null,
       hospedagemFotos: Array.isArray(pacote.hospedagemFotos) ? pacote.hospedagemFotos : (pacote.hospedagemFoto ? [pacote.hospedagemFoto] : []),
-      seguroAssistencia: "",
-      seguroSeguradora: "",
-      seguroPlano: "",
-      seguroNumeroReserva: "",
-      seguroNumeroConfirmacao: "",
-      seguroApoliceCertificado: "",
-      seguroSegurados: "",
-      seguroDestino: "",
-      seguroAmbitoCobertura: "",
-      seguroVigenciaInicio: "",
-      seguroVigenciaFim: "",
-      seguroCoberturas: "",
-      seguroValor: 0,
-      seguroObservacoes: "",
+      seguroAssistencia: pacote.seguroAssistencia || "",
+      seguroSeguradora: pacote.seguroSeguradora || "",
+      seguroPlano: pacote.seguroPlano || "",
+      seguroNumeroReserva: pacote.seguroNumeroReserva || "",
+      seguroNumeroConfirmacao: pacote.seguroNumeroConfirmacao || "",
+      seguroApoliceCertificado: pacote.seguroApoliceCertificado || "",
+      seguroSegurados: pacote.seguroSegurados || "",
+      seguroDestino: pacote.seguroDestino || "",
+      seguroAmbitoCobertura: pacote.seguroAmbitoCobertura || "",
+      seguroVigenciaInicio: pacote.seguroVigenciaInicio || "",
+      seguroVigenciaFim: pacote.seguroVigenciaFim || "",
+      seguroCoberturas: pacote.seguroCoberturas || "",
+      seguroValor: pacote.seguroValor || 0,
+      seguroObservacoes: pacote.seguroObservacoes || "",
       trasladoTipo: pacote.trasladoTipo || "",
       trasladoData: pacote.trasladoData || "",
       trasladoHorario: pacote.trasladoHorario || "",
@@ -2640,7 +2636,6 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     });
     setValorInput(pacote.valor ? formatarMoeda(Number(pacote.valor) || 0) : "");
     setHospedagemValorInput(pacote.hospedagemValor ? formatarMoeda(Number(pacote.hospedagemValor) || 0) : "");
-    setSeguroValorInput("");
     setErro("");
   }
 
@@ -2650,7 +2645,6 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       setForm(pacoteVazio);
       setValorInput("");
       setHospedagemValorInput("");
-      setSeguroValorInput("");
       setEditandoId(null);
       setFormMinimizado(true);
       setTrechoIdaMinimizado(false);
@@ -2770,18 +2764,13 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       seguroValor: 0,
       seguroObservacoes: "",
     };
-    setSeguroValorInput("");
-    
+        
     // Só popular se houver dados de seguro
-    if (possuiDadosSeguro(dados)) {
-      novoForm = mapearDetalhesSeguro(novoForm, dados);
-    }
     
     if (possuiDadosTraslado(dados)) novoForm = mapearDetalhesTraslado(novoForm, dados);
     if (possuiDadosIngresso(dados)) novoForm = mapearDetalhesIngresso(novoForm, dados);
     if (novoForm.valor > 0) setValorInput(formatarMoeda(novoForm.valor));
     if (novoForm.hospedagemValor) setHospedagemValorInput(formatarMoeda(parseMoeda(novoForm.hospedagemValor)));
-    if (novoForm.seguroValor) setSeguroValorInput(formatarMoeda(novoForm.seguroValor));
     setForm((f) => ({ ...novoForm, documentos: f.documentos }));
     propagarAoPai({ ...novoForm, documentos: form.documentos });
     setTimeout(() => setAtualizando(null), 800);
@@ -2878,18 +2867,13 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       seguroValor: 0,
       seguroObservacoes: "",
     };
-    setSeguroValorInput("");
-    
+        
     // Só popular se houver dados de seguro
-    if (possuiDadosSeguro(dados)) {
-      novoForm = mapearDetalhesSeguro(novoForm, dados);
-    }
     
     if (possuiDadosTraslado(dados)) novoForm = mapearDetalhesTraslado(novoForm, dados);
     if (possuiDadosIngresso(dados)) novoForm = mapearDetalhesIngresso(novoForm, dados);
     novoForm = { ...novoForm, descricao: gerarResumoPacote(novoForm) };
     if (novoForm.valor > 0) setValorInput(formatarMoeda(novoForm.valor));
-    if (novoForm.seguroValor) setSeguroValorInput(formatarMoeda(novoForm.seguroValor));
     setForm((f) => ({ ...novoForm, documentos: f.documentos }));
     propagarAoPai({ ...novoForm, documentos: form.documentos });
     setResumoMinimizado(false);
@@ -3415,9 +3399,6 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
         };
         
         // Só popular se houver dados de seguro
-        if (possuiDadosSeguro(dadosUnificados)) {
-          novoFormCalculado = mapearDetalhesSeguro(novoFormCalculado, dadosUnificados);
-        }
         
         if (possuiDadosTraslado(dadosUnificados)) novoFormCalculado = mapearDetalhesTraslado(novoFormCalculado, dadosUnificados);
         if (possuiDadosIngresso(dadosUnificados)) novoFormCalculado = mapearDetalhesIngresso(novoFormCalculado, dadosUnificados);
@@ -3426,11 +3407,6 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
 
       if (novoFormCalculado.valor > 0) {
         setValorInput(formatarMoeda(novoFormCalculado.valor));
-      }
-      if (novoFormCalculado.seguroValor) {
-        setSeguroValorInput(formatarMoeda(novoFormCalculado.seguroValor));
-      } else {
-        setSeguroValorInput("");
       }
 
       // Preservar documentos do tipo URL que foram adicionados durante a análise de URLs
@@ -4614,6 +4590,159 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                             placeholder="Ex: regular, privativo, ponto de encontro"
                             value={form.trasladoObservacoes || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, trasladoObservacoes: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                )}
+
+                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t cursor-pointer select-none" onClick={() => setSeguroMinimizado((prev) => !prev)}>
+                  <h4 className="flex items-center gap-2 font-semibold text-gray-900">
+                    <Shield className="h-4 w-4 text-indigo-500" />
+                    Seguro / Voucher
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); setSeguroMinimizado((prev) => !prev); }}
+                        className="gap-2 text-gray-600 hover:text-gray-900"
+                    >
+                      {seguroMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                      {seguroMinimizado ? " " : " "}
+                    </Button>
+                  </div>
+                </div>
+
+                {!seguroMinimizado && (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mt-4">
+                      <div>
+                        <Label className="text-xs">Assistência do Seguro</Label>
+                        <Input
+                            className={`mt-1 ${!form.seguroAssistencia ? 'bg-yellow-50' : 'bg-white'}`}
+                            placeholder="Ex: Assistência 24h"
+                            value={form.seguroAssistencia || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, seguroAssistencia: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Seguradora</Label>
+                        <Input
+                            className={`mt-1 ${!form.seguroSeguradora ? 'bg-yellow-50' : 'bg-white'}`}
+                            placeholder="Ex: SulAmérica"
+                            value={form.seguroSeguradora || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, seguroSeguradora: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Plano/Produto</Label>
+                        <Input
+                            className={`mt-1 ${!form.seguroPlano ? 'bg-yellow-50' : 'bg-white'}`}
+                            placeholder="Ex: Viagem Internacional"
+                            value={form.seguroPlano || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, seguroPlano: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Nº de Reserva</Label>
+                        <Input
+                            className={`mt-1 ${!form.seguroNumeroReserva ? 'bg-yellow-50' : 'bg-white'}`}
+                            placeholder="Ex: RES-12345"
+                            value={form.seguroNumeroReserva || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, seguroNumeroReserva: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Nº de Confirmação</Label>
+                        <Input
+                            className={`mt-1 ${!form.seguroNumeroConfirmacao ? 'bg-yellow-50' : 'bg-white'}`}
+                            placeholder="Ex: CONF-67890"
+                            value={form.seguroNumeroConfirmacao || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, seguroNumeroConfirmacao: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Apólice/Certificado</Label>
+                        <Input
+                            className={`mt-1 ${!form.seguroApoliceCertificado ? 'bg-yellow-50' : 'bg-white'}`}
+                            placeholder="Ex: AP-2025-001"
+                            value={form.seguroApoliceCertificado || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, seguroApoliceCertificado: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Segurados</Label>
+                        <Input
+                            className={`mt-1 ${!form.seguroSegurados ? 'bg-yellow-50' : 'bg-white'}`}
+                            placeholder="Ex: João, Maria"
+                            value={form.seguroSegurados || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, seguroSegurados: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Destino</Label>
+                        <Input
+                            className={`mt-1 ${!form.seguroDestino ? 'bg-yellow-50' : 'bg-white'}`}
+                            placeholder="Ex: Europa"
+                            value={form.seguroDestino || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, seguroDestino: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Âmbito de Cobertura</Label>
+                        <Input
+                            className={`mt-1 ${!form.seguroAmbitoCobertura ? 'bg-yellow-50' : 'bg-white'}`}
+                            placeholder="Ex: Mundial"
+                            value={form.seguroAmbitoCobertura || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, seguroAmbitoCobertura: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Início da Vigência</Label>
+                        <Input
+                            type="date"
+                            className={`mt-1 ${!form.seguroVigenciaInicio ? 'bg-yellow-50' : 'bg-white'}`}
+                            value={form.seguroVigenciaInicio || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, seguroVigenciaInicio: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Fim da Vigência</Label>
+                        <Input
+                            type="date"
+                            className={`mt-1 ${!form.seguroVigenciaFim ? 'bg-yellow-50' : 'bg-white'}`}
+                            value={form.seguroVigenciaFim || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, seguroVigenciaFim: e.target.value }))}
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs">Coberturas</Label>
+                        <Textarea
+                            className={`mt-1 min-h-20 ${!form.seguroCoberturas ? 'bg-yellow-50' : 'bg-white'}`}
+                            placeholder="Ex: Médico, Bagagem, Cancelamento"
+                            value={form.seguroCoberturas || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, seguroCoberturas: e.target.value }))}
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs">Observações</Label>
+                        <Textarea
+                            className={`mt-1 min-h-20 ${!form.seguroObservacoes ? 'bg-yellow-50' : 'bg-white'}`}
+                            placeholder="Informações adicionais sobre o seguro"
+                            value={form.seguroObservacoes || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, seguroObservacoes: e.target.value }))}
                         />
                       </div>
                     </div>
