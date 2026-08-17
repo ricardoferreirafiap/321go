@@ -15,7 +15,6 @@ import DayByDayForm from "./DayByDayForm";
 import TransporteForm from "./TransporteForm";
 import RestauranteForm from "./RestauranteForm";
 import ExperienciasForm from "./ExperienciasForm";
-import ResumoOrcamentoInline from "./ResumoOrcamentoInline";
 import { listarClientes, type Cliente } from "../data/clientesApi";
 import { listarFuncionarios, type Funcionario } from "../data/funcionariosApi";
 import { listarFornecedores, type Fornecedor } from "../data/fornecedoresApi";
@@ -1430,15 +1429,23 @@ export default function Orcamentos() {
       promptPerfilViagemIA: usandoEstadoFormulario ? promptPerfilViagemIA : (orcParaAbrir.promptPerfilViagemIA || ""),
     };
 
-    // Armazena no localStorage para acessar na nova aba (sem base64 para não estourar quota)
+    const resumoPath = `/financeiro/orcamentos/resumo/${orcComSecoes.publicToken || orcComSecoes.numero}`;
+    const novaAbaResumo = window.open("", "_blank");
+
     try {
-      localStorage.setItem(`orc_${orcComSecoes.numero}`, JSON.stringify(sanitizarParaStorage(orcComSecoes)));
+      const orcJson = JSON.stringify(sanitizarParaStorage(orcComSecoes));
+      localStorage.setItem(`orc_${orcComSecoes.numero}`, orcJson);
+      if (orcComSecoes.publicToken) {
+        localStorage.setItem(`orc_${orcComSecoes.publicToken}`, orcJson);
+      }
     } catch {
       // QuotaExceededError: segue sem cache local
     }
-    const novaAbaResumo = window.open(`/financeiro/orcamentos/resumo/${orcComSecoes.publicToken || orcComSecoes.numero}`, "_blank");
-    if (!novaAbaResumo) {
-      navigate(`/financeiro/orcamentos/resumo/${orcComSecoes.publicToken || orcComSecoes.numero}`);
+
+    if (novaAbaResumo) {
+      novaAbaResumo.location.href = resumoPath;
+    } else {
+      navigate(resumoPath);
     }
   }
 
@@ -2520,7 +2527,24 @@ export default function Orcamentos() {
                 {!orcamentoResumoMinimizado && (
                     <div className="space-y-4">
                       {editando ? (
-                        <ResumoOrcamentoInline orcamento={editando} />
+                        <div className="w-full" style={{ height: "600px" }}>
+                          <iframe
+                            src={`/financeiro/orcamentos/resumo/${editando.publicToken || editando.numero}`}
+                            className="w-full h-full border-0 rounded-lg"
+                            title="Resumo do Orçamento"
+                            onLoad={() => {
+                              try {
+                                const orcJson = JSON.stringify(sanitizarParaStorage(editando));
+                                localStorage.setItem(`orc_${editando.numero}`, orcJson);
+                                if (editando.publicToken) {
+                                  localStorage.setItem(`orc_${editando.publicToken}`, orcJson);
+                                }
+                              } catch {
+                                // QuotaExceededError: segue sem cache local
+                              }
+                            }}
+                          />
+                        </div>
                       ) : (
                         <p className="text-sm text-gray-600">Salve o orçamento primeiro para visualizar o resumo.</p>
                       )}
