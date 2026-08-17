@@ -100,7 +100,7 @@ function diaParaIAParaForm(j: CamposSeguro, prev: CamposSeguro): CamposSeguro {
 export default function SeguroForm({ seguros, onSegurosChange }: SeguroFormProps) {
   const [documentos, setDocumentos] = useState<DocSeguro[]>([]);
   const [analisandoIA, setAnalisandoIA] = useState(false);
-  const [vouchersMinimizado, setVouchersMinimizado] = useState(false);
+  const [vouchersMinimizado, setVouchersMinimizado] = useState(true);
   const [erros, setErros] = useState<Record<number, string>>({});
   const [erroAnaliseIA, setErroAnaliseIA] = useState<string | null>(null);
   const [editandoSeguroId, setEditandoSeguroId] = useState<number | null>(null);

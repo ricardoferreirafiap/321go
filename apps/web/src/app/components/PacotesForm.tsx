@@ -2130,6 +2130,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
   const [comodidadesMinimizado, setComodidadesMinimizado] = useState(true);
   const [politicaCancelamentoMinimizado, setPoliticaCancelamentoMinimizado] = useState(true);
   const [urlOperadorMinimizado, setUrlOperadorMinimizado] = useState(true);
+  const [relatoriosMinimizado, setRelatoriosMinimizado] = useState(true);
   const [relatoriosExpandidos, setRelatoriosExpandidos] = useState<Set<number>>(new Set());
   const [analisandoIA, setAnalisandoIA] = useState(false);
   const [buscandoLinkHotelIA, setBuscandoLinkHotelIA] = useState(false);
@@ -3599,10 +3600,21 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
 
                 {(form.documentos || []).filter(doc => doc.analise && doc.tipo !== "text/url").length > 0 && (
                     <div className="mt-3 rounded-md border border-indigo-200 bg-indigo-50 text-xs text-indigo-800">
-                      <div className="flex items-center justify-between gap-2 p-2">
+                      <div className="flex items-center justify-between gap-2 p-2 cursor-pointer select-none" onClick={() => setRelatoriosMinimizado((prev) => !prev)}>
                         <span className="font-medium">Relatórios dos Arquivos</span>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); setRelatoriosMinimizado((prev) => !prev); }}
+                            className="h-6 gap-1 px-2 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900"
+                        >
+                          {relatoriosMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                        </Button>
                       </div>
-                      {(form.documentos || []).filter(doc => doc.analise && doc.tipo !== "text/url").map((doc) => (
+                      {!relatoriosMinimizado && (
+                        <>
+                          {(form.documentos || []).filter(doc => doc.analise && doc.tipo !== "text/url").map((doc) => (
                           <div key={doc.id} className="border-t border-indigo-200">
                             <div className="flex items-center justify-between gap-2 p-2">
                               <span className="truncate">{doc.nome}</span>
@@ -3627,6 +3639,8 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                             )}
                           </div>
                       ))}
+                        </>
+                      )}
                     </div>
                 )}
 
