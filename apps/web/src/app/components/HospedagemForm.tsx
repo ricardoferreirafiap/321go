@@ -29,6 +29,12 @@ interface Hospedagem {
   local: string;
   endereco: string;
   linkOperadora: string;
+  telefoneHotel: string;
+  emailHotel: string;
+  horarioCheckinHotel: string;
+  horarioCheckoutHotel: string;
+  regimeHotel: string;
+  politicasCondicoesInformacoesEspeciais: string;
   checkin: string;
   checkout: string;
   tipoQuarto: string;
@@ -108,6 +114,12 @@ export default function HospedagemForm({
     local: "",
     endereco: "",
     linkOperadora: "",
+    telefoneHotel: "",
+    emailHotel: "",
+    horarioCheckinHotel: "",
+    horarioCheckoutHotel: "",
+    regimeHotel: "",
+    politicasCondicoesInformacoesEspeciais: "",
     tipoQuarto: "",
     precoNoite: 0,
     classificacao: 0,
@@ -302,6 +314,12 @@ export default function HospedagemForm({
       local: selecionado.local,
       endereco: selecionado.endereco,
       linkOperadora: selecionado.linkOperadora || "",
+      telefoneHotel: selecionado.telefoneHotel || selecionado.telefone || "",
+      emailHotel: selecionado.emailHotel || selecionado.email || "",
+      horarioCheckinHotel: selecionado.horarioCheckinHotel || selecionado.horarioCheckin || "",
+      horarioCheckoutHotel: selecionado.horarioCheckoutHotel || selecionado.horarioCheckout || "",
+      regimeHotel: selecionado.regimeHotel || selecionado.regime || "",
+      politicasCondicoesInformacoesEspeciais: selecionado.politicasCondicoesInformacoesEspeciais || selecionado.politicas || "",
       tipoQuarto: formQuarto.tipoQuarto,
       checkin: formQuarto.checkin,
       checkout: formQuarto.checkout,
@@ -354,19 +372,25 @@ export default function HospedagemForm({
         local: formManual.local,
         endereco: formManual.endereco,
         linkOperadora: formManual.linkOperadora,
-        tipoQuarto: formManual.tipoQuarto || "Standard",
-        checkin: formQuarto.checkin,
-        checkout: formQuarto.checkout,
-        noites,
-        preco: precoTotal,
-        classificacao: formManual.classificacao,
-        amenidades: hospedagemAtual?.amenidades || [],
-        fotosHospedagem,
-        fotoHospedagem: fotoHospedagemLink.trim() || null,
-        voucher: voucher?.base64 || null,
-        voucherTipo: voucher?.tipo || null,
-        voucherNome: voucher?.nome || "",
-      };
+          telefoneHotel: formManual.telefoneHotel,
+          emailHotel: formManual.emailHotel,
+          horarioCheckinHotel: formManual.horarioCheckinHotel,
+          horarioCheckoutHotel: formManual.horarioCheckoutHotel,
+          regimeHotel: formManual.regimeHotel,
+          politicasCondicoesInformacoesEspeciais: formManual.politicasCondicoesInformacoesEspeciais,
+          tipoQuarto: formManual.tipoQuarto || "Standard",
+          checkin: formQuarto.checkin,
+          checkout: formQuarto.checkout,
+          noites,
+          preco: precoTotal,
+          classificacao: formManual.classificacao,
+          amenidades: hospedagemAtual?.amenidades || [],
+          fotosHospedagem,
+          fotoHospedagem: fotoHospedagemLink.trim() || null,
+          voucher: voucher?.base64 || null,
+          voucherTipo: voucher?.tipo || null,
+          voucherNome: voucher?.nome || "",
+        };
 
       onHospedagensChange(
         hospedagens.map((h) => (h.id === hospedagemEditandoId ? hospedagemAtualizada : h))
@@ -377,6 +401,12 @@ export default function HospedagemForm({
         local: "",
         endereco: "",
         linkOperadora: "",
+        telefoneHotel: "",
+        emailHotel: "",
+        horarioCheckinHotel: "",
+        horarioCheckoutHotel: "",
+        regimeHotel: "",
+        politicasCondicoesInformacoesEspeciais: "",
         tipoQuarto: "",
         precoNoite: 0,
         classificacao: 0,
@@ -400,6 +430,12 @@ export default function HospedagemForm({
       local: formManual.local,
       endereco: formManual.endereco,
       linkOperadora: formManual.linkOperadora,
+      telefoneHotel: formManual.telefoneHotel,
+      emailHotel: formManual.emailHotel,
+      horarioCheckinHotel: formManual.horarioCheckinHotel,
+      horarioCheckoutHotel: formManual.horarioCheckoutHotel,
+      regimeHotel: formManual.regimeHotel,
+      politicasCondicoesInformacoesEspeciais: formManual.politicasCondicoesInformacoesEspeciais,
       tipoQuarto: formManual.tipoQuarto || "Standard",
       checkin: formQuarto.checkin,
       checkout: formQuarto.checkout,
@@ -422,6 +458,12 @@ export default function HospedagemForm({
       local: "",
       endereco: "",
       linkOperadora: "",
+      telefoneHotel: "",
+      emailHotel: "",
+      horarioCheckinHotel: "",
+      horarioCheckoutHotel: "",
+      regimeHotel: "",
+      politicasCondicoesInformacoesEspeciais: "",
       tipoQuarto: "",
       precoNoite: 0,
       classificacao: 0,
@@ -454,6 +496,12 @@ export default function HospedagemForm({
       local: "",
       endereco: "",
       linkOperadora: "",
+      telefoneHotel: "",
+      emailHotel: "",
+      horarioCheckinHotel: "",
+      horarioCheckoutHotel: "",
+      regimeHotel: "",
+      politicasCondicoesInformacoesEspeciais: "",
       tipoQuarto: "",
       precoNoite: 0,
       classificacao: 0,
@@ -481,6 +529,12 @@ export default function HospedagemForm({
       local: hosp.local,
       endereco: hosp.endereco,
       linkOperadora: hosp.linkOperadora || "",
+      telefoneHotel: hosp.telefoneHotel || "",
+      emailHotel: hosp.emailHotel || "",
+      horarioCheckinHotel: hosp.horarioCheckinHotel || "",
+      horarioCheckoutHotel: hosp.horarioCheckoutHotel || "",
+      regimeHotel: hosp.regimeHotel || "",
+      politicasCondicoesInformacoesEspeciais: hosp.politicasCondicoesInformacoesEspeciais || "",
       tipoQuarto: hosp.tipoQuarto || "",
       precoNoite: hosp.noites > 0 ? Number((hosp.preco / hosp.noites).toFixed(2)) : hosp.preco,
       classificacao: hosp.classificacao || 0,
@@ -802,6 +856,59 @@ export default function HospedagemForm({
             </div>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <div>
+              <Label className="text-xs">Telefone do Hotel</Label>
+              <Input
+                value={selecionado.telefoneHotel || selecionado.telefone || ""}
+                onChange={(e) => setSelecionado({ ...selecionado, telefoneHotel: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">E-mail do Hotel</Label>
+              <Input
+                type="email"
+                value={selecionado.emailHotel || selecionado.email || ""}
+                onChange={(e) => setSelecionado({ ...selecionado, emailHotel: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Horário de Check-in</Label>
+              <Input
+                value={selecionado.horarioCheckinHotel || selecionado.horarioCheckin || ""}
+                onChange={(e) => setSelecionado({ ...selecionado, horarioCheckinHotel: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Horário de Check-out</Label>
+              <Input
+                value={selecionado.horarioCheckoutHotel || selecionado.horarioCheckout || ""}
+                onChange={(e) => setSelecionado({ ...selecionado, horarioCheckoutHotel: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Regime / Pensão</Label>
+              <Input
+                value={selecionado.regimeHotel || selecionado.regime || ""}
+                onChange={(e) => setSelecionado({ ...selecionado, regimeHotel: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Label className="text-xs">Políticas, Condições e Informações Especiais</Label>
+              <textarea
+                rows={3}
+                value={selecionado.politicasCondicoesInformacoesEspeciais || selecionado.politicas || ""}
+                onChange={(e) => setSelecionado({ ...selecionado, politicasCondicoesInformacoesEspeciais: e.target.value })}
+                className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
           <div className="mb-3">
             <Label className="text-xs">Link da Foto da Hospedagem</Label>
             <div className="mt-1 flex gap-2">
@@ -1096,6 +1203,65 @@ export default function HospedagemForm({
                   <Sparkles className="h-4 w-4" />
                 )}
               </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <div>
+              <Label className="text-xs">Telefone do Hotel</Label>
+              <Input
+                placeholder="Ex: +55 11 99999-9999"
+                value={formManual.telefoneHotel}
+                onChange={(e) => setFormManual({ ...formManual, telefoneHotel: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">E-mail do Hotel</Label>
+              <Input
+                type="email"
+                placeholder="Ex: reservas@hotel.com"
+                value={formManual.emailHotel}
+                onChange={(e) => setFormManual({ ...formManual, emailHotel: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Horário de Check-in</Label>
+              <Input
+                placeholder="Ex: 14:00"
+                value={formManual.horarioCheckinHotel}
+                onChange={(e) => setFormManual({ ...formManual, horarioCheckinHotel: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Horário de Check-out</Label>
+              <Input
+                placeholder="Ex: 12:00"
+                value={formManual.horarioCheckoutHotel}
+                onChange={(e) => setFormManual({ ...formManual, horarioCheckoutHotel: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Regime / Pensão</Label>
+              <Input
+                placeholder="Ex: Café da manhã"
+                value={formManual.regimeHotel}
+                onChange={(e) => setFormManual({ ...formManual, regimeHotel: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Label className="text-xs">Políticas, Condições e Informações Especiais</Label>
+              <textarea
+                rows={3}
+                placeholder="Informe regras, cancelamentos, observações, taxas e condições do hotel."
+                value={formManual.politicasCondicoesInformacoesEspeciais}
+                onChange={(e) => setFormManual({ ...formManual, politicasCondicoesInformacoesEspeciais: e.target.value })}
+                className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none"
+              />
             </div>
           </div>
 

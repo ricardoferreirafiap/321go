@@ -4288,6 +4288,16 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                       </div>
 
                       <div className="sm:col-span-2">
+                        <Label className="text-xs">Políticas, Condições e Informações Especiais</Label>
+                        <Textarea
+                            className={`mt-1 min-h-24 ${!form.hospedagemPoliticasCondicoesInformacoesEspeciais ? 'bg-yellow-50' : 'bg-white'}`}
+                            placeholder="Regras, cancelamento, taxas, observações e informações especiais da hospedagem"
+                            value={form.hospedagemPoliticasCondicoesInformacoesEspeciais || ""}
+                            onChange={(e) => setForm((prev) => ({ ...prev, hospedagemPoliticasCondicoesInformacoesEspeciais: e.target.value }))}
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
                         <div className="flex items-center justify-between">
                           <Label className="text-xs">Comodidades do estabelecimento</Label>
                           <Button
