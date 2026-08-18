@@ -2379,6 +2379,10 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     return Array.from(new Set([...operadoresPadrao, ...dosPacotes, ...dosDocumentos]));
   }, [pacotes, form.documentos]);
 
+  const [docParaAnalise, setDocParaAnalise] = useState<Documento | null>(null);
+  const [analisandoDocId, setAnalisandoDocId] = useState<number | null>(null);
+  const [confirmAnaliseOpen, setConfirmAnaliseOpen] = useState(false);
+
 
   function salvarPacote() {
     if (!form.operador.trim()) {
@@ -3017,7 +3021,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     return identificarOperadorNoLogo(doc.arquivo, workerOcr, adicionarLog);
   }
 
-  async function analisarDocumentosComIA() {
+  async function analisarDocumentosComIA(docId?: number) {
     if (!form.documentos || form.documentos.length === 0) {
       if (!form.urlOperador || form.urlOperador.length === 0) {
         setErro("Nenhum documento ou URL para analisar.");
@@ -3026,6 +3030,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     }
 
     setAnalisandoIA(true);
+    if (typeof docId === 'number') setAnalisandoDocId(docId);
     setErro("");
     setForm((f) => ({ ...f, logAnalise: "" }));
 
@@ -3213,6 +3218,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
 
       const novasAnalises: Documento[] = [];
       for (const doc of form.documentos || []) {
+        if (typeof docId === 'number' && doc.id !== docId) continue;
         let contextoArquivo = "Nome do arquivo: " + doc.nome + "\n\n";
         let temConteudoPdf = false;
         let operadorDetectado = "";
@@ -3481,9 +3487,17 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       }
 
       // Preservar documentos do tipo URL que foram adicionados durante a análise de URLs
-      const documentosUrl = (form.documentos || []).filter(doc => doc.tipo === "text/url");
-      const documentosNaoUrl = novasAnalises.filter(doc => doc.tipo !== "text/url");
-      const formFinal = { ...novoFormCalculado, documentos: [...documentosUrl, ...documentosNaoUrl] };
+      // Mescla novas analises com os documentos existentes, preservando os não analisados
+      const currentDocs = form.documentos || [];
+      // Substitui documentos existentes pelos analisados
+      const substituidos = currentDocs.map(d => {
+        const encontrado = novasAnalises.find(n => n.id === d.id);
+        return encontrado || d;
+      });
+      // Adiciona novos documentos que não existiam (ex: URLs produzidas pela IA)
+      const novosExternos = novasAnalises.filter(n => !currentDocs.some(cd => cd.id === n.id));
+      const documentosFinal = [...substituidos, ...novosExternos];
+      const formFinal = { ...novoFormCalculado, documentos: documentosFinal };
 
       setForm(() => formFinal);
       propagarAoPai(formFinal);
@@ -3497,6 +3511,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       if (workerOcr) {
         await workerOcr.terminate();
       }
+      setAnalisandoDocId(null);
       setAnalisandoIA(false);
       // Persiste o log no formulário para exibir após a análise (usa o array local que tem os valores corretos)
       setForm((f) => ({ ...f, logAnalise: logEntries.join("\n") }));
@@ -3657,6 +3672,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                       className="hidden"
                   />
                   {(form.documentos || []).length > 0 && (
+                    <>
                       <div className="space-y-1.5 pr-2">
                         {(form.documentos || []).map((doc) => (
                             <div key={doc.id} className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs">
@@ -3678,13 +3694,41 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                                     Exibir no roteiro
                                   </Label>
                                 </div>
-                                <button type="button" onClick={() => removerDocumento(doc.id)} className="rounded p-1 text-red-500 hover:bg-red-50" title="Remover documento">
-                                  <X className="h-3.5 w-3.5" />
-                                </button>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => { setDocParaAnalise(doc); setConfirmAnaliseOpen(true); }}
+                                    className="rounded p-1 text-indigo-600 hover:bg-indigo-50"
+                                    title="Analisar com IA"
+                                  >
+                                    <Sparkles className={`h-4 w-4 ${analisandoDocId === doc.id ? "animate-spin" : ""}`} />
+                                  </button>
+                                  <button type="button" onClick={() => removerDocumento(doc.id)} className="rounded p-1 text-red-500 hover:bg-red-50" title="Remover documento">
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
                         ))}
                       </div>
+
+                      <AlertDialog open={confirmAnaliseOpen} onOpenChange={(open) => { setConfirmAnaliseOpen(open); if (!open) setDocParaAnalise(null); }}>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Confirmar análise</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Deseja analisar e atualizar os campos do formulário correspondente a este arquivo? Será mostrada uma prévia com sugestões antes de aplicar.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => setConfirmAnaliseOpen(false)}>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={async () => { setConfirmAnaliseOpen(false); if (docParaAnalise) { await analisarDocumentosComIA(docParaAnalise.id); setDocParaAnalise(null); } }} className="bg-indigo-600 hover:bg-indigo-700">
+                              Analisar e mostrar prévia
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </>
                   )}
                   <div className="mt-4">
                     <div className="flex items-center justify-between gap-2 mb-1">
@@ -3854,7 +3898,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         onClick={(e) => { e.stopPropagation(); atualizarDetalhesVoo(); }}
                         className="gap-2"
                     >
-                      <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
+                      <Sparkles className={`w-4 h-4 ${atualizando === "voo" ? "animate-spin" : ""}`} />
                     </Button>
                     <Button
                         type="button"
@@ -4175,7 +4219,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         onClick={(e) => { e.stopPropagation(); atualizarDetalhesHospedagem(); }}
                         className="gap-2"
                     >
-                      <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
+                      <Sparkles className={`w-4 h-4 ${atualizando === "hospedagem" ? "animate-spin" : ""}`} />
                     </Button>
                     <Button
                         type="button"
@@ -4637,7 +4681,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         onClick={(e) => { e.stopPropagation(); atualizarDetalhesTraslado(); }}
                         className="gap-2"
                     >
-                      <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
+                      <Sparkles className={`w-4 h-4 ${atualizando === "traslado" ? "animate-spin" : ""}`} />
                     </Button>
                     <Button
                         type="button"
@@ -4739,7 +4783,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         onClick={(e) => { e.stopPropagation(); atualizarDetalhesSeguro(); }}
                         className="gap-2"
                     >
-                      <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
+                      <Sparkles className={`w-4 h-4 ${atualizando === "seguro" ? "animate-spin" : ""}`} />
                     </Button>
                     <Button
                         type="button"
@@ -4937,7 +4981,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         onClick={(e) => { e.stopPropagation(); atualizarDetalhesIngresso(); }}
                         className="gap-2"
                     >
-                      <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
+                      <Sparkles className={`w-4 h-4 ${atualizando === "ingresso" ? "animate-spin" : ""}`} />
                     </Button>
                     <Button
                         type="button"
@@ -5142,7 +5186,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         onClick={(e) => { e.stopPropagation(); atualizarResumoPacote(); }}
                         className="gap-2"
                     >
-                      <Sparkles className={`w-4 h-4 ${analisandoIA ? "animate-spin" : ""}`} />
+                      <Sparkles className={`w-4 h-4 ${atualizando === "resumo" ? "animate-spin" : ""}`} />
                     </Button>
                     <Button
                         type="button"
