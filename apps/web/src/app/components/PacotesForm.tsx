@@ -2149,6 +2149,13 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
   const [seguroMinimizado, setSeguroMinimizado] = useState(true);
   const [urlOperadorMinimizado, setUrlOperadorMinimizado] = useState(true);
   const [relatoriosMinimizado, setRelatoriosMinimizado] = useState(true);
+  // Minimização específica para subcampos de hospedagem
+  const [hospedagemLinkMinimizado, setHospedagemLinkMinimizado] = useState(true);
+  const [hospedagemFotosMinimizado, setHospedagemFotosMinimizado] = useState(true);
+  const [hospedagemPoliticasMinimizado, setHospedagemPoliticasMinimizado] = useState(true);
+  // Minimização específica para subcampos de seguro
+  const [seguroCoberturasMinimizado, setSeguroCoberturasMinimizado] = useState(true);
+  const [seguroObservacoesMinimizado, setSeguroObservacoesMinimizado] = useState(true);
   const [relatoriosExpandidos, setRelatoriosExpandidos] = useState<Set<number>>(new Set());
   const [analisandoIA, setAnalisandoIA] = useState(false);
   const [buscandoLinkHotelIA, setBuscandoLinkHotelIA] = useState(false);
@@ -4287,40 +4294,6 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         />
                       </div>
 
-                      <div className="sm:col-span-2">
-                        <Label className="text-xs">Políticas, Condições e Informações Especiais</Label>
-                        <Textarea
-                            className={`mt-1 min-h-24 ${!form.hospedagemPoliticasCondicoesInformacoesEspeciais ? 'bg-yellow-50' : 'bg-white'}`}
-                            placeholder="Regras, cancelamento, taxas, observações e informações especiais da hospedagem"
-                            value={form.hospedagemPoliticasCondicoesInformacoesEspeciais || ""}
-                            onChange={(e) => setForm((prev) => ({ ...prev, hospedagemPoliticasCondicoesInformacoesEspeciais: e.target.value }))}
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs">Comodidades do estabelecimento</Label>
-                          <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setComodidadesMinimizado((prev) => !prev)}
-                              className="gap-1 text-gray-600 hover:text-gray-900 h-7 px-1.5"
-                          >
-                            {comodidadesMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-                            <span className="text-xs">{comodidadesMinimizado ? " " : " "}</span>
-                          </Button>
-                        </div>
-                        {!comodidadesMinimizado && (
-                            <Textarea
-                                className={`mt-1 min-h-20 ${!form.hospedagemComodidades ? 'bg-yellow-50' : 'bg-white'}`}
-                                placeholder="Ex: piscina, Wi-Fi, academia, estacionamento"
-                                value={form.hospedagemComodidades || ""}
-                                onChange={(e) => setForm((prev) => ({ ...prev, hospedagemComodidades: e.target.value }))}
-                            />
-                        )}
-                      </div>
-
                       <div>
                         <Label className="text-xs">Noites</Label>
                         <Input
@@ -4352,8 +4325,75 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         />
                       </div>
 
-                      <div className="sm:col-span-2">
-                        <Label className="text-xs">Link do Hotel</Label>
+                      <div className="sm:col-span-2 rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+                        <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setHospedagemPoliticasMinimizado((v) => !v)}>
+                          <Label className="text-xs">Políticas, Condições e Informações Especiais</Label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); setHospedagemPoliticasMinimizado((v) => !v); }}
+                            className="h-6 gap-1 px-2 text-gray-500 hover:text-gray-700"
+                            aria-expanded={!hospedagemPoliticasMinimizado}
+                            aria-controls="hospedagem-politicas-content"
+                          >
+                            {hospedagemPoliticasMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                            <span className="sr-only">{hospedagemPoliticasMinimizado ? "Expandir políticas" : "Recolher políticas"}</span>
+                          </Button>
+                        </div>
+                        {!hospedagemPoliticasMinimizado && (
+                          <div id="hospedagem-politicas-content">
+                            <Textarea
+                                className={`mt-1 min-h-24 ${!form.hospedagemPoliticasCondicoesInformacoesEspeciais ? 'bg-yellow-50' : 'bg-white'}`}
+                                placeholder="Regras, cancelamento, taxas, observações e informações especiais da hospedagem"
+                                value={form.hospedagemPoliticasCondicoesInformacoesEspeciais || ""}
+                                onChange={(e) => setForm((prev) => ({ ...prev, hospedagemPoliticasCondicoesInformacoesEspeciais: e.target.value }))}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="sm:col-span-2 rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+                        <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setComodidadesMinimizado((prev) => !prev)}>
+                          <Label className="text-xs">Comodidades do estabelecimento</Label>
+                          <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => { e.stopPropagation(); setComodidadesMinimizado((prev) => !prev); }}
+                              className="gap-1 text-gray-600 hover:text-gray-900 h-7 px-1.5"
+                          >
+                            {comodidadesMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                            <span className="text-xs">{comodidadesMinimizado ? " " : " "}</span>
+                          </Button>
+                        </div>
+                        {!comodidadesMinimizado && (
+                            <Textarea
+                                className={`mt-1 min-h-20 ${!form.hospedagemComodidades ? 'bg-yellow-50' : 'bg-white'}`}
+                                placeholder="Ex: piscina, Wi-Fi, academia, estacionamento"
+                                value={form.hospedagemComodidades || ""}
+                                onChange={(e) => setForm((prev) => ({ ...prev, hospedagemComodidades: e.target.value }))}
+                            />
+                        )}
+                      </div>
+
+                      <div className="sm:col-span-2 rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+                        <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setHospedagemLinkMinimizado((v) => !v)}>
+                          <Label className="text-xs">Link do Hotel</Label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); setHospedagemLinkMinimizado((v) => !v); }}
+                            className="h-6 gap-1 px-2 text-gray-500 hover:text-gray-700"
+                            aria-expanded={!hospedagemLinkMinimizado}
+                            aria-controls="hospedagem-link-content"
+                          >
+                            <span className="sr-only">{hospedagemLinkMinimizado ? "Expandir link do hotel" : "Recolher link do hotel"}</span>
+                            {hospedagemLinkMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                          </Button>
+                        </div>
+                        <div className={`${hospedagemLinkMinimizado ? 'hidden' : 'mt-1'}`}>
                         <div className="relative mt-1 flex gap-2">
                           <div className="relative flex-1">
                             <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -4463,10 +4503,26 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                               </Button>
                             </div>
                         )}
-                      </div>
+                          </div>
+                        </div>
 
-                      <div className="sm:col-span-2">
-                        <Label className="text-xs">Fotos da Hospedagem</Label>
+                      <div className="sm:col-span-2 rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+                        <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setHospedagemFotosMinimizado((v) => !v)}>
+                          <Label className="text-xs">Fotos da Hospedagem</Label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); setHospedagemFotosMinimizado((v) => !v); }}
+                            className="h-6 gap-1 px-2 text-gray-500 hover:text-gray-700"
+                            aria-expanded={!hospedagemFotosMinimizado}
+                            aria-controls="hospedagem-fotos-content"
+                          >
+                            {hospedagemFotosMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                            <span className="sr-only">{hospedagemFotosMinimizado ? "Expandir fotos" : "Recolher fotos"}</span>
+                          </Button>
+                        </div>
+                        <div className={`${hospedagemFotosMinimizado ? 'hidden' : 'mt-1'}`}>
                         <div className="relative mt-1 flex gap-2">
                           <div className="relative flex-1">
                             <Image className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -4562,6 +4618,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                               <img src={form.hospedagemFoto} alt="Prévia da foto da hospedagem" className="h-28 w-full object-cover" />
                             </div>
                         )}
+                        </div>
                       </div>
                     </div>
                 )}
@@ -4809,24 +4866,60 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         />
                       </div>
 
-                      <div className="sm:col-span-2">
-                        <Label className="text-xs">Coberturas</Label>
-                        <Textarea
-                            className={`mt-1 min-h-20 ${!form.seguroCoberturas ? 'bg-yellow-50' : 'bg-white'}`}
-                            placeholder="Ex: Médico, Bagagem, Cancelamento"
-                            value={form.seguroCoberturas || ""}
-                            onChange={(e) => setForm((prev) => ({ ...prev, seguroCoberturas: e.target.value }))}
-                        />
+                      <div className="sm:col-span-2 rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+                        <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setSeguroCoberturasMinimizado((v) => !v)}>
+                          <Label className="text-xs">Coberturas</Label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); setSeguroCoberturasMinimizado((v) => !v); }}
+                            className="h-6 gap-1 px-2 text-gray-500 hover:text-gray-700"
+                            aria-expanded={!seguroCoberturasMinimizado}
+                            aria-controls="seguro-coberturas-content"
+                          >
+                            {seguroCoberturasMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                            <span className="sr-only">{seguroCoberturasMinimizado ? "Expandir coberturas" : "Recolher coberturas"}</span>
+                          </Button>
+                        </div>
+                        {!seguroCoberturasMinimizado && (
+                          <div id="seguro-coberturas-content">
+                            <Textarea
+                                className={`mt-1 min-h-20 ${!form.seguroCoberturas ? 'bg-yellow-50' : 'bg-white'}`}
+                                placeholder="Ex: Médico, Bagagem, Cancelamento"
+                                value={form.seguroCoberturas || ""}
+                                onChange={(e) => setForm((prev) => ({ ...prev, seguroCoberturas: e.target.value }))}
+                            />
+                          </div>
+                        )}
                       </div>
 
-                      <div className="sm:col-span-2">
-                        <Label className="text-xs">Observações</Label>
-                        <Textarea
-                            className={`mt-1 min-h-20 ${!form.seguroObservacoes ? 'bg-yellow-50' : 'bg-white'}`}
-                            placeholder="Informações adicionais sobre o seguro"
-                            value={form.seguroObservacoes || ""}
-                            onChange={(e) => setForm((prev) => ({ ...prev, seguroObservacoes: e.target.value }))}
-                        />
+                      <div className="sm:col-span-2 rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+                        <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setSeguroObservacoesMinimizado((v) => !v)}>
+                          <Label className="text-xs">Observações</Label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); setSeguroObservacoesMinimizado((v) => !v); }}
+                            className="h-6 gap-1 px-2 text-gray-500 hover:text-gray-700"
+                            aria-expanded={!seguroObservacoesMinimizado}
+                            aria-controls="seguro-observacoes-content"
+                          >
+                            {seguroObservacoesMinimizado ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                            <span className="sr-only">{seguroObservacoesMinimizado ? "Expandir observações" : "Recolher observações"}</span>
+                          </Button>
+                        </div>
+                        {!seguroObservacoesMinimizado && (
+                          <div id="seguro-observacoes-content">
+                            <Textarea
+                                className={`mt-1 min-h-20 ${!form.seguroObservacoes ? 'bg-yellow-50' : 'bg-white'}`}
+                                placeholder="Informações adicionais sobre o seguro"
+                                value={form.seguroObservacoes || ""}
+                                onChange={(e) => setForm((prev) => ({ ...prev, seguroObservacoes: e.target.value }))}
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                 )}
