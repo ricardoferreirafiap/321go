@@ -957,6 +957,18 @@ export default function RoteiroOrcamento() {
   const [pacotesMinimizado, setPacotesMinimizado] = useState(false);
   const carrosselHospedagemRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
+  // Inicializa índice ativo de cada hospedagem quando o orçamento é carregado
+  useEffect(() => {
+    if (!orc?.hospedagem || !Array.isArray(orc.hospedagem)) return;
+    setCarrosselHospedagemAtivo((prev) => {
+      const next = { ...prev } as Record<number, number>;
+      orc.hospedagem.forEach((_h: any, i: number) => {
+        if (typeof next[i] !== 'number') next[i] = 0;
+      });
+      return next;
+    });
+  }, [orc?.hospedagem]);
+
   useEffect(() => {
     let active = true;
 
