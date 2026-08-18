@@ -1746,53 +1746,47 @@ export default function RoteiroOrcamento() {
               const noites      = h.noites || "";
               const classificacao = Number(h.classificacao) || 0;
               const fotos = normalizarFotosHospedagem(h);
+              const indiceAtual = carrosselHospedagemAtivo[idx] ?? 0;
+              const fotoAtual = fotos[indiceAtual] || fotos[0];
               return (
                 <div key={`hf-${idx}`} className="overflow-hidden rounded-[22px] bg-[#1c1848] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                   {fotos.length > 0 && (
                     <div className="relative">
                       {/* Controlled carousel: show one image at a time with overlay arrows for mobile/desktop */}
                       <div className="relative h-56 sm:h-72 overflow-hidden bg-[#0b0635]">
-                        {(() => {
-                          const indiceAtual = carrosselHospedagemAtivo[idx] ?? 0;
-                          const fotoAtual = fotos[indiceAtual] || fotos[0];
-                          return (
-                            <>
-                              <a href={fotoAtual} target="_blank" rel="noreferrer" className="block w-full h-full">
-                                <img src={fotoAtual} alt={`Foto da hospedagem ${nome}`.trim() || "Foto da hospedagem"}
-                                  className="w-full h-full object-cover transition-transform duration-300" loading="lazy" />
-                              </a>
-
-                              {fotos.length > 1 && (
-                                <>
-                                  <button type="button" onClick={() => {
-                                    const atual = carrosselHospedagemAtivo[idx] ?? 0;
-                                    const proximo = Math.max(0, atual - 1);
-                                    setCarrosselHospedagemAtivo((current) => ({ ...current, [idx]: proximo }));
-                                  }}
-                                    aria-label="Foto anterior"
-                                    className="absolute left-3 top-1/2 z-50 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 disabled:opacity-30 transition">
-                                    <ChevronLeft className="h-5 w-5" />
-                                  </button>
-
-                                  <button type="button" onClick={() => {
-                                    const atual = carrosselHospedagemAtivo[idx] ?? 0;
-                                    const proximo = Math.min(fotos.length - 1, atual + 1);
-                                    setCarrosselHospedagemAtivo((current) => ({ ...current, [idx]: proximo }));
-                                  }}
-                                    aria-label="Próxima foto"
-                                    className="absolute right-3 top-1/2 z-50 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 disabled:opacity-30 transition">
-                                    <ChevronRight className="h-5 w-5" />
-                                  </button>
-
-                                  <div className="absolute bottom-2 right-2 z-20 rounded-full bg-black/60 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
-                                    {indiceAtual + 1} / {fotos.length}
-                                  </div>
-                                </>
-                              )}
-                            </>
-                          );
-                        })()}
+                        <a href={fotoAtual} target="_blank" rel="noreferrer" className="block w-full h-full">
+                          <img src={fotoAtual} alt={`Foto da hospedagem ${nome}`.trim() || "Foto da hospedagem"}
+                            className="w-full h-full object-cover transition-transform duration-300" loading="lazy" />
+                        </a>
                       </div>
+
+                      {fotos.length > 1 && (
+                        <>
+                          <button type="button" onClick={() => {
+                            const atual = carrosselHospedagemAtivo[idx] ?? 0;
+                            const proximo = Math.max(0, atual - 1);
+                            setCarrosselHospedagemAtivo((current) => ({ ...current, [idx]: proximo }));
+                          }}
+                            aria-label="Foto anterior"
+                            className="absolute left-3 top-1/2 z-50 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 disabled:opacity-30 transition">
+                            <ChevronLeft className="h-5 w-5" />
+                          </button>
+
+                          <button type="button" onClick={() => {
+                            const atual = carrosselHospedagemAtivo[idx] ?? 0;
+                            const proximo = Math.min(fotos.length - 1, atual + 1);
+                            setCarrosselHospedagemAtivo((current) => ({ ...current, [idx]: proximo }));
+                          }}
+                            aria-label="Próxima foto"
+                            className="absolute right-3 top-1/2 z-50 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 disabled:opacity-30 transition">
+                            <ChevronRight className="h-5 w-5" />
+                          </button>
+
+                          <div className="absolute bottom-2 right-2 z-20 rounded-full bg-black/60 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
+                            {indiceAtual + 1} / {fotos.length}
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
                   <div className="px-5 py-5 space-y-4">
