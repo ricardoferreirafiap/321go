@@ -1539,7 +1539,7 @@ export default function RoteiroOrcamento() {
 
                   {/* Destino / Reserva */}
                   {(pacote.destino || pacote.origem || pacote.reserva) && (
-                    <div className="flex flex-wrap gap-x-6 gap-y-2 pb-3 border-b border-white/10">
+                    <div className="flex flex-wrap gap-x-6 gap-y-2">
                       {(pacote.origem || pacote.destino) && (
                         <div>
                           <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/40">Destino</p>
