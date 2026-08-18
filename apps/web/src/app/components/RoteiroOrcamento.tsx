@@ -1738,31 +1738,48 @@ export default function RoteiroOrcamento() {
                 <div key={`hf-${idx}`} className="overflow-hidden rounded-[22px] bg-[#1c1848] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                   {fotos.length > 0 && (
                     <div className="relative">
-                      {fotos.length > 1 && (
-                        <>
-                          <button type="button" onClick={() => moverCarrosselHospedagem(idx, -1)}
-                            disabled={(carrosselHospedagemAtivo[idx] ?? 0) === 0} aria-label="Foto anterior"
-                            className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm hover:bg-black/70 disabled:opacity-30 transition">
-                            <ChevronLeft className="h-5 w-5" />
-                          </button>
-                          <button type="button" onClick={() => moverCarrosselHospedagem(idx, 1)}
-                            disabled={(carrosselHospedagemAtivo[idx] ?? 0) >= fotos.length - 1} aria-label="Próxima foto"
-                            className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm hover:bg-black/70 disabled:opacity-30 transition">
-                            <ChevronRight className="h-5 w-5" />
-                          </button>
-                        </>
-                      )}
-                      <div ref={(el) => { carrosselHospedagemRefs.current[idx] = el; }} className="flex overflow-x-auto scroll-smooth snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                        {fotos.map((foto: string, fi: number) => (
-                          <a key={foto} data-hospedagem-foto href={foto} target="_blank" rel="noreferrer"
-                            className="group relative w-full flex-none snap-start snap-always overflow-hidden bg-[#0b0635]">
-                            <img src={foto} alt={`Foto ${fi + 1} da hospedagem ${nome}`.trim() || "Foto da hospedagem"}
-                              className="h-56 w-full object-cover transition-transform duration-300 group-hover:scale-[1.02] sm:h-72" loading="lazy" />
-                            <div className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
-                              {fi + 1} / {fotos.length}
-                            </div>
-                          </a>
-                        ))}
+                      {/* Controlled carousel: show one image at a time with overlay arrows for mobile/desktop */}
+                      <div className="relative h-56 sm:h-72 overflow-hidden bg-[#0b0635]">
+                        {(() => {
+                          const indiceAtual = carrosselHospedagemAtivo[idx] ?? 0;
+                          const fotoAtual = fotos[indiceAtual] || fotos[0];
+                          return (
+                            <>
+                              <a href={fotoAtual} target="_blank" rel="noreferrer" className="block w-full h-full">
+                                <img src={fotoAtual} alt={`Foto da hospedagem ${nome}`.trim() || "Foto da hospedagem"}
+                                  className="w-full h-full object-cover transition-transform duration-300" loading="lazy" />
+                              </a>
+
+                              {fotos.length > 1 && (
+                                <>
+                                  <button type="button" onClick={() => {
+                                    const atual = carrosselHospedagemAtivo[idx] ?? 0;
+                                    const proximo = Math.max(0, atual - 1);
+                                    setCarrosselHospedagemAtivo((current) => ({ ...current, [idx]: proximo }));
+                                  }}
+                                    aria-label="Foto anterior"
+                                    className="absolute left-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm hover:bg-black/70 disabled:opacity-30 transition">
+                                    <ChevronLeft className="h-5 w-5" />
+                                  </button>
+
+                                  <button type="button" onClick={() => {
+                                    const atual = carrosselHospedagemAtivo[idx] ?? 0;
+                                    const proximo = Math.min(fotos.length - 1, atual + 1);
+                                    setCarrosselHospedagemAtivo((current) => ({ ...current, [idx]: proximo }));
+                                  }}
+                                    aria-label="Próxima foto"
+                                    className="absolute right-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm hover:bg-black/70 disabled:opacity-30 transition">
+                                    <ChevronRight className="h-5 w-5" />
+                                  </button>
+
+                                  <div className="absolute bottom-2 right-2 z-20 rounded-full bg-black/60 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
+                                    {indiceAtual + 1} / {fotos.length}
+                                  </div>
+                                </>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   )}
