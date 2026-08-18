@@ -1770,7 +1770,7 @@ export default function RoteiroOrcamento() {
                                     setCarrosselHospedagemAtivo((current) => ({ ...current, [idx]: proximo }));
                                   }}
                                     aria-label="Foto anterior"
-                                    className="absolute left-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm hover:bg-black/70 disabled:opacity-30 transition">
+                                    className="absolute left-3 top-1/2 z-50 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 disabled:opacity-30 transition">
                                     <ChevronLeft className="h-5 w-5" />
                                   </button>
 
@@ -1780,7 +1780,7 @@ export default function RoteiroOrcamento() {
                                     setCarrosselHospedagemAtivo((current) => ({ ...current, [idx]: proximo }));
                                   }}
                                     aria-label="Próxima foto"
-                                    className="absolute right-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm hover:bg-black/70 disabled:opacity-30 transition">
+                                    className="absolute right-3 top-1/2 z-50 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 disabled:opacity-30 transition">
                                     <ChevronRight className="h-5 w-5" />
                                   </button>
 
