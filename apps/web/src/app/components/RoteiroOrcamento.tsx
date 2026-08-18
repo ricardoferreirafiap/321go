@@ -1737,7 +1737,7 @@ export default function RoteiroOrcamento() {
               return (
                 <div key={`hf-${idx}`} className="overflow-hidden rounded-[22px] bg-[#1c1848] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                   {fotos.length > 0 && (
-                    <div className="relative" ref={(el) => { carrosselHospedagemRefs.current[idx] = el; }}>
+                    <div className="relative">
                       {fotos.length > 1 && (
                         <>
                           <button type="button" onClick={() => moverCarrosselHospedagem(idx, -1)}
@@ -1752,7 +1752,7 @@ export default function RoteiroOrcamento() {
                           </button>
                         </>
                       )}
-                      <div className="flex overflow-x-auto scroll-smooth snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                      <div ref={(el) => { carrosselHospedagemRefs.current[idx] = el; }} className="flex overflow-x-auto scroll-smooth snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                         {fotos.map((foto: string, fi: number) => (
                           <a key={foto} data-hospedagem-foto href={foto} target="_blank" rel="noreferrer"
                             className="group relative w-full flex-none snap-start snap-always overflow-hidden bg-[#0b0635]">
