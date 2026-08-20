@@ -925,7 +925,7 @@ function Countdown({ targetDate, checkoutDate }: { targetDate: string; checkoutD
   return (
     <div>
       <p className="mb-3 text-center text-sm font-semibold text-white/80">
-        Falta para sua viagem:
+        Faltam para sua viagem:
       </p>
       <div className="grid grid-cols-5 gap-2 sm:gap-3">
         {timerComponents.map(([interval, value]) => (
