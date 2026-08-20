@@ -14,6 +14,7 @@ const menuItems = [
   { name: "DASHBOARD", path: "/" },
   { name: "LEADS", path: "/leads/list" },
   { name: "CRM", path: "/crm" },
+  { name: "VOUCHERS", path: "/financeiro/voucher" },
   { name: "ORÇAMENTOS", path: "/financeiro/orcamentos" },
   { name: "CADASTROS", path: "/cadastros" },
   { name: "FINANCEIRO", path: "/financeiro" },

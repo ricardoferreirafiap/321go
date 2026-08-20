@@ -435,6 +435,12 @@ function formatarDataIsoBr(dataIso?: string): string {
   return `${dia}/${mes}/${ano}`;
 }
 
+function fmtData(d: string) {
+  if (!d) return "—";
+  const [y, m, day] = d.split("-");
+  return `${day}/${m}/${y}`;
+}
+
 // Monta um resumo curto da viagem com base nos Detalhes do Voo, Hospedagem,
 // Seguro, Traslado e Ingresso já preenchidos no pacote. É esse texto que aparece
 // como descrição do pacote na tela pública do Roteiro.
@@ -448,7 +454,7 @@ export function gerarResumoPacote(dados: Omit<Pacote, "id" | "documentos">): str
     let trecho = "Voo";
     if (dados.ciaAerea?.trim()) trecho += ` pela ${dados.ciaAerea.trim()}`;
     if (origemIda || destinoIda) trecho += ` de ${origemIda || "?"} para ${destinoIda || "?"}`;
-    if (dados.dataIda) trecho += ` em ${formatarDataIsoBr(dados.dataIda)}`;
+    if (dados.dataIda) trecho += ` em ${fmtData(dados.dataIda)}`;
     partes.push(`${trecho}.`);
   }
 
@@ -459,14 +465,14 @@ export function gerarResumoPacote(dados: Omit<Pacote, "id" | "documentos">): str
     if (dados.origemVolta?.trim() || dados.destinoVolta?.trim()) {
       volta += ` de ${dados.origemVolta?.trim() || "?"} para ${dados.destinoVolta?.trim() || "?"}`;
     }
-    if (dados.dataVolta) volta += ` em ${formatarDataIsoBr(dados.dataVolta)}`;
+    if (dados.dataVolta) volta += ` em ${fmtData(dados.dataVolta)}`;
     partes.push(`${volta}.`);
   }
 
   if (dados.hospedagemNome?.trim()) {
     let hospedagem = `Hospedagem no ${dados.hospedagemNome.trim()}`;
     if (dados.hospedagemCheckin && dados.hospedagemCheckout) {
-      hospedagem += `, de ${formatarDataIsoBr(dados.hospedagemCheckin)} a ${formatarDataIsoBr(dados.hospedagemCheckout)}`;
+      hospedagem += `, de ${fmtData(dados.hospedagemCheckin)} a ${fmtData(dados.hospedagemCheckout)}`;
     }
     if (dados.hospedagemNoites?.trim()) hospedagem += ` (${dados.hospedagemNoites.trim()} noites)`;
     partes.push(`${hospedagem}.`);
@@ -3535,12 +3541,14 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                     {(pacote.origemIda || pacote.destinoIda || pacote.origem || pacote.destino) && (
                         <p className="text-xs text-gray-500 mt-0.5">
                           Ida: {pacote.origemIda || pacote.origem || "Origem"} → {pacote.destinoIda || pacote.destino || "Destino"}
+                          {pacote.dataIda ? ` (${fmtData(pacote.dataIda)})` : ""}
                           {pacote.duracaoIda ? ` (${pacote.duracaoIda})` : ""}
                         </p>
                     )}
                     {(pacote.origemVolta || pacote.destinoVolta) && (
                         <p className="text-xs text-gray-500 mt-0.5">
                           Volta: {pacote.origemVolta || "Origem"} → {pacote.destinoVolta || "Destino"}
+                          {pacote.dataVolta ? ` (${fmtData(pacote.dataVolta)})` : ""}
                           {pacote.duracaoVolta ? ` (${pacote.duracaoVolta})` : ""}
                         </p>
                     )}
@@ -3548,7 +3556,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         <p className="text-xs text-gray-500 mt-0.5">
                           Hotel: {pacote.hospedagemNome}
                           {pacote.hospedagemCheckin && pacote.hospedagemCheckout
-                              ? ` (${pacote.hospedagemCheckin} → ${pacote.hospedagemCheckout})`
+                              ? ` (${fmtData(pacote.hospedagemCheckin)} → ${fmtData(pacote.hospedagemCheckout)})`
                               : ""}
                           {pacote.hospedagemValor && ` - R$ ${pacote.hospedagemValor}`}
                         </p>
@@ -3954,6 +3962,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                             <div>
                               <Label htmlFor="pacote-data-ida" className="text-xs">Data</Label>
                               <Input id="pacote-data-ida" type="date" className={`mt-1 ${!form.dataIda ? 'bg-yellow-50' : 'bg-white'}`} value={form.dataIda || ""} onChange={(e) => setForm((prev) => ({ ...prev, dataIda: e.target.value }))} />
+                              {form.dataIda && <p className="text-xs text-gray-500 mt-1">{fmtData(form.dataIda)}</p>}
                             </div>
                             <div>
                               <Label htmlFor="pacote-cia-ida" className="text-xs">CIA Aérea</Label>
@@ -4053,6 +4062,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                             <div>
                               <Label htmlFor="pacote-data-volta" className="text-xs">Data</Label>
                               <Input id="pacote-data-volta" type="date" className={`mt-1 ${!form.dataVolta ? 'bg-yellow-50' : 'bg-white'}`} value={form.dataVolta || ""} onChange={(e) => setForm((prev) => ({ ...prev, dataVolta: e.target.value }))} />
+                              {form.dataVolta && <p className="text-xs text-gray-500 mt-1">{fmtData(form.dataVolta)}</p>}
                             </div>
                             <div>
                               <Label htmlFor="pacote-cia-volta" className="text-xs">CIA Aérea</Label>
@@ -4286,6 +4296,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                             value={form.hospedagemCheckin || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, hospedagemCheckin: e.target.value }))}
                         />
+                        {form.hospedagemCheckin && <p className="text-xs text-gray-500 mt-1">{fmtData(form.hospedagemCheckin)}</p>}
                       </div>
 
                       <div>
@@ -4296,6 +4307,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                             value={form.hospedagemCheckout || ""}
                             onChange={(e) => setForm((prev) => ({ ...prev, hospedagemCheckout: e.target.value }))}
                         />
+                        {form.hospedagemCheckout && <p className="text-xs text-gray-500 mt-1">{fmtData(form.hospedagemCheckout)}</p>}
                       </div>
 
                       <div>
