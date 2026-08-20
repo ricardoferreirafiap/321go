@@ -949,6 +949,7 @@ export default function RoteiroOrcamento() {
   const [itemAtivo, setItemAtivo] = useState<string>("pacotes");
   const [diaAtivoId, setDiaAtivoId] = useState<number | null>(null);
   const [carrosselHospedagemAtivo, setCarrosselHospedagemAtivo] = useState<Record<number, number>>({});
+  const [carrosselPacoteHospedagemAtivo, setCarrosselPacoteHospedagemAtivo] = useState<Record<number, number>>({});
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
@@ -968,6 +969,63 @@ export default function RoteiroOrcamento() {
       return next;
     });
   }, [orc?.hospedagem]);
+
+  // Inicializa índice ativo de cada hospedagem de pacote
+  useEffect(() => {
+    if (!orc?.pacotes || !Array.isArray(orc.pacotes)) return;
+    setCarrosselPacoteHospedagemAtivo((prev) => {
+      const next = { ...prev } as Record<number, number>;
+      orc.pacotes.forEach((p: any, i: number) => {
+        if (typeof next[i] !== 'number') next[i] = 0;
+      });
+      return next;
+    });
+  }, [orc?.pacotes]);
+
+  // Auto-play do carrossel de hospedagem direta
+  useEffect(() => {
+    if (!orc?.hospedagem || !Array.isArray(orc.hospedagem)) return;
+    
+    const interval = setInterval(() => {
+      setCarrosselHospedagemAtivo((prev) => {
+        const next = { ...prev } as Record<number, number>;
+        orc.hospedagem.forEach((h: any, i: number) => {
+          const fotos = normalizarFotosHospedagem(h);
+          if (fotos.length > 1) {
+            next[i] = (next[i] + 1) % fotos.length;
+          }
+        });
+        return next;
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [orc?.hospedagem]);
+
+  // Auto-play do carrossel de hospedagem de pacote
+  useEffect(() => {
+    if (!orc?.pacotes || !Array.isArray(orc.pacotes)) return;
+    
+    const interval = setInterval(() => {
+      setCarrosselPacoteHospedagemAtivo((prev) => {
+        const next = { ...prev } as Record<number, number>;
+        orc.pacotes.forEach((p: any, i: number) => {
+          const fotos: string[] = (() => {
+            const f: string[] = [];
+            if (Array.isArray(p.hospedagemFotos)) f.push(...p.hospedagemFotos.filter(Boolean));
+            if (p.hospedagemFoto && !f.includes(p.hospedagemFoto)) f.push(p.hospedagemFoto);
+            return f.map(obterImagemPublicaSegura).filter(Boolean);
+          })();
+          if (fotos.length > 1) {
+            next[i] = (next[i] + 1) % fotos.length;
+          }
+        });
+        return next;
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [orc?.pacotes]);
 
   useEffect(() => {
     let active = true;
@@ -1764,21 +1822,23 @@ export default function RoteiroOrcamento() {
                         <>
                           <button type="button" onClick={() => {
                             const atual = carrosselHospedagemAtivo[idx] ?? 0;
-                            const proximo = Math.max(0, atual - 1);
+                            const proximo = (atual - 1 + fotos.length) % fotos.length;
                             setCarrosselHospedagemAtivo((current) => ({ ...current, [idx]: proximo }));
                           }}
                             aria-label="Foto anterior"
-                            className="absolute left-3 top-1/2 z-50 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 disabled:opacity-30 transition">
+                            className="absolute left-3 top-1/2 z-50 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full text-white shadow-lg hover:opacity-90 disabled:opacity-30 transition"
+                            style={{ backgroundColor: COR_PRINCIPAL }}>
                             <ChevronLeft className="h-5 w-5" />
                           </button>
 
                           <button type="button" onClick={() => {
                             const atual = carrosselHospedagemAtivo[idx] ?? 0;
-                            const proximo = Math.min(fotos.length - 1, atual + 1);
+                            const proximo = (atual + 1) % fotos.length;
                             setCarrosselHospedagemAtivo((current) => ({ ...current, [idx]: proximo }));
                           }}
                             aria-label="Próxima foto"
-                            className="absolute right-3 top-1/2 z-50 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 disabled:opacity-30 transition">
+                            className="absolute right-3 top-1/2 z-50 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full text-white shadow-lg hover:opacity-90 disabled:opacity-30 transition"
+                            style={{ backgroundColor: COR_PRINCIPAL }}>
                             <ChevronRight className="h-5 w-5" />
                           </button>
 
@@ -1935,11 +1995,49 @@ export default function RoteiroOrcamento() {
                   if (p.hospedagemFoto && !f.includes(p.hospedagemFoto)) f.push(p.hospedagemFoto);
                   return f.map(obterImagemPublicaSegura).filter(Boolean);
                 })();
+                const indiceAtualPacote = carrosselPacoteHospedagemAtivo[idx] ?? 0;
+                const fotoAtualPacote = fotos[indiceAtualPacote] || fotos[0];
                 return (
                   <div key={`pp-${p.id ?? idx}`} className="overflow-hidden rounded-[22px] bg-[#1c1848] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                     {fotos.length > 0 && (
-                      <img src={fotos[0]} alt={`Foto da hospedagem ${nome}`}
-                        className="h-56 w-full object-cover sm:h-72" loading="lazy" />
+                      <div className="relative">
+                        <div className="relative h-56 sm:h-72 overflow-hidden bg-[#0b0635]">
+                          <a href={fotoAtualPacote} target="_blank" rel="noreferrer" className="block w-full h-full">
+                            <img src={fotoAtualPacote} alt={`Foto da hospedagem ${nome}`}
+                              className="w-full h-full object-cover transition-transform duration-300" loading="lazy" />
+                          </a>
+                        </div>
+                        
+                        {fotos.length > 1 && (
+                          <>
+                            <button type="button" onClick={() => {
+                              const atual = carrosselPacoteHospedagemAtivo[idx] ?? 0;
+                              const proximo = (atual - 1 + fotos.length) % fotos.length;
+                              setCarrosselPacoteHospedagemAtivo((current) => ({ ...current, [idx]: proximo }));
+                            }}
+                              aria-label="Foto anterior"
+                              className="absolute left-3 top-1/2 z-50 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full text-white shadow-lg hover:opacity-90 disabled:opacity-30 transition"
+                              style={{ backgroundColor: COR_PRINCIPAL }}>
+                              <ChevronLeft className="h-5 w-5" />
+                            </button>
+
+                            <button type="button" onClick={() => {
+                              const atual = carrosselPacoteHospedagemAtivo[idx] ?? 0;
+                              const proximo = (atual + 1) % fotos.length;
+                              setCarrosselPacoteHospedagemAtivo((current) => ({ ...current, [idx]: proximo }));
+                            }}
+                              aria-label="Próxima foto"
+                              className="absolute right-3 top-1/2 z-50 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full text-white shadow-lg hover:opacity-90 disabled:opacity-30 transition"
+                              style={{ backgroundColor: COR_PRINCIPAL }}>
+                              <ChevronRight className="h-5 w-5" />
+                            </button>
+
+                            <div className="absolute bottom-2 right-2 z-20 rounded-full bg-black/60 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
+                              {indiceAtualPacote + 1} / {fotos.length}
+                            </div>
+                          </>
+                        )}
+                      </div>
                     )}
                     <div className="px-5 py-5 space-y-4">
                       <p className="text-[17px] font-bold leading-snug text-white">{nome}</p>
