@@ -2050,7 +2050,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   const [ingressoMinimizado, setIngressoMinimizado] = useState(true);
   const [logAnaliseMinimizado] = useState(true);
   const [resumoMinimizado, setResumoMinimizado] = useState(true);
-  const [vouchersMinimizado, setVouchersMinimizado] = useState(true);
+  const [vouchersMinimizado, setVouchersMinimizado] = useState(false);
   const [comodidadesMinimizado, setComodidadesMinimizado] = useState(true);
   const [politicaCancelamentoMinimizado, setPoliticaCancelamentoMinimizado] = useState(true);
   const [seguroMinimizado, setSeguroMinimizado] = useState(true);
@@ -2499,7 +2499,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
     if (editandoId === pacote.id) {
       setEditandoId(null);
       setForm(pacoteVazio);
-      setVouchersMinimizado(true);
+      setVouchersMinimizado(false);
       setFormMinimizado(true);
       setTrechoIdaMinimizado(false);
       setTrechoVoltaMinimizado(false);

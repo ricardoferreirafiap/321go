@@ -995,7 +995,7 @@ export default function Voucher() {
     setTransporte(completo.transporte || []);
     setRestaurante(completo.restaurante || []);
     setExperiencias(completo.experiencias || []);
-    setDadosClienteMinimizados(true);
+    setDadosClienteMinimizados(false);
     setPerfilViagemSelecionado(Array.isArray(completo.perfilViagem) ? completo.perfilViagem.filter((item) => typeof item === "string") : []);
     setPromptPerfilViagemIA(typeof completo.promptPerfilViagemIA === "string" ? completo.promptPerfilViagemIA : "");
     setPerfilViagemMinimizado(true);
