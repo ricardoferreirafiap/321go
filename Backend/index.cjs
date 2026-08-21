@@ -207,6 +207,7 @@ let ensureFinanceiroComissaoColumnsPromise = null;
 let ensureFinanceiroDesnormalizacaoColumnsPromise = null;
 let ensureOrcamentosObservacoesColumnPromise = null;
 let ensureOrcamentosStatusViagemColumnPromise = null;
+let ensureOrcamentosStatusViagemConstraintPromise = null;
 
 async function ensureOrcamentosDestinoColumn() {
     if (!pool) {
@@ -428,12 +429,58 @@ async function ensureOrcamentosStatusViagemColumn() {
     }
 
     if (!ensureOrcamentosStatusViagemColumnPromise) {
-        ensureOrcamentosStatusViagemColumnPromise = pool
-            .query("ALTER TABLE public.orcamentos ADD COLUMN IF NOT EXISTS status_viagem VARCHAR(20) CHECK (status_viagem IN ('Não Iniciada', 'Em Andamento', 'Finalizada'))")
-            .catch((error) => {
-                ensureOrcamentosStatusViagemColumnPromise = null;
-                throw error;
-            });
+        ensureOrcamentosStatusViagemColumnPromise = (async () => {
+            // 1. Garante que a coluna existe (sem constraint, pois pode já existir com constraint errada)
+            await pool.query('ALTER TABLE public.orcamentos ADD COLUMN IF NOT EXISTS status_viagem VARCHAR(20)');
+
+            // 2. Remove qualquer constraint CHECK existente na coluna status_viagem (legada ou correta)
+            //    para poder recriar de forma idempotente.
+            const constraintRows = await pool.query(`
+                SELECT con.conname
+                FROM pg_constraint con
+                JOIN pg_attribute att ON att.attnum = ANY(con.conkey) AND att.attrelid = con.conrelid
+                JOIN pg_class cls ON cls.oid = con.conrelid
+                JOIN pg_namespace nsp ON nsp.oid = cls.relnamespace
+                WHERE nsp.nspname = 'public'
+                  AND cls.relname = 'orcamentos'
+                  AND att.attname = 'status_viagem'
+                  AND con.contype = 'c'
+            `);
+
+            for (const row of constraintRows.rows) {
+                await pool.query(`ALTER TABLE public.orcamentos DROP CONSTRAINT IF EXISTS "${row.conname}"`);
+            }
+
+            // 3. Corrige registros com valores legados ANTES de adicionar a nova constraint
+            await pool.query(`
+                UPDATE public.orcamentos
+                SET status_viagem = CASE
+                    WHEN status_viagem = 'Viagem Iniciada' THEN 'Não Iniciada'
+                    WHEN status_viagem = 'Andamento'       THEN 'Em Andamento'
+                    ELSE NULL
+                END
+                WHERE status_viagem IS NOT NULL
+                  AND status_viagem NOT IN ('Não Iniciada', 'Em Andamento', 'Finalizada')
+            `);
+
+            // 4. Adiciona a constraint correta (dados já estão limpos), apenas se não existir
+            const constraintExistsAfterDrop = await pool.query(`
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'orcamentos_status_viagem_check'
+                  AND conrelid = 'public.orcamentos'::regclass
+            `);
+
+            if (constraintExistsAfterDrop.rowCount === 0) {
+                await pool.query(`
+                    ALTER TABLE public.orcamentos
+                    ADD CONSTRAINT orcamentos_status_viagem_check
+                    CHECK (status_viagem IN ('Não Iniciada', 'Em Andamento', 'Finalizada'))
+                `);
+            }
+        })().catch((error) => {
+            ensureOrcamentosStatusViagemColumnPromise = null;
+            throw error;
+        });
     }
 
     await ensureOrcamentosStatusViagemColumnPromise;

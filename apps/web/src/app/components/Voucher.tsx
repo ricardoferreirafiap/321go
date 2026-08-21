@@ -623,35 +623,37 @@ export default function Voucher() {
   function adicionarUrlOperadorItem(itemId: number) {
     const url = novaUrlOperadorItem.trim();
     if (!url) return;
-    
-    const itensAtualizados = form.itens?.map(item => {
-      if (item.id === itemId) {
-        const urlsAtuais = item.urlOperador || [];
-        if (urlsAtuais.includes(url)) {
-          setErro("Esta URL já foi adicionada.");
-          return item;
+
+    setForm((prev) => {
+      const itensAtualizados = prev.itens?.map(item => {
+        if (item.id === itemId) {
+          const urlsAtuais = item.urlOperador || [];
+          if (urlsAtuais.includes(url)) {
+            setErro("Esta URL já foi adicionada.");
+            return item;
+          }
+          return { ...item, urlOperador: [...urlsAtuais, url] };
         }
-        return { ...item, urlOperador: [...urlsAtuais, url] };
-      }
-      return item;
-    }) || [];
-    
-    setForm({ ...form, itens: itensAtualizados });
+        return item;
+      }) || [];
+      return { ...prev, itens: itensAtualizados };
+    });
     setNovaUrlOperadorItem("");
     setErro("");
   }
 
   function removerUrlOperadorItem(itemId: number, urlIndex: number) {
-    const itensAtualizados = form.itens?.map(item => {
-      if (item.id === itemId) {
-        const urlsAtuais = item.urlOperador || [];
-        const novasUrls = urlsAtuais.filter((_, i) => i !== urlIndex);
-        return { ...item, urlOperador: novasUrls };
-      }
-      return item;
-    }) || [];
-    
-    setForm({ ...form, itens: itensAtualizados });
+    setForm((prev) => {
+      const itensAtualizados = prev.itens?.map(item => {
+        if (item.id === itemId) {
+          const urlsAtuais = item.urlOperador || [];
+          const novasUrls = urlsAtuais.filter((_, i) => i !== urlIndex);
+          return { ...item, urlOperador: novasUrls };
+        }
+        return item;
+      }) || [];
+      return { ...prev, itens: itensAtualizados };
+    });
   }
   
   function obterDestinoPrincipalOrcamento(orcBase?: Partial<Orcamento>, preferirEstadoFormulario = false) {
@@ -1683,11 +1685,11 @@ export default function Voucher() {
                               const cliente = clientesAtivos.find((item) => (item.nomeCompleto || item.nome) === nome);
                               const funcionario = funcionariosAtivos.find((item) => item.name === nome);
                               const fornecedor = fornecedoresAtivos.find((item) => (item.nomeFantasia || item.razaoSocial) === nome);
-                              setForm({
-                                ...form,
+                              setForm((prev) => ({
+                                ...prev,
                                 cliente: nome,
                                 email: cliente?.email ?? funcionario?.email ?? fornecedor?.email ?? "",
-                              });
+                              }));
                             }}
                             className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                         >
@@ -1769,7 +1771,10 @@ export default function Voucher() {
                         <Label>Status da Viagem</Label>
                         <select
                             value={form.statusViagem || ""}
-                            onChange={(e) => setForm({ ...form, statusViagem: e.target.value as StatusViagem | undefined })}
+                            onChange={(e) => {
+                              const novoStatus = e.target.value as StatusViagem | undefined;
+                              setForm((prev) => ({ ...prev, statusViagem: novoStatus }));
+                            }}
                             className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                         >
                           <option value="">Selecione...</option>

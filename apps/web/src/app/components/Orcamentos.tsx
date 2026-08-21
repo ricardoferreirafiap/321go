@@ -638,35 +638,37 @@ export default function Orcamentos() {
   function adicionarUrlOperadorItem(itemId: number) {
     const url = novaUrlOperadorItem.trim();
     if (!url) return;
-    
-    const itensAtualizados = form.itens?.map(item => {
-      if (item.id === itemId) {
-        const urlsAtuais = item.urlOperador || [];
-        if (urlsAtuais.includes(url)) {
-          setErro("Esta URL já foi adicionada.");
-          return item;
+
+    setForm((prev) => {
+      const itensAtualizados = prev.itens?.map(item => {
+        if (item.id === itemId) {
+          const urlsAtuais = item.urlOperador || [];
+          if (urlsAtuais.includes(url)) {
+            setErro("Esta URL já foi adicionada.");
+            return item;
+          }
+          return { ...item, urlOperador: [...urlsAtuais, url] };
         }
-        return { ...item, urlOperador: [...urlsAtuais, url] };
-      }
-      return item;
-    }) || [];
-    
-    setForm({ ...form, itens: itensAtualizados });
+        return item;
+      }) || [];
+      return { ...prev, itens: itensAtualizados };
+    });
     setNovaUrlOperadorItem("");
     setErro("");
   }
 
   function removerUrlOperadorItem(itemId: number, urlIndex: number) {
-    const itensAtualizados = form.itens?.map(item => {
-      if (item.id === itemId) {
-        const urlsAtuais = item.urlOperador || [];
-        const novasUrls = urlsAtuais.filter((_, i) => i !== urlIndex);
-        return { ...item, urlOperador: novasUrls };
-      }
-      return item;
-    }) || [];
-    
-    setForm({ ...form, itens: itensAtualizados });
+    setForm((prev) => {
+      const itensAtualizados = prev.itens?.map(item => {
+        if (item.id === itemId) {
+          const urlsAtuais = item.urlOperador || [];
+          const novasUrls = urlsAtuais.filter((_, i) => i !== urlIndex);
+          return { ...item, urlOperador: novasUrls };
+        }
+        return item;
+      }) || [];
+      return { ...prev, itens: itensAtualizados };
+    });
   }
   
   function obterDestinoPrincipalOrcamento(orcBase?: Partial<Orcamento>, preferirEstadoFormulario = false) {
@@ -1978,7 +1980,7 @@ export default function Orcamentos() {
                         <select
                             id="agente-viagem"
                             value={form.agenteViagem || ""}
-                            onChange={(e) => setForm({ ...form, agenteViagem: e.target.value })}
+                            onChange={(e) => setForm((prev) => ({ ...prev, agenteViagem: e.target.value }))}
                             className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                         >
                           <option value="">Selecione um agente</option>
@@ -2008,13 +2010,15 @@ export default function Orcamentos() {
                         <Label htmlFor="dataCriacao">Data de emissão</Label>
                         <Input id="dataCriacao" type="date" value={form.dataCriacao} onChange={(e) => {
                           const emissao = e.target.value;
-                          const validade = emissao ? new Date(new Date(emissao).getTime() + 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] : form.dataValidade;
-                          setForm({ ...form, dataCriacao: emissao, dataValidade: validade });
+                          setForm((prev) => {
+                            const validade = emissao ? new Date(new Date(emissao).getTime() + 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] : prev.dataValidade;
+                            return { ...prev, dataCriacao: emissao, dataValidade: validade };
+                          });
                         }} className="mt-1" />
                       </div>
                       <div className="flex flex-col">
                         <Label htmlFor="dataValidade">Válido até</Label>
-                        <Input id="dataValidade" type="date" value={form.dataValidade} onChange={(e) => setForm({ ...form, dataValidade: e.target.value })} className="mt-1" />
+                        <Input id="dataValidade" type="date" value={form.dataValidade} onChange={(e) => setForm((prev) => ({ ...prev, dataValidade: e.target.value }))} className="mt-1" />
                       </div>
                       <div className="flex flex-col">
                         <Label>Status do Orçamento</Label>
@@ -2032,7 +2036,10 @@ export default function Orcamentos() {
                         <Label>Status da Viagem</Label>
                         <select
                             value={form.statusViagem || ""}
-                            onChange={(e) => setForm({ ...form, statusViagem: e.target.value as StatusViagem | undefined })}
+                            onChange={(e) => {
+                              const novoStatus = e.target.value as StatusViagem | undefined;
+                              setForm((prev) => ({ ...prev, statusViagem: novoStatus }));
+                            }}
                             className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                         >
                           <option value="">Selecione...</option>
