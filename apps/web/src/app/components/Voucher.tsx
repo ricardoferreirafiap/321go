@@ -2301,27 +2301,21 @@ export default function Voucher() {
           </div>
           {!cardsResumoMinimizados && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
-              <div className="flex flex-col items-center">
-                <Card className="w-full p-3 sm:p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md">
-                  <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0"><Calendar className="w-4 h-4 text-slate-600" /></div>
-                  <div><p className="text-xs text-gray-500">{lista.filter((o) => o.statusViagem === "Não Iniciada").length === 1 ? "Viagem Não Iniciada" : "Viagens Não Iniciadas"}</p></div>
-                </Card>
-                <p className="mt-1 text-base font-bold text-gray-900">{lista.filter((o) => o.statusViagem === "Não Iniciada").length}</p>
-              </div>
-              <div className="flex flex-col items-center">
-                <Card className="w-full p-3 sm:p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md">
-                  <div className="w-9 h-9 rounded-lg bg-sky-100 flex items-center justify-center flex-shrink-0"><Calendar className="w-4 h-4 text-sky-600" /></div>
-                  <div><p className="text-xs text-gray-500">{lista.filter((o) => o.statusViagem === "Em Andamento").length === 1 ? "Viagem Em Andamento" : "Viagens Em Andamento"}</p></div>
-                </Card>
-                <p className="mt-1 text-base font-bold text-gray-900">{lista.filter((o) => o.statusViagem === "Em Andamento").length}</p>
-              </div>
-              <div className="flex flex-col items-center">
-                <Card className="w-full p-3 sm:p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md">
-                  <div className="w-9 h-9 rounded-lg bg-teal-100 flex items-center justify-center flex-shrink-0"><Calendar className="w-4 h-4 text-teal-600" /></div>
-                  <div><p className="text-xs text-gray-500">{lista.filter((o) => o.statusViagem === "Finalizada").length === 1 ? "Viagem Finalizada" : "Viagens Finalizadas"}</p></div>
-                </Card>
-                <p className="mt-1 text-base font-bold text-gray-900">{lista.filter((o) => o.statusViagem === "Finalizada").length}</p>
-              </div>
+              <Card className="w-full p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md">
+                <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center"><Calendar className="w-4 h-4 text-slate-600" /></div>
+                <p className="text-xs text-gray-500 text-center">{lista.filter((o) => o.statusViagem === "Não Iniciada").length === 1 ? "Viagem Não Iniciada" : "Viagens Não Iniciadas"}</p>
+                <p className="text-base font-bold text-gray-900 text-center">{lista.filter((o) => o.statusViagem === "Não Iniciada").length}</p>
+              </Card>
+              <Card className="w-full p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md">
+                <div className="w-9 h-9 rounded-lg bg-sky-100 flex items-center justify-center"><Calendar className="w-4 h-4 text-sky-600" /></div>
+                <p className="text-xs text-gray-500 text-center">{lista.filter((o) => o.statusViagem === "Em Andamento").length === 1 ? "Viagem Em Andamento" : "Viagens Em Andamento"}</p>
+                <p className="text-base font-bold text-gray-900 text-center">{lista.filter((o) => o.statusViagem === "Em Andamento").length}</p>
+              </Card>
+              <Card className="w-full p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md">
+                <div className="w-9 h-9 rounded-lg bg-teal-100 flex items-center justify-center"><Calendar className="w-4 h-4 text-teal-600" /></div>
+                <p className="text-xs text-gray-500 text-center">{lista.filter((o) => o.statusViagem === "Finalizada").length === 1 ? "Viagem Finalizada" : "Viagens Finalizadas"}</p>
+                <p className="text-base font-bold text-gray-900 text-center">{lista.filter((o) => o.statusViagem === "Finalizada").length}</p>
+              </Card>
             </div>
           )}
         </div>

@@ -2669,29 +2669,23 @@ export default function Orcamentos() {
           </div>
           {!cardsResumoMinimizados && (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
-              <Card onClick={() => setFiltroStatus("Todos")} className={`p-3 sm:p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Todos" ? "ring-2 ring-indigo-500" : ""}`}>
-                <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0"><DollarSign className="w-4 h-4 text-indigo-600" /></div>
-                <div><p className="text-xs text-gray-500">Total</p><p className="text-base font-bold text-gray-900">{moeda(totais.total)}</p><p className="text-xs text-gray-400">{totais.qtdTotal} orçamento{totais.qtdTotal !== 1 ? "s" : ""}</p></div>
+              <Card onClick={() => setFiltroStatus("Todos")} className={`p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Todos" ? "ring-2 ring-indigo-500" : ""}`}>
+                <div className="text-center"><p className="text-xs text-gray-500">Total</p><p className="text-base font-bold text-gray-900">{moeda(totais.total)}</p><p className="text-xs text-gray-400">{totais.qtdTotal} orçamento{totais.qtdTotal !== 1 ? "s" : ""}</p></div>
               </Card>
-              <Card onClick={() => setFiltroStatus(filtroStatus === "Rascunho" ? "Todos" : "Rascunho")} className={`p-3 sm:p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Rascunho" ? "ring-2 ring-gray-400" : ""}`}>
-                <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0"><FileText className="w-4 h-4 text-gray-500" /></div>
-                <div><p className="text-xs text-gray-500">Rascunho</p><p className="text-base font-bold text-gray-900">{moeda(totais.rascunhos)}</p><p className="text-xs text-gray-400">{totais.qtdRascunhos} orçamento{totais.qtdRascunhos !== 1 ? "s" : ""}</p></div>
+              <Card onClick={() => setFiltroStatus(filtroStatus === "Rascunho" ? "Todos" : "Rascunho")} className={`p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Rascunho" ? "ring-2 ring-gray-400" : ""}`}>
+                <div className="text-center"><p className="text-xs text-gray-500">Rascunho</p><p className="text-base font-bold text-gray-900">{moeda(totais.rascunhos)}</p><p className="text-xs text-gray-400">{totais.qtdRascunhos} orçamento{totais.qtdRascunhos !== 1 ? "s" : ""}</p></div>
               </Card>
-              <Card onClick={() => setFiltroStatus(filtroStatus === "Enviado" ? "Todos" : "Enviado")} className={`p-3 sm:p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Enviado" ? "ring-2 ring-blue-500" : ""}`}>
-                <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0"><Send className="w-4 h-4 text-blue-600" /></div>
-                <div><p className="text-xs text-gray-500">Enviado</p><p className="text-base font-bold text-gray-900">{moeda(totais.enviados)}</p><p className="text-xs text-gray-400">{totais.qtdEnviados} orçamento{totais.qtdEnviados !== 1 ? "s" : ""}</p></div>
+              <Card onClick={() => setFiltroStatus(filtroStatus === "Enviado" ? "Todos" : "Enviado")} className={`p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Enviado" ? "ring-2 ring-blue-500" : ""}`}>
+                <div className="text-center"><p className="text-xs text-gray-500">Enviado</p><p className="text-base font-bold text-gray-900">{moeda(totais.enviados)}</p><p className="text-xs text-gray-400">{totais.qtdEnviados} orçamento{totais.qtdEnviados !== 1 ? "s" : ""}</p></div>
               </Card>
-              <Card onClick={() => setFiltroStatus(filtroStatus === "Aprovado" ? "Todos" : "Aprovado")} className={`p-3 sm:p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Aprovado" ? "ring-2 ring-green-500" : ""}`}>
-                <div className="w-9 h-9 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0"><Check className="w-4 h-4 text-green-600" /></div>
-                <div><p className="text-xs text-gray-500">Aprovado</p><p className="text-base font-bold text-gray-900">{moeda(totais.aprovados)}</p><p className="text-xs text-gray-400">{totais.qtdAprovados} orçamento{totais.qtdAprovados !== 1 ? "s" : ""}</p></div>
+              <Card onClick={() => setFiltroStatus(filtroStatus === "Aprovado" ? "Todos" : "Aprovado")} className={`p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Aprovado" ? "ring-2 ring-green-500" : ""}`}>
+                <div className="text-center"><p className="text-xs text-gray-500">Aprovado</p><p className="text-base font-bold text-gray-900">{moeda(totais.aprovados)}</p><p className="text-xs text-gray-400">{totais.qtdAprovados} orçamento{totais.qtdAprovados !== 1 ? "s" : ""}</p></div>
               </Card>
-              <Card onClick={() => setFiltroStatus(filtroStatus === "Rejeitado" ? "Todos" : "Rejeitado")} className={`p-3 sm:p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Rejeitado" ? "ring-2 ring-red-500" : ""}`}>
-                <div className="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0"><X className="w-4 h-4 text-red-500" /></div>
-                <div><p className="text-xs text-gray-500">Rejeitado</p><p className="text-base font-bold text-gray-900">{moeda(totais.rejeitados)}</p><p className="text-xs text-gray-400">{totais.qtdRejeitados} orçamento{totais.qtdRejeitados !== 1 ? "s" : ""}</p></div>
+              <Card onClick={() => setFiltroStatus(filtroStatus === "Rejeitado" ? "Todos" : "Rejeitado")} className={`p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Rejeitado" ? "ring-2 ring-red-500" : ""}`}>
+                <div className="text-center"><p className="text-xs text-gray-500">Rejeitado</p><p className="text-base font-bold text-gray-900">{moeda(totais.rejeitados)}</p><p className="text-xs text-gray-400">{totais.qtdRejeitados} orçamento{totais.qtdRejeitados !== 1 ? "s" : ""}</p></div>
               </Card>
-              <Card onClick={() => setFiltroStatus(filtroStatus === "Cancelado" ? "Todos" : "Cancelado")} className={`p-3 sm:p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Cancelado" ? "ring-2 ring-orange-500" : ""}`}>
-                <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0"><X className="w-4 h-4 text-orange-500" /></div>
-                <div><p className="text-xs text-gray-500">Cancelado</p><p className="text-base font-bold text-gray-900">{moeda(totais.cancelados)}</p><p className="text-xs text-gray-400">{totais.qtdCancelados} orçamento{totais.qtdCancelados !== 1 ? "s" : ""}</p></div>
+              <Card onClick={() => setFiltroStatus(filtroStatus === "Cancelado" ? "Todos" : "Cancelado")} className={`p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Cancelado" ? "ring-2 ring-orange-500" : ""}`}>
+                <div className="text-center"><p className="text-xs text-gray-500">Cancelado</p><p className="text-base font-bold text-gray-900">{moeda(totais.cancelados)}</p><p className="text-xs text-gray-400">{totais.qtdCancelados} orçamento{totais.qtdCancelados !== 1 ? "s" : ""}</p></div>
               </Card>
             </div>
           )}
@@ -2736,69 +2730,50 @@ export default function Orcamentos() {
                 <Card key={orc.id} className="overflow-hidden">
                   {/* Linha principal */}
                   <div className="p-3 sm:p-4">
-                    {/* Topo: ícone + info + valor */}
-                    <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <FileText className="w-4 h-4 text-indigo-600" />
-                      </div>
-
-                      {/* Bloco central de info */}
+                    <div className="flex items-center gap-3">
+                      {/* Bloco de info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm sm:text-base font-semibold text-gray-900 leading-tight truncate">{orc.cliente}</p>
-                          <p className="font-bold text-base sm:text-lg text-indigo-700 flex-shrink-0 leading-tight">{moeda(total)}</p>
-                        </div>
-
-                        {/* Número + destino */}
-                        <div className="flex items-center gap-2 flex-wrap mt-0.5">
                           <span className="font-mono text-xs font-bold text-indigo-600">{orc.numero}</span>
                           {orc.destino && <span className="flex items-center gap-1 text-xs text-gray-500"><MapPin className="w-3 h-3" />{orc.destino}</span>}
-                        </div>
-
-                        {/* Badges de status */}
-                        <div className="flex items-center gap-1.5 flex-wrap mt-1">
                           <Badge className={`${cfg.bg} ${cfg.cor} hover:${cfg.bg} text-xs`}>{orc.status}</Badge>
-                          {orc.statusViagem && (() => { const cfgV = statusViagemConfig[orc.statusViagem] || { bg: "bg-slate-100", cor: "text-slate-600" }; return <Badge className={`${cfgV.bg} ${cfgV.cor} hover:${cfgV.bg} text-xs`}>{orc.statusViagem}</Badge>; })()}
                           {vencido && <span className="text-xs text-red-500 font-semibold">⚠ Vencido</span>}
                         </div>
-
-                        {/* Datas — linha abaixo em mobile */}
-                        <div className="flex items-center gap-3 mt-1 flex-wrap">
+                        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                           <span className="flex items-center gap-1 text-xs text-gray-400"><Calendar className="w-3 h-3" />{fmtData(orc.dataCriacao)}</span>
                           {orc.dataValidade && <span className="flex items-center gap-1 text-xs text-gray-400"><Calendar className="w-3 h-3" />Val: {fmtData(orc.dataValidade)}</span>}
-                          <span className="text-xs text-gray-400">{orc.itens.length} item{orc.itens.length !== 1 ? "s" : ""}</span>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Barra de ações — separada embaixo, scroll horizontal em mobile */}
-                    <div className="mt-2.5 pt-2.5 border-t border-gray-100 flex items-center justify-between gap-1">
-                      <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none">
+                      {/* Valor + botões na mesma linha */}
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <p className="font-bold text-base sm:text-lg text-indigo-700 mr-1">{moeda(total)}</p>
                         <button
                           onClick={() => abrirLancamentoDaLista(orc)}
                           title={temLancamento ? "Editar lançamento financeiro" : "Criar lançamento financeiro"}
-                          className={`p-2 rounded-lg transition-colors flex-shrink-0 ${temLancamento ? "text-emerald-600 hover:bg-emerald-50" : "text-orange-400 hover:bg-orange-50"}`}
+                          className={`p-2 rounded-lg transition-colors ${temLancamento ? "text-emerald-600 hover:bg-emerald-50" : "text-orange-400 hover:bg-orange-50"}`}
                         >
                           <DollarSign className="w-4 h-4" />
                         </button>
-                        <button onClick={() => abrirResumo(orc)} title="Orçamento" className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0"><FileText className="w-4 h-4" /></button>
-                        <button onClick={() => void abrirEdicao(orc)} title="Editar" className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0"><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={() => gerarRoteiro(orc)} title="Roteiro" className="p-2 rounded-lg text-green-600 hover:bg-green-50 transition-colors flex-shrink-0"><MapPin className="w-4 h-4" /></button>
+                        <button onClick={() => abrirResumo(orc)} title="Orçamento" className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"><FileText className="w-4 h-4" /></button>
+                        <button onClick={() => void abrirEdicao(orc)} title="Editar" className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"><Edit2 className="w-4 h-4" /></button>
+                        <button onClick={() => gerarRoteiro(orc)} title="Roteiro" className="p-2 rounded-lg text-green-600 hover:bg-green-50 transition-colors"><MapPin className="w-4 h-4" /></button>
                         <button
                           onClick={() => toggleFavorito(orc.id)}
                           title={favoritos.includes(orc.id) ? "Remover dos favoritos" : "Adicionar aos favoritos"}
-                          className={`p-2 rounded-lg transition-colors flex-shrink-0 ${favoritos.includes(orc.id) ? 'text-yellow-400 hover:text-yellow-500' : 'text-gray-300 hover:text-yellow-400'}`}
+                          className={`p-2 rounded-lg transition-colors ${favoritos.includes(orc.id) ? 'text-yellow-400 hover:text-yellow-500' : 'text-gray-300 hover:text-yellow-400'}`}
                         >
                           <Star className={`w-4 h-4 ${favoritos.includes(orc.id) ? 'fill-yellow-400' : ''}`} />
                         </button>
+                        <button
+                          onClick={() => toggleExpandir(orc.id)}
+                          className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors"
+                          title={expandido ? "Recolher" : "Ver detalhes"}
+                        >
+                          {expandido ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
                       </div>
-                      <button
-                        onClick={() => toggleExpandir(orc.id)}
-                        className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors flex-shrink-0 ml-1"
-                        title={expandido ? "Recolher" : "Ver detalhes"}
-                      >
-                        {expandido ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
                     </div>
                   </div>
 
