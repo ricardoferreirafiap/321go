@@ -592,13 +592,13 @@ export default function Voucher() {
   const [editandoOcultoLista, setEditandoOcultoLista] = useState(false);
   const [salvandoLancamentoLista, setSalvandoLancamentoLista] = useState(false);
   const [erroLancamentoLista, setErroLancamentoLista] = useState<string | null>(null);
-  const [dadosClienteMinimizados, setDadosClienteMinimizados] = useState(true);
+  const [dadosClienteMinimizados, setDadosClienteMinimizados] = useState(false);
   const [perfilViagemMinimizado, setPerfilViagemMinimizado] = useState(true);
   const [categoriasPerfilMinimizadas, setCategoriasPerfilMinimizadas] = useState<Record<string, boolean>>(() => ({ ...todasCategoriasMinimizadas }));
   const [perfilViagemSelecionado, setPerfilViagemSelecionado] = useState<string[]>([]);
   const [promptPerfilViagemIA, setPromptPerfilViagemIA] = useState("");
   const [passageiroSelecionado, setPassageiroSelecionado] = useState("");
-  const [secoesOrcamentoMinimizadas, setSecoesOrcamentoMinimizadas] = useState(true);
+  const [secoesOrcamentoMinimizadas, setSecoesOrcamentoMinimizadas] = useState(false);
   const [vendasMinimizadas, setVendasMinimizadas] = useState(true);
 
   const [resumoMinimizado, setResumoMinimizado] = useState(true);
@@ -948,12 +948,12 @@ export default function Voucher() {
     setTransporte([]);
     setRestaurante([]);
     setExperiencias([]);
-    setDadosClienteMinimizados(true);
+    setDadosClienteMinimizados(false);
     setPerfilViagemSelecionado([]);
     setPromptPerfilViagemIA("");
     setPerfilViagemMinimizado(true);
     setCategoriasPerfilMinimizadas(todasCategoriasMinimizadas);
-    setSecoesOrcamentoMinimizadas(true);
+    setSecoesOrcamentoMinimizadas(false);
     setVendasMinimizadas(true);
     setResumoMinimizado(true);
     setOrcamentoResumoMinimizado(true);
@@ -1000,7 +1000,7 @@ export default function Voucher() {
     setPromptPerfilViagemIA(typeof completo.promptPerfilViagemIA === "string" ? completo.promptPerfilViagemIA : "");
     setPerfilViagemMinimizado(true);
     setCategoriasPerfilMinimizadas({});
-    setSecoesOrcamentoMinimizadas(true);
+    setSecoesOrcamentoMinimizadas(false);
     setVendasMinimizadas(true);
     setResumoMinimizado(true);
     setOrcamentoResumoMinimizado(true);
@@ -1672,12 +1672,6 @@ export default function Voucher() {
                 </div>
                 {!dadosClienteMinimizados && (
                     <>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 relative">
-                      <div className="flex flex-col md:col-span-1">
-                        <Label>Número</Label>
-                        <Input value={form.numero} readOnly disabled className="mt-1 font-mono bg-gray-100 cursor-not-allowed" />
-                      </div>
-                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 relative mt-3">
                       <div className="flex flex-col">
                         <Label htmlFor="cliente">Cliente *</Label>
@@ -1772,61 +1766,6 @@ export default function Voucher() {
                         )}
                       </div>
                       <div className="flex flex-col">
-                        <Label htmlFor="agente-viagem">Agente de Viagem</Label>
-                        <select
-                            id="agente-viagem"
-                            value={form.agenteViagem || ""}
-                            onChange={(e) => setForm({ ...form, agenteViagem: e.target.value })}
-                            className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                        >
-                          <option value="">Selecione um agente</option>
-                          {funcionariosAtivos.map((funcionario) => (
-                              <option key={funcionario.id} value={funcionario.name}>{funcionario.name}</option>
-                          ))}
-                        </select>
-                        {form.agenteViagem && (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs text-indigo-700 border border-indigo-100">
-                        {form.agenteViagem}
-                        <button
-                            type="button"
-                            onClick={() => setForm((prev) => ({ ...prev, agenteViagem: "" }))}
-                            className="text-indigo-500 hover:text-indigo-700"
-                            aria-label={`Remover agente ${form.agenteViagem}`}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </span>
-                            </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-                      <div className="flex flex-col">
-                        <Label htmlFor="dataCriacao">Data de emissão</Label>
-                        <Input id="dataCriacao" type="date" value={form.dataCriacao} onChange={(e) => {
-                          const emissao = e.target.value;
-                          const validade = emissao ? new Date(new Date(emissao).getTime() + 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] : form.dataValidade;
-                          setForm({ ...form, dataCriacao: emissao, dataValidade: validade });
-                        }} className="mt-1" />
-                      </div>
-                      <div className="flex flex-col">
-                        <Label htmlFor="dataValidade">Válido até</Label>
-                        <Input id="dataValidade" type="date" value={form.dataValidade} onChange={(e) => setForm({ ...form, dataValidade: e.target.value })} className="mt-1" />
-                      </div>
-                      <div className="flex flex-col">
-                        <Label>Status do Orçamento</Label>
-                        <select
-                            value={form.status}
-                            onChange={(e) => void onChangeStatusOrcamento(e.target.value as StatusOrc)}
-                            className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                        >
-                          {allStatus.map((s) => (
-                              <option key={s} value={s}>{s}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="flex flex-col">
                         <Label>Status da Viagem</Label>
                         <select
                             value={form.statusViagem || ""}
@@ -1849,147 +1788,6 @@ export default function Voucher() {
                       <ChevronUp className="h-4 w-4" />
                     </button>
                     </>
-                )}
-              </Card>
-
-              {/* Perfil da viagem */}
-              <Card className="p-3 sm:p-6">
-                <div className="mb-4 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => { setPerfilViagemMinimizado((prev) => { if (prev) { setCategoriasPerfilMinimizadas({ ...todasCategoriasMinimizadas }); } return !prev; }); }}>
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><MapPin className="w-4 h-4 text-indigo-500" /> Perfil da Viagem</h3>
-                  <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => { e.stopPropagation(); setPerfilViagemMinimizado((prev) => {
-                        if (prev) {
-                            // expandindo — reseta todas categorias para minimizado
-                            setCategoriasPerfilMinimizadas({ ...todasCategoriasMinimizadas });
-                          }
-                          return !prev;
-                        });
-                      }}
-                      className="h-8 px-2 text-gray-600"
-                  >
-                    {perfilViagemMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                    <span className="ml-1">{perfilViagemMinimizado ? " " : " "}</span>
-                  </Button>
-                </div>
-
-                {perfilViagemMinimizado ? (
-                    null
-                ) : (
-                    <div className="space-y-5">
-                      <div>
-                        <Label htmlFor="prompt-perfil-viagem-ia">Prompt para ajudar a IA</Label>
-                        <textarea
-                            id="prompt-perfil-viagem-ia"
-                            value={promptPerfilViagemIA}
-                            onChange={(e) => setPromptPerfilViagemIA(e.target.value)}
-                            placeholder="Ex.: Priorize experiências gastronômicas locais, ritmo leve, atividades para crianças e deslocamentos curtos."
-                            className="mt-1 min-h-24 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                        />
-                        <p className="mt-1 text-xs text-gray-500">
-                          Esse texto será enviado junto com os dados do perfil para orientar a geração do roteiro pela IA.
-                        </p>
-                      </div>
-
-                      {/* Controles expandir/minimizar todos */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">
-                          {(() => {
-                            const total = perfilViagemSelecionado.length;
-                            return total > 0 ? `${total} opção${total !== 1 ? "ões" : ""} selecionada${total !== 1 ? "s" : ""}` : "Nenhuma opção selecionada";
-                          })()}
-                        </span>
-                        <div className="flex gap-1">
-                          <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setCategoriasPerfilMinimizadas(Object.fromEntries(categoriasPerfilViagem.map((c) => [c.titulo, false])))}
-                              className="h-7 w-7 p-0 text-gray-500 hover:text-gray-800"
-                              title="Expandir todos"
-                          >
-                            <ChevronDown className="h-4 w-4" />
-                          </Button>
-                          <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setCategoriasPerfilMinimizadas(Object.fromEntries(categoriasPerfilViagem.map((c) => [c.titulo, true])))}
-                              className="h-7 w-7 p-0 text-gray-500 hover:text-gray-800"
-                              title="Minimizar todos"
-                          >
-                            <ChevronUp className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {categoriasPerfilViagem.map((categoria) => (
-                          <div key={categoria.titulo} className="border border-gray-200 rounded-lg overflow-hidden">
-                            <button
-                                type="button"
-                                onClick={() => toggleCategoriaPerfilViagem(categoria.titulo)}
-                                className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
-                            >
-                              <span className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                {categoria.titulo}
-                                {(() => {
-                                  const selecionadosNaCategoria = categoria.opcoes.filter(
-                                    (opcao) => perfilViagemSelecionado.includes(chavePerfilViagem(categoria.titulo, opcao))
-                                  ).length;
-                                  return selecionadosNaCategoria > 0 ? (
-                                    <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">
-                                      {selecionadosNaCategoria}
-                                    </span>
-                                  ) : null;
-                                })()}
-                              </span>
-                              {categoriasPerfilMinimizadas[categoria.titulo] ? (
-                                <ChevronDown className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                              ) : (
-                                <ChevronUp className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                              )}
-                            </button>
-                            {!categoriasPerfilMinimizadas[categoria.titulo] && (
-                              <div className="px-3 py-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-                                {categoria.opcoes.map((opcao) => {
-                                  const chave = chavePerfilViagem(categoria.titulo, opcao);
-                                  const selecionado = perfilViagemSelecionado.includes(chave);
-
-                                  return (
-                                      <label
-                                          key={chave}
-                                          className="flex items-center gap-2 rounded-md border border-gray-200 px-2.5 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
-                                      >
-                                        <input
-                                            type="checkbox"
-                                            checked={selecionado}
-                                            onChange={() => toggleOpcaoPerfilViagem(chave)}
-                                            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                        />
-                                        <span>{opcao}</span>
-                                      </label>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                      ))}
-
-                      <div className="flex justify-end">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setPerfilViagemMinimizado(true)}
-                            className="h-8 px-2 text-gray-600"
-                        >
-                          <ChevronUp className="h-4 w-4" />
-                          <span className="ml-1">Minimizar</span>
-                        </Button>
-                      </div>
-                    </div>
                 )}
               </Card>
 
@@ -2266,6 +2064,147 @@ export default function Voucher() {
                         )}
                       </div>
                     </>
+                )}
+              </Card>
+
+              {/* Perfil da viagem */}
+              <Card className="p-3 sm:p-6">
+                <div className="mb-4 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => { setPerfilViagemMinimizado((prev) => { if (prev) { setCategoriasPerfilMinimizadas({ ...todasCategoriasMinimizadas }); } return !prev; }); }}>
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><MapPin className="w-4 h-4 text-indigo-500" /> Perfil da Viagem</h3>
+                  <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); setPerfilViagemMinimizado((prev) => {
+                        if (prev) {
+                            // expandindo — reseta todas categorias para minimizado
+                            setCategoriasPerfilMinimizadas({ ...todasCategoriasMinimizadas });
+                          }
+                          return !prev;
+                        });
+                      }}
+                      className="h-8 px-2 text-gray-600"
+                  >
+                    {perfilViagemMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                    <span className="ml-1">{perfilViagemMinimizado ? " " : " "}</span>
+                  </Button>
+                </div>
+
+                {perfilViagemMinimizado ? (
+                    null
+                ) : (
+                    <div className="space-y-5">
+                      <div>
+                        <Label htmlFor="prompt-perfil-viagem-ia">Prompt para ajudar a IA</Label>
+                        <textarea
+                            id="prompt-perfil-viagem-ia"
+                            value={promptPerfilViagemIA}
+                            onChange={(e) => setPromptPerfilViagemIA(e.target.value)}
+                            placeholder="Ex.: Priorize experiências gastronômicas locais, ritmo leve, atividades para crianças e deslocamentos curtos."
+                            className="mt-1 min-h-24 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                          Esse texto será enviado junto com os dados do perfil para orientar a geração do roteiro pela IA.
+                        </p>
+                      </div>
+
+                      {/* Controles expandir/minimizar todos */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">
+                          {(() => {
+                            const total = perfilViagemSelecionado.length;
+                            return total > 0 ? `${total} opção${total !== 1 ? "ões" : ""} selecionada${total !== 1 ? "s" : ""}` : "Nenhuma opção selecionada";
+                          })()}
+                        </span>
+                        <div className="flex gap-1">
+                          <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setCategoriasPerfilMinimizadas(Object.fromEntries(categoriasPerfilViagem.map((c) => [c.titulo, false])))}
+                              className="h-7 w-7 p-0 text-gray-500 hover:text-gray-800"
+                              title="Expandir todos"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                          <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setCategoriasPerfilMinimizadas(Object.fromEntries(categoriasPerfilViagem.map((c) => [c.titulo, true])))}
+                              className="h-7 w-7 p-0 text-gray-500 hover:text-gray-800"
+                              title="Minimizar todos"
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {categoriasPerfilViagem.map((categoria) => (
+                          <div key={categoria.titulo} className="border border-gray-200 rounded-lg overflow-hidden">
+                            <button
+                                type="button"
+                                onClick={() => toggleCategoriaPerfilViagem(categoria.titulo)}
+                                className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                            >
+                              <span className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                {categoria.titulo}
+                                {(() => {
+                                  const selecionadosNaCategoria = categoria.opcoes.filter(
+                                    (opcao) => perfilViagemSelecionado.includes(chavePerfilViagem(categoria.titulo, opcao))
+                                  ).length;
+                                  return selecionadosNaCategoria > 0 ? (
+                                    <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">
+                                      {selecionadosNaCategoria}
+                                    </span>
+                                  ) : null;
+                                })()}
+                              </span>
+                              {categoriasPerfilMinimizadas[categoria.titulo] ? (
+                                <ChevronDown className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                              ) : (
+                                <ChevronUp className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                              )}
+                            </button>
+                            {!categoriasPerfilMinimizadas[categoria.titulo] && (
+                              <div className="px-3 py-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                                {categoria.opcoes.map((opcao) => {
+                                  const chave = chavePerfilViagem(categoria.titulo, opcao);
+                                  const selecionado = perfilViagemSelecionado.includes(chave);
+
+                                  return (
+                                      <label
+                                          key={chave}
+                                          className="flex items-center gap-2 rounded-md border border-gray-200 px-2.5 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                      >
+                                        <input
+                                            type="checkbox"
+                                            checked={selecionado}
+                                            onChange={() => toggleOpcaoPerfilViagem(chave)}
+                                            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span>{opcao}</span>
+                                      </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                      ))}
+
+                      <div className="flex justify-end">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setPerfilViagemMinimizado(true)}
+                            className="h-8 px-2 text-gray-600"
+                        >
+                          <ChevronUp className="h-4 w-4" />
+                          <span className="ml-1">Minimizar</span>
+                        </Button>
+                      </div>
+                    </div>
                 )}
               </Card>
 
