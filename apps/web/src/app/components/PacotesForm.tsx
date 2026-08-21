@@ -1661,6 +1661,7 @@ function montarRelatorioUrl(provedor: string, dados: DadosIAExtraidos): string {
     ["Observações Ingresso", dados.ingressoObservacoes],
     ["Dados do Cliente", dados.dadosCliente],
     ["Informações Adicionais", dados.informacoesAdicionais],
+    ["Políticas, Condições e Informações Especiais", dados.politicasCondicoesInformacoesEspeciais],
   ];
 
   // Filtrar apenas campos populados
