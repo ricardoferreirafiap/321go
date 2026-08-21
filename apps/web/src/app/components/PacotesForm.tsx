@@ -3399,7 +3399,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
               <Card key={pacote.id} className="p-4">
                 <div className="mb-2 flex items-start justify-between gap-2">
                   <div>
-                    <p className="text-xs font-semibold text-gray-400">Voucher {index + 1}</p>
+                    <p className="text-sm font-bold uppercase tracking-wider text-indigo-600">Voucher {index + 1}</p>
                     <p className="font-semibold text-gray-900">{pacote.operador || "Sem operador"}</p>
                     {pacote.reserva && (
                         <p className="text-xs text-gray-500 mt-0.5">Reserva: {pacote.reserva}</p>

@@ -1993,10 +1993,10 @@ export default function Voucher() {
                 )}
               </Card>
 
-              {/* Seções do orçamento (sub-páginas) */}
+              {/* Seções do voucher (sub-páginas) */}
               <Card className="p-3 sm:p-6">
                 <div className="mb-4 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => setSecoesOrcamentoMinimizadas((prev) => !prev)}>
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-500" /> Seções do Orçamento</h3>
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-500" /> Seções do Voucher</h3>
                   <Button
                       type="button"
                       variant="ghost"
