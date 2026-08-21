@@ -2758,7 +2758,6 @@ export default function Orcamentos() {
                         </button>
                         <button onClick={() => abrirResumo(orc)} title="Orçamento" className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"><FileText className="w-4 h-4" /></button>
                         <button onClick={() => void abrirEdicao(orc)} title="Editar" className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={() => gerarRoteiro(orc)} title="Roteiro" className="p-2 rounded-lg text-green-600 hover:bg-green-50 transition-colors"><MapPin className="w-4 h-4" /></button>
                         <button
                           onClick={() => toggleFavorito(orc.id)}
                           title={favoritos.includes(orc.id) ? "Remover dos favoritos" : "Adicionar aos favoritos"}
