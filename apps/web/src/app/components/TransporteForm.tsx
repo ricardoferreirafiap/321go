@@ -7,7 +7,7 @@ import { ChevronDown, ChevronUp, Plus, Trash2, Upload, FileText, Image, X, Link2
 import { enviarMensagemIA } from "../data/aiChatApi";
 import { API_CONFIG } from "../data/apiConfig";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
-import { createWorker, type Worker } from "tesseract.js";
+import * as Tesseract from "tesseract.js";
 
 // Configura o worker para o pdf.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.mjs", import.meta.url).toString();
@@ -617,10 +617,11 @@ Formato JSON esperado:
       }
     }
 
-    let workerOcr: Worker | null = null;
+    let workerOcr: any = null;
     try {
       try {
-        workerOcr = await createWorker("eng");
+        // @ts-ignore
+        workerOcr = await Tesseract.createWorker("eng");
       } catch {
         adicionarLog("OCR indisponível; tentando identificação por IA e comparação visual.");
       }

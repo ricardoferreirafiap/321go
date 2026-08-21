@@ -5,7 +5,7 @@ import { Label } from "./ui/label";
 import { Card } from "./ui/card";
 import { Plus, Trash2, Search, Plane, Upload, FileText, Image, Link2, X, Pencil } from "lucide-react";
 
-interface Voo {
+export interface Voo {
   id: number;
   companhia: string;
   numero: string;

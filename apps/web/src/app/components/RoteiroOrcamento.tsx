@@ -2,20 +2,18 @@ import { useParams } from "react-router";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import {
-  Share2, X, Instagram, Mail, MessageCircle, Car, MapPin, Globe,
+  Share2, X, Mail, MessageCircle, Car, MapPin, Globe,
   Phone, Mail as MailIcon, Calendar, Bed, Star, Coffee,
   ExternalLink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldCheck
 } from "lucide-react";
-import { JSX, useEffect, useRef, useState } from "react";
+import { JSX, useEffect, useState } from "react";
 import { listarFuncionarios, type Funcionario } from "../data/funcionariosApi";
 import { buscarOrcamentoPublico } from "../data/orcamentosApi";
 import {
   obterFuncionariosDoCache,
-  obterRoteiroDoCache,
   prepararRoteiroSemAnexos,
   salvarFuncionariosNoCache,
   salvarRoteiroNoCache,
-  ROTEIRO_REFRESH_INTERVAL_MS,
 } from "../data/roteiroCache";
 import { gerarResumoPacote } from "./PacotesForm";
 
@@ -99,6 +97,14 @@ function OrcamentoReferenceIcon({ className = "" }: { className?: string }) {
   );
 }
 
+function InstagramIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+    </svg>
+  );
+}
+
 function TituloSecao({ titulo, Icone = RoteiroReferenceIcon }: { titulo: string; Icone?: ({ className }: { className?: string }) => JSX.Element }) {
   return (
     <h2 className="flex items-center gap-2 text-base font-semibold text-white sm:text-lg">
@@ -106,16 +112,6 @@ function TituloSecao({ titulo, Icone = RoteiroReferenceIcon }: { titulo: string;
       {titulo}
     </h2>
   );
-}
-
-function gerarSlugCliente(nome: string): string {
-  return String(nome || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 interface Voo {
@@ -231,7 +227,7 @@ interface Pacote {
 }
 
 interface Orcamento {
-  publicToken: string;
+  publicToken?: string;
   id: number;
   numero: string;
   cliente: string;
@@ -241,8 +237,8 @@ interface Orcamento {
   agenteViagem?: string;
   status: "Rascunho" | "Enviado" | "Aprovado" | "Rejeitado" | "Cancelado";
   dataCriacao: string;
-  dataValidade: string;
-  observacoes: string;
+  dataValidade?: string;
+  observacoes?: string;
   itens: ItemOrc[];
   pacotes?: Pacote[];
   voos?: Voo[];
@@ -253,18 +249,6 @@ interface Orcamento {
   restaurante?: any[];
   experiencias?: any[];
   seguro?: any[];
-}
-
-interface DiaRoteiro {
-  id: number;
-  titulo?: string;
-  data?: string;
-  atividades?: Array<{
-    id: number;
-    hora?: string;
-    descricao?: string;
-    tipo?: string;
-  }>;
 }
 
 interface DiaRoteiroExibicao {
@@ -353,45 +337,6 @@ function normalizarFotosHospedagem(hosp: any): string[] {
         .filter(Boolean)
     )
   );
-}
-
-function isTituloNumerado(linha: string): boolean {
-  const texto = limparLinhaRoteiro(linha).toLowerCase();
-  return /^\d+\)\s+/.test(texto) && (
-    texto.includes('título') ||
-    texto.includes('resumo') ||
-    texto.includes('dia') ||
-    texto.includes('destaques') ||
-    texto.includes('dicas')
-  );
-}
-
-function isSubtituloRoteiro(linha: string): boolean {
-  const texto = limparLinhaRoteiro(linha).toLowerCase();
-  return (
-    texto.startsWith('roteiro de ') ||
-    texto.startsWith('dia ') ||
-    texto.includes('dia a dia') ||
-    texto.includes('destaques') ||
-    texto.includes('dicas práticas') ||
-    texto.includes('resumo') ||
-    /:$/.test(texto)
-  );
-}
-
-function isLinhaDiaRoteiro(linha: string): boolean {
-  const texto = limparLinhaRoteiro(linha);
-  return /^dia\s+\d+\b/i.test(texto);
-}
-
-function getSubtituloClass(linha: string): string {
-  const texto = limparLinhaRoteiro(linha).toLowerCase();
-
-  if (isLinhaDiaRoteiro(texto)) return 'text-[#e07b20]';
-  if (texto.includes('resumo')) return 'text-[#e07b20]';
-  if (texto.includes('dicas práticas')) return 'text-[#e07b20]';
-
-  return 'text-[#0a0534]';
 }
 
 function extrairDiasDoRoteiro(texto: string): DiaRoteiroExibicao[] {
@@ -694,7 +639,7 @@ function obterDestinoPrincipal(orc: Orcamento): string {
 
   // Tenta extrair do texto da descrição do pacote
   const textoPacote = (orc.pacotes || []).map((p: any) => p.descricao || '').join(' ');
-  const matchDestino = textoPacote.match(/(?:para|em)\s+([A-Za-zÀ-ÿ\s]+?)(?:\s+[emem]\s+\d{2}\/|\s*\(|\s*\.)/i);
+  const matchDestino = textoPacote.match(/(?:para|em)\s+([A-Za-zÀ-ÿ\s]+?)(?:\s+[em]\s+\d{2}\/|\s*\(|\s*\.)/i);
   if (matchDestino) {
     return matchDestino[1].trim();
   }
@@ -854,7 +799,7 @@ function BlocoTrechoVoo({
         {campos.slice(0, 3).map(({ label, valor }) => valor?.trim() ? (
           <div key={label} className="min-w-0">
             <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{label}</p>
-            <p className="mt-1 max-w-full break-words text-sm font-bold text-[#0a0534] [overflow-wrap:anywhere]">{valor}</p>
+            <p className="mt-1 max-w-full text-sm font-bold text-[#0a0534] [overflow-wrap:anywhere]">{valor}</p>
           </div>
         ) : null)}
         {linkSeguro && (
@@ -874,7 +819,7 @@ function BlocoTrechoVoo({
         {campos.slice(3).map(({ label, valor }) => valor?.trim() ? (
           <div key={label} className="min-w-0">
             <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{label}</p>
-            <p className="mt-1 max-w-full break-words text-sm font-bold text-[#0a0534] [overflow-wrap:anywhere]">{valor}</p>
+            <p className="mt-1 max-w-full text-sm font-bold text-[#0a0534] [overflow-wrap:anywhere]">{valor}</p>
           </div>
         ) : null)}
       </div>
@@ -956,7 +901,6 @@ export default function RoteiroOrcamento() {
   const [politicaCancelamentoMinimizada, setPoliticaCancelamentoMinimizada] = useState<Record<number, boolean>>({});
   const [seguroMinimizado, setSeguroMinimizado] = useState(true);
   const [pacotesMinimizado, setPacotesMinimizado] = useState(false);
-  const carrosselHospedagemRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   // Inicializa índice ativo de cada hospedagem quando o orçamento é carregado
   useEffect(() => {
@@ -1043,24 +987,6 @@ export default function RoteiroOrcamento() {
       setCarregando(true);
       setErroCarregamento(null);
 
-      // Temporariamente ignorando cache para forçar atualização
-      let carregouDoCache = false;
-      const cached = await obterRoteiroDoCache(numero);
-      const agora = Date.now();
-      const cacheMuitoAntigo = cached && (agora - cached.savedAt) > ROTEIRO_REFRESH_INTERVAL_MS;
-      
-      // Sempre ignora cache para garantir dados frescos
-      if (cached && false) {
-        if (active) {
-          setOrc(cached.value);
-          setCarregando(false);
-        }
-        carregouDoCache = true;
-        if (!navigator.onLine) {
-          return;
-        }
-      }
-
       // Mantém compatibilidade com roteiros abertos antes da adoção do IndexedDB.
       let carregouDoLocal = false;
       const localImediato = localStorage.getItem(`orc_${numero}`);
@@ -1070,6 +996,7 @@ export default function RoteiroOrcamento() {
           localStorage.setItem(`orc_${numero}`, JSON.stringify(parsed));
           await salvarRoteiroNoCache(parsed, false);
           if (active) {
+            // @ts-ignore
             setOrc(parsed);
             setCarregando(false);
             carregouDoLocal = true;
@@ -1090,7 +1017,7 @@ export default function RoteiroOrcamento() {
         }
         return;
       } catch (error) {
-        if (carregouDoCache || carregouDoLocal) {
+        if (carregouDoLocal) {
           return;
         }
 
@@ -1103,6 +1030,7 @@ export default function RoteiroOrcamento() {
             localStorage.setItem(`orc_${numero}`, JSON.stringify(parsed));
             await salvarRoteiroNoCache(parsed, false);
             if (active) {
+              // @ts-ignore
               setOrc(parsed);
               setCarregando(false);
             }
@@ -1136,6 +1064,7 @@ export default function RoteiroOrcamento() {
             localStorage.setItem(chaveEncontrada, JSON.stringify(parsed));
             await salvarRoteiroNoCache(parsed, false);
             if (active) {
+              // @ts-ignore
               setOrc(parsed);
               setCarregando(false);
             }
@@ -1153,7 +1082,7 @@ export default function RoteiroOrcamento() {
       }
     }
 
-    carregarOrcamento();
+    void carregarOrcamento();
 
     return () => {
       active = false;
@@ -1186,7 +1115,7 @@ export default function RoteiroOrcamento() {
       }
     }
 
-    carregarFuncionarios();
+    void carregarFuncionarios();
 
     return () => {
       mounted = false;
@@ -1199,7 +1128,7 @@ export default function RoteiroOrcamento() {
     }
 
     const dias = (orc?.dayByDay && orc.dayByDay.length > 0)
-      ? orc.dayByDay.map((dia: any, idx: number) => ({
+      ? orc.dayByDay.map((dia: DiaRoteiroExibicao, idx: number) => ({
           id: dia.id ?? idx + 1,
           titulo: String(dia.titulo || `Dia ${idx + 1}`).trim(),
           data: dia.data,
@@ -1219,7 +1148,7 @@ export default function RoteiroOrcamento() {
       return;
     }
 
-    setDiaAtivoId((current) => (current && dias.some((dia) => dia.id === current) ? current : dias[0].id));
+    setDiaAtivoId((current) => (current && dias.some((dia: DiaRoteiroExibicao) => dia.id === current) ? current : dias[0].id));
   }, [itemAtivo, orc?.dayByDay, orc?.roteiro]);
 
   if (carregando) {
@@ -1243,27 +1172,6 @@ export default function RoteiroOrcamento() {
       </div>
     );
   }
-
-    const moverCarrosselHospedagem = (idx: number, direcao: -1 | 1) => {
-      const hospedagem = orc?.hospedagem?.[idx];
-      const fotos = normalizarFotosHospedagem(hospedagem);
-
-      if (!fotos.length) {
-        return;
-      }
-
-      const indiceAtual = carrosselHospedagemAtivo[idx] ?? 0;
-      const proximoIndice = Math.max(0, Math.min(fotos.length - 1, indiceAtual + direcao));
-      const container = carrosselHospedagemRefs.current[idx];
-      const slide = container?.querySelectorAll<HTMLElement>("[data-hospedagem-foto]")[proximoIndice];
-
-      setCarrosselHospedagemAtivo((current) => ({
-        ...current,
-        [idx]: proximoIndice,
-      }));
-
-      slide?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
-    };
 
   const handleShareWhatsApp = () => {
     const identificadorRoteiro = orc.publicToken || orc.numero;
@@ -1305,8 +1213,8 @@ export default function RoteiroOrcamento() {
   const dataPacoteFallback = pacoteComData?.dataIda || pacoteComData?.hospedagemCheckin || pacoteComData?.dataVolta || null;
   // Último fallback: tenta extrair uma data do texto da descrição do pacote
   const dataDescricaoFallback = (() => {
-    for (const p of (orc.pacotes || [])) {
-      const texto = p.descricao || gerarResumoPacote(p as any) || '';
+    for (const _p of (orc.pacotes || [])) {
+      const texto = _p.descricao || gerarResumoPacote(_p as any) || '';
       // Procura por data no formato brasileiro "23/01/2024"
       const matchBr = texto.match(/(\d{2})\/(\d{2})\/(\d{4})/);
       if (matchBr) {
@@ -1341,7 +1249,6 @@ export default function RoteiroOrcamento() {
   const listaPassageiros = Array.isArray(orc.passageiros)
     ? orc.passageiros.map((nome) => String(nome || "").trim()).filter(Boolean)
     : [];
-  const passageirosTexto = listaPassageiros.length > 0 ? listaPassageiros.join(", ") : "Sem passageiros adicionais";
   
   console.log('[RoteiroOrcamento] orc.seguro:', orc.seguro);
   console.log('[RoteiroOrcamento] orc.pacotes:', orc.pacotes);
@@ -1586,7 +1493,6 @@ export default function RoteiroOrcamento() {
               const dadosClientePublicos = sanitizarTextoPublico(pacote.dadosCliente);
               const informacoesAdicionaisPublicas = sanitizarTextoPublico(pacote.informacoesAdicionais);
               const politicaCancelamentoPublica = sanitizarTextoPublico(pacote.politicaAlteracoesCancelamentos);
-              const linkPacoteSeguro = obterLinkExternoSeguro(pacote.link);
               const urlsOperadorSeguras = (pacote.urlOperador || [])
                 .map((url: string) => obterLinkExternoSeguro(url))
                 .filter(Boolean);
@@ -1956,7 +1862,7 @@ export default function RoteiroOrcamento() {
                       </div>
                     )}
                     {h.voucher && (
-                      <button type="button" onClick={() => { const win = window.open(""); if (win && h.voucher) { win.document.write(h.voucherTipo === "pdf" ? `<iframe src="${h.voucher}" style="width:100%;height:100%;border:none;"></iframe>` : `<img src="${h.voucher}" style="max-width:100%;max-height:100vh;display:block;margin:auto;" />`); } }}
+                      <button type="button" onClick={() => { const win = window.open(""); if (win && h.voucher) { win.document.body.innerHTML = h.voucherTipo === "pdf" ? `<iframe src="${h.voucher}" style="width:100%;height:100%;border:none;"></iframe>` : `<img src="${h.voucher}" alt="Voucher" style="max-width:100%;max-height:100vh;display:block;margin:auto;" />`; } }}
                         className="w-full rounded-xl border border-white/15 bg-white/8 px-4 py-3 text-[13px] font-semibold text-white/90 hover:bg-white/15 transition-colors text-center">
                         Abrir Voucher da Hospedagem
                       </button>
@@ -2289,11 +2195,10 @@ export default function RoteiroOrcamento() {
                     onClick={() => {
                       const win = window.open("");
                       if (win && t.voucher) {
-                        win.document.write(
+                        win.document.body.innerHTML =
                           t.voucherTipo === "pdf"
                             ? `<iframe src="${t.voucher}" style="width:100%;height:100%;border:none;"></iframe>`
-                            : `<img src="${t.voucher}" style="max-width:100%;max-height:100vh;display:block;margin:auto;" />`
-                        );
+                            : `<img src="${t.voucher}" alt="Voucher" style="max-width:100%;max-height:100vh;display:block;margin:auto;" />`;
                       }
                     }}
                     className="text-xs text-indigo-600 hover:text-indigo-800 underline mt-1 inline-block"
@@ -2375,11 +2280,10 @@ export default function RoteiroOrcamento() {
                           onClick={() => {
                             const win = window.open("");
                             if (win && r.voucher) {
-                              win.document.write(
+                              win.document.body.innerHTML =
                                 r.voucherTipo === "pdf"
                                   ? `<iframe src="${r.voucher}" style="width:100%;height:100%;border:none;"></iframe>`
-                                  : `<img src="${r.voucher}" style="max-width:100%;max-height:100vh;display:block;margin:auto;" />`
-                              );
+                                  : `<img src="${r.voucher}" alt="Voucher" style="max-width:100%;max-height:100vh;display:block;margin:auto;" />`;
                             }
                           }}
                           className="text-indigo-600 hover:text-indigo-800 underline"
@@ -2460,12 +2364,12 @@ export default function RoteiroOrcamento() {
                         <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
                           {segurosPacotes.length > 1 ? `Seguro ${idx + 1}` : "Seguro do pacote"}
                         </p>
-                        <h3 className="mt-1 break-words text-base font-semibold text-gray-900 [overflow-wrap:anywhere]">
+                        <h3 className="mt-1 text-base font-semibold text-gray-900 [overflow-wrap:anywhere]">
                           {[pacote.seguroAssistencia, pacote.seguroPlano].filter(Boolean).join(" — ") || pacote.seguroSeguradora || "Seguro viagem"}
                         </h3>
                       </div>
                       {Number(pacote.seguroValor) > 0 && (
-                        <span className="max-w-full shrink-0 break-words rounded-full bg-white px-3 py-1 text-sm font-semibold text-emerald-700 shadow-sm [overflow-wrap:anywhere]">
+                        <span className="max-w-full shrink-0 rounded-full bg-white px-3 py-1 text-sm font-semibold text-emerald-700 shadow-sm [overflow-wrap:anywhere]">
                           {formatarMoeda(Number(pacote.seguroValor))}
                         </span>
                       )}
@@ -2473,9 +2377,9 @@ export default function RoteiroOrcamento() {
 
                     {(pacote.seguroSeguradora || pacote.seguroAmbitoCobertura || pacote.seguroDestino) && (
                       <div className="flex min-w-0 max-w-full flex-wrap gap-2 text-xs">
-                        {pacote.seguroSeguradora && <span className="max-w-full break-words rounded-full bg-white px-2.5 py-1 text-gray-700 [overflow-wrap:anywhere]">{pacote.seguroSeguradora}</span>}
-                        {pacote.seguroAmbitoCobertura && <span className="max-w-full break-words rounded-full bg-white px-2.5 py-1 text-gray-700 [overflow-wrap:anywhere]">{pacote.seguroAmbitoCobertura}</span>}
-                        {pacote.seguroDestino && <span className="max-w-full break-words rounded-full bg-white px-2.5 py-1 text-gray-700 [overflow-wrap:anywhere]">{pacote.seguroDestino}</span>}
+                        {pacote.seguroSeguradora && <span className="max-w-full rounded-full bg-white px-2.5 py-1 text-gray-700 [overflow-wrap:anywhere]">{pacote.seguroSeguradora}</span>}
+                        {pacote.seguroAmbitoCobertura && <span className="max-w-full rounded-full bg-white px-2.5 py-1 text-gray-700 [overflow-wrap:anywhere]">{pacote.seguroAmbitoCobertura}</span>}
+                        {pacote.seguroDestino && <span className="max-w-full rounded-full bg-white px-2.5 py-1 text-gray-700 [overflow-wrap:anywhere]">{pacote.seguroDestino}</span>}
                       </div>
                     )}
 
@@ -2492,26 +2396,26 @@ export default function RoteiroOrcamento() {
 
                     {(pacote.seguroNumeroReserva || pacote.seguroNumeroConfirmacao || pacote.seguroApoliceCertificado) && (
                       <div className="grid min-w-0 max-w-full grid-cols-1 gap-2 text-xs sm:grid-cols-2">
-                        {pacote.seguroNumeroReserva && <p className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="text-gray-400">Reserva:</span> <span className="font-mono font-semibold text-gray-700">{pacote.seguroNumeroReserva}</span></p>}
-                        {pacote.seguroNumeroConfirmacao && <p className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="text-gray-400">Confirmação:</span> <span className="font-mono font-semibold text-gray-700">{pacote.seguroNumeroConfirmacao}</span></p>}
-                        {pacote.seguroApoliceCertificado && <p className="min-w-0 break-words [overflow-wrap:anywhere] sm:col-span-2"><span className="text-gray-400">Apólice/Certificado:</span> <span className="font-mono font-semibold text-gray-700">{pacote.seguroApoliceCertificado}</span></p>}
+                        {pacote.seguroNumeroReserva && <p className="min-w-0 [overflow-wrap:anywhere]"><span className="text-gray-400">Reserva:</span> <span className="font-mono font-semibold text-gray-700">{pacote.seguroNumeroReserva}</span></p>}
+                        {pacote.seguroNumeroConfirmacao && <p className="min-w-0 [overflow-wrap:anywhere]"><span className="text-gray-400">Confirmação:</span> <span className="font-mono font-semibold text-gray-700">{pacote.seguroNumeroConfirmacao}</span></p>}
+                        {pacote.seguroApoliceCertificado && <p className="min-w-0 [overflow-wrap:anywhere] sm:col-span-2"><span className="text-gray-400">Apólice/Certificado:</span> <span className="font-mono font-semibold text-gray-700">{pacote.seguroApoliceCertificado}</span></p>}
                       </div>
                     )}
 
                     {pacote.seguroSegurados && (
                       <div>
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Segurados</p>
-                        <p className="mt-1 max-w-full whitespace-pre-wrap break-words text-sm leading-6 text-gray-700 [overflow-wrap:anywhere]">{pacote.seguroSegurados}</p>
+                        <p className="mt-1 max-w-full whitespace-pre-wrap text-sm leading-6 text-gray-700 [overflow-wrap:anywhere]">{pacote.seguroSegurados}</p>
                       </div>
                     )}
                     {pacote.seguroCoberturas && (
                       <div>
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Coberturas</p>
-                        <p className="mt-1 max-w-full whitespace-pre-wrap break-words text-sm leading-6 text-gray-700 [overflow-wrap:anywhere]">{pacote.seguroCoberturas}</p>
+                        <p className="mt-1 max-w-full whitespace-pre-wrap text-sm leading-6 text-gray-700 [overflow-wrap:anywhere]">{pacote.seguroCoberturas}</p>
                       </div>
                     )}
                     {pacote.seguroObservacoes && (
-                      <p className="max-w-full whitespace-pre-wrap break-words border-t border-emerald-100 pt-3 text-xs italic leading-5 text-gray-500 [overflow-wrap:anywhere]">{pacote.seguroObservacoes}</p>
+                      <p className="max-w-full whitespace-pre-wrap border-t border-emerald-100 pt-3 text-xs italic leading-5 text-gray-500 [overflow-wrap:anywhere]">{pacote.seguroObservacoes}</p>
                     )}
                   </article>
                 ))}
@@ -2528,12 +2432,12 @@ export default function RoteiroOrcamento() {
                         <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
                           {segurosAdicionais.length > 1 ? `Seguro adicional ${idx + 1}` : "Seguro adicional"}
                         </p>
-                        <h3 className="mt-1 break-words text-base font-semibold text-gray-900 [overflow-wrap:anywhere]">
+                        <h3 className="mt-1 text-base font-semibold text-gray-900 [overflow-wrap:anywhere]">
                           {s.tipo || s.seguradora || "Seguro viagem"}
                         </h3>
                       </div>
                       {s.valor > 0 && (
-                        <span className="max-w-full shrink-0 break-words rounded-full bg-white px-3 py-1 text-sm font-semibold text-blue-700 shadow-sm [overflow-wrap:anywhere]">
+                        <span className="max-w-full shrink-0 rounded-full bg-white px-3 py-1 text-sm font-semibold text-blue-700 shadow-sm [overflow-wrap:anywhere]">
                           {formatarMoeda(s.valor)}
                         </span>
                       )}
@@ -2541,15 +2445,15 @@ export default function RoteiroOrcamento() {
 
                     {/* Cabeçalho: seguradora + área de cobertura */}
                     <div className="flex min-w-0 max-w-full flex-wrap gap-2 text-xs">
-                      {s.seguradora && <span className="max-w-full break-words rounded-full bg-white px-2.5 py-1 text-gray-700 [overflow-wrap:anywhere]">{s.seguradora}</span>}
-                      {s.areaCobertura && <span className="max-w-full break-words rounded-full bg-white px-2.5 py-1 text-gray-700 [overflow-wrap:anywhere]">{s.areaCobertura}</span>}
+                      {s.seguradora && <span className="max-w-full rounded-full bg-white px-2.5 py-1 text-gray-700 [overflow-wrap:anywhere]">{s.seguradora}</span>}
+                      {s.areaCobertura && <span className="max-w-full rounded-full bg-white px-2.5 py-1 text-gray-700 [overflow-wrap:anywhere]">{s.areaCobertura}</span>}
                     </div>
 
                     {/* Apólice / Certificado */}
                     {(s.apolice || s.nrCertificado) && (
                       <div className="grid min-w-0 max-w-full grid-cols-1 gap-2 text-xs sm:grid-cols-2">
-                        {s.apolice && <p className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="text-gray-400">Apólice:</span> <span className="font-mono font-semibold text-gray-700">{s.apolice}</span></p>}
-                        {s.nrCertificado && <p className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="text-gray-400">Certificado:</span> <span className="font-mono font-semibold text-gray-700">{s.nrCertificado}</span></p>}
+                        {s.apolice && <p className="min-w-0 [overflow-wrap:anywhere]"><span className="text-gray-400">Apólice:</span> <span className="font-mono font-semibold text-gray-700">{s.apolice}</span></p>}
+                        {s.nrCertificado && <p className="min-w-0 [overflow-wrap:anywhere]"><span className="text-gray-400">Certificado:</span> <span className="font-mono font-semibold text-gray-700">{s.nrCertificado}</span></p>}
                       </div>
                     )}
 
@@ -2578,7 +2482,7 @@ export default function RoteiroOrcamento() {
                     {s.cobertura && (
                       <div>
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Cobertura</p>
-                        <p className="mt-1 max-w-full whitespace-pre-wrap break-words text-sm leading-6 text-gray-700 [overflow-wrap:anywhere]">{s.cobertura}</p>
+                        <p className="mt-1 max-w-full whitespace-pre-wrap text-sm leading-6 text-gray-700 [overflow-wrap:anywhere]">{s.cobertura}</p>
                       </div>
                     )}
 
@@ -2586,7 +2490,7 @@ export default function RoteiroOrcamento() {
                     {s.beneficiarios && (
                       <div>
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Beneficiários</p>
-                        <p className="mt-1 max-w-full whitespace-pre-wrap break-words text-sm leading-6 text-gray-700 [overflow-wrap:anywhere]">{s.beneficiarios}</p>
+                        <p className="mt-1 max-w-full whitespace-pre-wrap text-sm leading-6 text-gray-700 [overflow-wrap:anywhere]">{s.beneficiarios}</p>
                       </div>
                     )}
 
@@ -2599,14 +2503,14 @@ export default function RoteiroOrcamento() {
                           {s.telefoneEmergencia && <span>Tel. emergência: <span className="font-medium text-gray-700">{s.telefoneEmergencia}</span></span>}
                           {s.contatoEmergencia && <span>Contato: <span className="font-medium text-gray-700">{s.contatoEmergencia}</span></span>}
                           {s.emailSinistro && (
-                            <a href={`mailto:${s.emailSinistro}`} className="max-w-full break-words text-blue-600 hover:underline [overflow-wrap:anywhere]">
+                            <a href={`mailto:${s.emailSinistro}`} className="max-w-full text-blue-600 hover:underline [overflow-wrap:anywhere]">
                               {s.emailSinistro}
                             </a>
                           )}
                           {obterLinkExternoSeguro(s.siteSinistro) && (
                             <a href={obterLinkExternoSeguro(s.siteSinistro)}
                               target="_blank" rel="noopener noreferrer"
-                              className="max-w-full break-words text-blue-600 hover:underline [overflow-wrap:anywhere]">
+                              className="max-w-full text-blue-600 hover:underline [overflow-wrap:anywhere]">
                               🔗 Site de sinistro
                             </a>
                           )}
@@ -2616,7 +2520,7 @@ export default function RoteiroOrcamento() {
 
                     {/* Observações */}
                     {sanitizarTextoPublico(s.observacoes) && (
-                      <p className="max-w-full whitespace-pre-wrap break-words border-t border-blue-100 pt-3 text-xs italic leading-5 text-gray-500 [overflow-wrap:anywhere]">{sanitizarTextoPublico(s.observacoes)}</p>
+                      <p className="max-w-full whitespace-pre-wrap border-t border-blue-100 pt-3 text-xs italic leading-5 text-gray-500 [overflow-wrap:anywhere]">{sanitizarTextoPublico(s.observacoes)}</p>
                     )}
                   </article>
                 ))}
@@ -2693,7 +2597,7 @@ export default function RoteiroOrcamento() {
             <MessageCircle className="h-5 w-5" />
           </a>
           <a href="https://www.instagram.com/321go.portaldomorumbi" target="_blank" rel="noreferrer" title="Instagram" aria-label="Instagram" className="text-pink-500 transition-transform hover:scale-110 hover:text-pink-600">
-            <Instagram className="h-5 w-5" />
+            <InstagramIcon className="h-5 w-5" />
           </a>
           <a href="mailto:portaldomorumbi@321go.com.br" title="E-mail" aria-label="E-mail" className="text-red-500 transition-transform hover:scale-110 hover:text-red-600">
             <Mail className="h-5 w-5" />

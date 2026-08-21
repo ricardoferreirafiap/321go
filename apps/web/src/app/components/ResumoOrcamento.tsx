@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Plane, Bed, ShieldCheck, ShoppingCart, User, Mail, Share2, DollarSign, CalendarDays, Car, Utensils, Sparkles, Info, Users, Package2, MapPin, Clock, Hash, Link2, Building2, Phone, Tag, Ticket, ChevronDown, ChevronUp } from "lucide-react";
+import { Plane, Bed, ShieldCheck, ShoppingCart, User, Mail, Share2, DollarSign, CalendarDays, Car, Utensils, Sparkles, Info, Users, Package2, MapPin, Clock, Hash, Link2, Building2, Phone, Tag, Ticket, ChevronDown, ChevronUp, Star } from "lucide-react";
 import { Button } from "./ui/button";
 import { buscarOrcamentoPublico } from "../data/orcamentosApi";
 // Tipos replicados de Orcamentos.tsx para consistência
@@ -218,6 +218,7 @@ export default function ResumoOrcamento() {
       try {
         const orcamentoApi = await buscarOrcamentoPublico(numero);
         if (active) {
+          // @ts-ignore
           setOrcamento(orcamentoApi);
           setCarregando(false);
         }

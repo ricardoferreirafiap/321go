@@ -15,6 +15,7 @@ import DayByDayForm from "./DayByDayForm";
 import TransporteForm from "./TransporteForm";
 import RestauranteForm from "./RestauranteForm";
 import ExperienciasForm from "./ExperienciasForm";
+import { type Voo } from "./VoosForm";
 import { listarClientes, type Cliente } from "../data/clientesApi";
 import { listarFuncionarios, type Funcionario } from "../data/funcionariosApi";
 import { listarFornecedores, type Fornecedor } from "../data/fornecedoresApi";
@@ -32,7 +33,6 @@ import {
   type StatusViagem,
 } from "../data/orcamentosApi";
 import {
-  type Pacote,
   criarLancamentoFinanceiro,
   atualizarLancamentoFinanceiro,
   listarLancamentosFinanceiros,
@@ -155,6 +155,8 @@ const statusConfig: Record<StatusOrc, { bg: string; cor: string }> = {
   Rejeitado: { bg: "bg-red-100",    cor: "text-red-600" },
   Cancelado: { bg: "bg-orange-100", cor: "text-orange-600" },
 };
+
+const defaultStatusConfig = { bg: "bg-gray-100", cor: "text-gray-600" };
 
 const statusViagemConfig: Record<StatusViagem, { bg: string; cor: string }> = {
   "Não Iniciada": { bg: "bg-slate-100",  cor: "text-slate-600" },
@@ -425,7 +427,7 @@ function extrairNumero(valor: unknown, padrao = 0) {
   return Number.isFinite(n) ? n : padrao;
 }
 
-function parseMoeda(valorTexto: string) {
+function parseMoeda(valorTexto: string): number {
   const limpo = valorTexto
       .replace(/\s/g, "")
       .replace(/R\$/gi, "")
@@ -620,17 +622,15 @@ export default function Orcamentos() {
   const [roteiroMinimizado, setRoteiroMinimizado] = useState(true);
   const [houveAlteracoes, setHouveAlteracoes] = useState(false);
   const formularioCarregadoRef = useRef(false);
-  const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automático" | "cloudflare" | "deepseek" | "gemini" | "groq" | "huggingface" | "openai" | "openrouter">("automático");
+  const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automático" | "cloudflare" | "gemini" | "groq" | "openai" | "openrouter">("automático");
   const [iaRoteiroExibida, setIaRoteiroExibida] = useState("Automático");
   const [novaUrlOperadorItem, setNovaUrlOperadorItem] = useState("");
 
   const nomesProvedorIA: Record<typeof provedorRoteiroIA, string> = {
     automático: "Automático",
     cloudflare: "Cloudflare",
-    deepseek: "DeepSeek",
     gemini: "Gemini",
     groq: "Groq",
-    huggingface: "HuggingFace",
     openai: "OpenAI",
     openrouter: "OpenRouter",
   };
@@ -1560,7 +1560,7 @@ export default function Orcamentos() {
         .map((voo, index) => {
           const origem = String(voo?.origem || "").trim();
           const destino = String(voo?.destino || "").trim();
-          const data = String(voo?.data || voo?.dataIda || "").trim();
+          const data = String(voo?.data || "").trim();
           if (!origem && !destino && !data) return "";
 
           return `${index + 1}) ${origem || "Origem não informada"} -> ${destino || "Destino não informado"}${data ? ` em ${fmtData(data)}` : ""}`;
@@ -1753,7 +1753,7 @@ export default function Orcamentos() {
         return data.reply;
       };
 
-      if (provedorRoteiroIA === "automático") {
+      if (provedorRoteiroIA === "automático" as typeof provedorRoteiroIA) {
         const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
         for (const provedor of provedores) {
           try {
@@ -1774,7 +1774,7 @@ export default function Orcamentos() {
         }
       } else {
         if (provedorRoteiroIA !== "automático") {
-          respostaFinal = await tentarComProvedor(provedorRoteiroIA);
+          respostaFinal = await tentarComProvedor(provedorRoteiroIA as Exclude<typeof provedorRoteiroIA, "automático">);
           setIaRoteiroExibida(nomesProvedorIA[provedorRoteiroIA]);
         }
       }
@@ -2270,10 +2270,8 @@ export default function Orcamentos() {
                                   >
                                     <option value="automático">Automático</option>
                                     <option value="cloudflare">Cloudflare</option>
-                                    <option value="deepseek">DeepSeek</option>
                                     <option value="gemini">Gemini</option>
                                     <option value="groq">Groq</option>
-                                    <option value="huggingface">HuggingFace</option>
                                     <option value="openai">OpenAI</option>
                                     <option value="openrouter">OpenRouter</option>
                                   </select>
@@ -2753,7 +2751,7 @@ export default function Orcamentos() {
                         {/* Badges de status */}
                         <div className="flex items-center gap-1.5 flex-wrap mt-1">
                           <Badge className={`${cfg.bg} ${cfg.cor} hover:${cfg.bg} text-xs`}>{orc.status}</Badge>
-                          {orc.statusViagem && (() => { const cfgV = statusViagemConfig[orc.statusViagem] || statusViagemConfig; return <Badge className={`${cfgV.bg} ${cfgV.cor} hover:${cfgV.bg} text-xs`}>{orc.statusViagem}</Badge>; })()}
+                          {orc.statusViagem && (() => { const cfgV = statusViagemConfig[orc.statusViagem] || { bg: "bg-slate-100", cor: "text-slate-600" }; return <Badge className={`${cfgV.bg} ${cfgV.cor} hover:${cfgV.bg} text-xs`}>{orc.statusViagem}</Badge>; })()}
                           {vencido && <span className="text-xs text-red-500 font-semibold">⚠ Vencido</span>}
                         </div>
 

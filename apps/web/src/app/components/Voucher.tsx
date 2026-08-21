@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router";
 import {
-  Search, Plus, Edit2, X, Check, FileText, ChevronDown, ChevronUp, Upload,
-  User, Calendar, DollarSign, Send, Eye, Copy, MapPin, Sparkles, Link2, Star
+  Search, Plus, Edit2, X, Check, FileText, ChevronDown, ChevronUp,
+  User, Calendar, DollarSign, MapPin, Sparkles, Link2, Star
 } from "lucide-react"; // Adicionado Sparkles
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
@@ -15,6 +15,7 @@ import DayByDayForm from "./DayByDayForm";
 import TransporteForm from "./TransporteForm";
 import RestauranteForm from "./RestauranteForm";
 import ExperienciasForm from "./ExperienciasForm";
+import { type Voo } from "./VoosForm";
 import { listarClientes, type Cliente } from "../data/clientesApi";
 import { listarFuncionarios, type Funcionario } from "../data/funcionariosApi";
 import { listarFornecedores, type Fornecedor } from "../data/fornecedoresApi";
@@ -32,13 +33,11 @@ import {
   type StatusViagem,
 } from "../data/orcamentosApi";
 import {
-  type Pacote,
   criarLancamentoFinanceiro,
   atualizarLancamentoFinanceiro,
   listarLancamentosFinanceiros,
   type LancamentoFinanceiro,
 } from "../data/financeiroApi";
-import { buscarOpcoesDestino } from "../data/placePhotoApi";
 import { enviarMensagemIA } from "../data/aiChatApi";
 import { criarEvento } from "../data/eventosApi";
 import { prepararRoteiroSemAnexos, salvarRoteiroNoCache } from "../data/roteiroCache";
@@ -155,6 +154,8 @@ const statusConfig: Record<StatusOrc, { bg: string; cor: string }> = {
   Rejeitado: { bg: "bg-red-100",    cor: "text-red-600" },
   Cancelado: { bg: "bg-orange-100", cor: "text-orange-600" },
 };
+
+const defaultStatusConfig = { bg: "bg-gray-100", cor: "text-gray-600" };
 
 const statusViagemConfig: Record<StatusViagem, { bg: string; cor: string }> = {
   "Não Iniciada": { bg: "bg-slate-100",  cor: "text-slate-600" },
@@ -425,16 +426,6 @@ function extrairNumero(valor: unknown, padrao = 0) {
   return Number.isFinite(n) ? n : padrao;
 }
 
-function parseMoeda(valorTexto: string) {
-  const limpo = valorTexto
-      .replace(/\s/g, "")
-      .replace(/R\$/gi, "")
-      .replace(/\./g, "")
-      .replace(/,/g, ".");
-  const numero = parseFloat(limpo);
-  return Number.isFinite(numero) ? numero : 0;
-}
-
 function montarLinhasDescricao(orc: Orcamento): ItemOrc[] {
   let proximoId = 1;
   const criarLinha = (
@@ -556,7 +547,7 @@ export default function Voucher() {
   const [editando, setEditando] = useState<Orcamento | null>(null);
   const [form, setForm] = useState<OrcamentoPayload>(orcVazio());
   const [busca, setBusca] = useState("");
-  const [filtroStatus, setFiltroStatus] = useState<StatusOrc | "Todos">("Todos");
+  const filtroStatus: StatusOrc | "Todos" = "Todos";
   const [expandidos, setExpandidos] = useState<Set<number>>(new Set());
   const [section, setSection] = useState<SecaoOrcamento>("Pacotes");
   const [pacotes, setPacotes] = useState<any[]>([]);
@@ -576,16 +567,12 @@ export default function Voucher() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [modalFinanceiroAberto, setModalFinanceiroAberto] = useState(false);
-  const [salvandoLancamento, setSalvandoLancamento] = useState(false);
-  const [erroLancamento, setErroLancamento] = useState<string | null>(null);
   const [quitadoLancamento, setQuitadoLancamento] = useState(true);
   const [formaPagamentoLancamento, setFormaPagamentoLancamento] = useState("");
   const [parcelasLancamento, setParcelasLancamento] = useState("1");
   const [dataLancamento, setDataLancamento] = useState(new Date().toISOString().slice(0, 10));
   const [percentualComissaoLancamento, setPercentualComissaoLancamento] = useState("");
   const [valorComissaoLancamento, setValorComissaoLancamento] = useState("");
-  const [origemComissaoLancamento, setOrigemComissaoLancamento] = useState<OrigemComissao>(null);
   const [popupAprovadoAberto, setPopupAprovadoAberto] = useState(false);
 
   // Estados do modal de lançamento financeiro da tela de lista
@@ -620,17 +607,15 @@ export default function Voucher() {
   const [roteiroMinimizado, setRoteiroMinimizado] = useState(true);
   const [houveAlteracoes, setHouveAlteracoes] = useState(false);
   const formularioCarregadoRef = useRef(false);
-  const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automático" | "cloudflare" | "deepseek" | "gemini" | "groq" | "huggingface" | "openai" | "openrouter">("automático");
+  const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automático" | "cloudflare" | "gemini" | "groq" | "openai" | "openrouter">("automático");
   const [iaRoteiroExibida, setIaRoteiroExibida] = useState("Automático");
   const [novaUrlOperadorItem, setNovaUrlOperadorItem] = useState("");
 
   const nomesProvedorIA: Record<typeof provedorRoteiroIA, string> = {
     automático: "Automático",
     cloudflare: "Cloudflare",
-    deepseek: "DeepSeek",
     gemini: "Gemini",
     groq: "Groq",
-    huggingface: "HuggingFace",
     openai: "OpenAI",
     openrouter: "OpenRouter",
   };
@@ -713,71 +698,12 @@ export default function Voucher() {
   }
 
   function abrirCadastroLancamentoFinanceiro() {
-    setErroLancamento(null);
     setQuitadoLancamento(true);
     setFormaPagamentoLancamento("");
     setParcelasLancamento("1");
     setDataLancamento(form.dataCriacao || new Date().toISOString().slice(0, 10));
     setPercentualComissaoLancamento("");
     setValorComissaoLancamento("");
-    setOrigemComissaoLancamento(null);
-    setModalFinanceiroAberto(true);
-  }
-
-  function abrirLancamentoDaLista(orc: Orcamento) {
-    const lancamentoExistente = lancamentosFinanceiros.find(
-      (l) => l.orcamentoId === orc.id
-    ) ?? null;
-
-    setErroLancamentoLista(null);
-    setOrcamentoListaModal(orc);
-
-    if (lancamentoExistente) {
-      // Modo edição — pré-preenche com os dados do lançamento existente
-      setEditandoIdLancamentoLista(lancamentoExistente.id);
-      setTipoLancamentoLista(lancamentoExistente.tipo);
-      setDescricaoLancamentoLista(lancamentoExistente.descricao);
-      setValorLancamentoLista(formatarMoedaInput(lancamentoExistente.valor));
-      setDataLancamentoLista(lancamentoExistente.data);
-      setPercentualComissaoLista(
-        lancamentoExistente.comissaoPercentual === null
-          ? ""
-          : formatarNumeroInput(lancamentoExistente.comissaoPercentual)
-      );
-      setValorComissaoLista(
-        lancamentoExistente.comissaoValor === null
-          ? ""
-          : formatarMoedaInput(lancamentoExistente.comissaoValor)
-      );
-      setOrigemComissaoLista(
-        lancamentoExistente.comissaoPercentual !== null
-          ? "percentual"
-          : lancamentoExistente.comissaoValor !== null
-          ? "valor"
-          : null
-      );
-      setOrcamentoPagoLista(lancamentoExistente.orcamentoPago);
-      setFormaPagamentoLista(lancamentoExistente.formaPagamento || "");
-      setParcelasLista(String(lancamentoExistente.parcelas ?? 1));
-      setEditandoOcultoLista(lancamentoExistente.oculto);
-    } else {
-      // Modo criação — pré-preenche com dados do orçamento
-      const totalOrcamento = calcTotalOrcamento(orc);
-      setEditandoIdLancamentoLista(null);
-      setTipoLancamentoLista("receita");
-      setDescricaoLancamentoLista(`Receita do orçamento #${orc.numero} - ${orc.cliente}`);
-      setValorLancamentoLista(formatarMoedaInput(totalOrcamento));
-      setDataLancamentoLista(orc.dataCriacao || new Date().toISOString().slice(0, 10));
-      setPercentualComissaoLista("");
-      setValorComissaoLista("");
-      setOrigemComissaoLista(null);
-      setOrcamentoPagoLista(false);
-      setFormaPagamentoLista("");
-      setParcelasLista("1");
-      setEditandoOcultoLista(false);
-    }
-
-    setModalListaLancamentoAberto(true);
   }
 
   async function salvarLancamentoListaModal() {
@@ -874,23 +800,6 @@ export default function Voucher() {
     setValorLancamentoLista(aplicarMascaraMoeda(novoValor));
   }
 
-  function onChangePercentualComissaoLancamento(novoPercentual: string) {
-    setOrigemComissaoLancamento("percentual");
-    setPercentualComissaoLancamento(novoPercentual);
-    const valorBase = formatarMoedaInput(calcularTotalOrcamentoAtual());
-    const sincronizado = sincronizarComissaoComValor(valorBase, "percentual", novoPercentual, valorComissaoLancamento);
-    setValorComissaoLancamento(sincronizado.valorComissao);
-  }
-
-  function onChangeValorComissaoLancamento(novoValorComissao: string) {
-    const valorFormatado = aplicarMascaraMoeda(novoValorComissao);
-    setOrigemComissaoLancamento("valor");
-    setValorComissaoLancamento(valorFormatado);
-    const valorBase = formatarMoedaInput(calcularTotalOrcamentoAtual());
-    const sincronizado = sincronizarComissaoComValor(valorBase, "valor", percentualComissaoLancamento, valorFormatado);
-    setPercentualComissaoLancamento(sincronizado.percentualComissao);
-  }
-
   async function onChangeStatusOrcamento(novoStatus: StatusOrc) {
     const eraAprovado = form.status === "Aprovado";
     setForm((prev) => ({ ...prev, status: novoStatus }));
@@ -915,59 +824,6 @@ export default function Voucher() {
 
   function confirmarAprovadoSemQuitacao() {
     setPopupAprovadoAberto(false);
-  }
-
-  async function salvarLancamentoVinculado() {
-    if (!editando?.id) {
-      setErroLancamento("Orçamento inválido para vincular lançamento financeiro.");
-      return;
-    }
-
-    const valorTotal = calcularTotalOrcamentoAtual();
-    const parcelas = Number(parcelasLancamento);
-
-    if (!dataLancamento) {
-      setErroLancamento("Informe a data do lançamento.");
-      return;
-    }
-
-    if (quitadoLancamento && !formaPagamentoLancamento.trim()) {
-      setErroLancamento("Selecione a forma de pagamento.");
-      return;
-    }
-
-    if (quitadoLancamento && (!Number.isInteger(parcelas) || parcelas <= 0)) {
-      setErroLancamento("Informe a quantidade de parcelas válida.");
-      return;
-    }
-
-    setSalvandoLancamento(true);
-    setErroLancamento(null);
-
-    try {
-      const percentualComissaoNum = parseNumeroInput(percentualComissaoLancamento);
-      const valorComissaoNum = parseMoedaInput(valorComissaoLancamento);
-
-      await criarLancamentoFinanceiro({
-        tipo: "receita",
-        descricao: `Receita do orçamento #${form.numero} - ${form.cliente}`,
-        valor: Math.abs(valorTotal),
-        comissaoPercentual: percentualComissaoNum ?? null,
-        comissaoValor: valorComissaoNum ?? null,
-        data: dataLancamento,
-        oculto: false,
-        orcamentoPago: quitadoLancamento,
-        formaPagamento: quitadoLancamento ? formaPagamentoLancamento.trim() : "",
-        parcelas: quitadoLancamento ? parcelas : null,
-        orcamentoId: editando.id,
-      });
-
-      setModalFinanceiroAberto(false);
-    } catch (error) {
-      setErroLancamento(error instanceof Error ? error.message : "Erro ao salvar lançamento financeiro.");
-    } finally {
-      setSalvandoLancamento(false);
-    }
   }
 
   async function carregarOrcamentos() {
@@ -1059,22 +915,6 @@ export default function Voucher() {
     const match = o.numero.toLowerCase().includes(q) || o.cliente.toLowerCase().includes(q) || o.email.toLowerCase().includes(q);
     return match && (filtroStatus === "Todos" || o.status === filtroStatus);
   });
-
-  const totais = {
-    total: lista.reduce((a, o) => a + calcTotalOrcamento(o), 0),
-    qtdTotal: lista.length,
-    aprovados: lista.filter((o) => o.status === "Aprovado").reduce((a, o) => a + calcTotalOrcamento(o), 0),
-    qtdAprovados: lista.filter((o) => o.status === "Aprovado").length,
-    pendentes: lista.filter((o) => o.status === "Enviado").length,
-    rascunhos: lista.filter((o) => o.status === "Rascunho").reduce((a, o) => a + calcTotalOrcamento(o), 0),
-    qtdRascunhos: lista.filter((o) => o.status === "Rascunho").length,
-    enviados: lista.filter((o) => o.status === "Enviado").reduce((a, o) => a + calcTotalOrcamento(o), 0),
-    qtdEnviados: lista.filter((o) => o.status === "Enviado").length,
-    rejeitados: lista.filter((o) => o.status === "Rejeitado").reduce((a, o) => a + calcTotalOrcamento(o), 0),
-    qtdRejeitados: lista.filter((o) => o.status === "Rejeitado").length,
-    cancelados: lista.filter((o) => o.status === "Cancelado").reduce((a, o) => a + calcTotalOrcamento(o), 0),
-    qtdCancelados: lista.filter((o) => o.status === "Cancelado").length,
-  };
 
   function toggleExpandir(id: number) {
     setExpandidos((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -1419,48 +1259,6 @@ export default function Voucher() {
     }
   }
 
-  function abrirResumo(orc: Orcamento | null = null) {
-    const orcParaAbrir = orc || (editando ? { id: editando.id, ...form } : null);
-    if (!orcParaAbrir) return;
-
-    const usandoEstadoFormulario = !orc && Boolean(editando);
-
-    const orcComSecoes = {
-      ...orcParaAbrir,
-      destino: obterDestinoPrincipalOrcamento(orcParaAbrir, usandoEstadoFormulario),
-      pacotes: usandoEstadoFormulario ? pacotes : orcParaAbrir.pacotes,
-      voos: usandoEstadoFormulario ? voos : orcParaAbrir.voos,
-      hospedagem: usandoEstadoFormulario ? hospedagem : orcParaAbrir.hospedagem,
-      roteiro: usandoEstadoFormulario ? roteiro : orcParaAbrir.roteiro,
-      promptRoteiroIA: usandoEstadoFormulario ? promptRoteiroIA : (orcParaAbrir.promptRoteiroIA || ""),
-      dayByDay: usandoEstadoFormulario ? dayByDay : orcParaAbrir.dayByDay,
-      transporte: usandoEstadoFormulario ? transporte : orcParaAbrir.transporte,
-      restaurante: usandoEstadoFormulario ? restaurante : orcParaAbrir.restaurante,
-      experiencias: usandoEstadoFormulario ? experiencias : orcParaAbrir.experiencias,
-      perfilViagem: usandoEstadoFormulario ? perfilViagemSelecionado : orcParaAbrir.perfilViagem,
-      promptPerfilViagemIA: usandoEstadoFormulario ? promptPerfilViagemIA : (orcParaAbrir.promptPerfilViagemIA || ""),
-    };
-
-    const resumoPath = `/financeiro/orcamentos/resumo/${orcComSecoes.publicToken || orcComSecoes.numero}`;
-    const novaAbaResumo = window.open("", "_blank");
-
-    try {
-      const orcJson = JSON.stringify(sanitizarParaStorage(orcComSecoes));
-      localStorage.setItem(`orc_${orcComSecoes.numero}`, orcJson);
-      if (orcComSecoes.publicToken) {
-        localStorage.setItem(`orc_${orcComSecoes.publicToken}`, orcJson);
-      }
-    } catch {
-      // QuotaExceededError: segue sem cache local
-    }
-
-    if (novaAbaResumo) {
-      novaAbaResumo.location.href = resumoPath;
-    } else {
-      navigate(resumoPath);
-    }
-  }
-
   // --- itens do form ---
   function addItem() { setForm((f) => ({ ...f, itens: [...f.itens, itemVazio()] })); }
   function removeItem(id: number) { setForm((f) => ({ ...f, itens: f.itens.filter((i) => i.id !== id) })); }
@@ -1560,7 +1358,7 @@ export default function Voucher() {
         .map((voo, index) => {
           const origem = String(voo?.origem || "").trim();
           const destino = String(voo?.destino || "").trim();
-          const data = String(voo?.data || voo?.dataIda || "").trim();
+          const data = String(voo?.data || "").trim();
           if (!origem && !destino && !data) return "";
 
           return `${index + 1}) ${origem || "Origem não informada"} -> ${destino || "Destino não informado"}${data ? ` em ${fmtData(data)}` : ""}`;
@@ -1753,7 +1551,7 @@ export default function Voucher() {
         return data.reply;
       };
 
-      if (provedorRoteiroIA === "automático") {
+      if (provedorRoteiroIA === "automático" as typeof provedorRoteiroIA) {
         const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
         for (const provedor of provedores) {
           try {
@@ -1774,7 +1572,7 @@ export default function Voucher() {
         }
       } else {
         if (provedorRoteiroIA !== "automático") {
-          respostaFinal = await tentarComProvedor(provedorRoteiroIA);
+          respostaFinal = await tentarComProvedor(provedorRoteiroIA as Exclude<typeof provedorRoteiroIA, "automático">);
           setIaRoteiroExibida(nomesProvedorIA[provedorRoteiroIA]);
         }
       }
@@ -2270,10 +2068,8 @@ export default function Voucher() {
                                   >
                                     <option value="automático">Automático</option>
                                     <option value="cloudflare">Cloudflare</option>
-                                    <option value="deepseek">DeepSeek</option>
                                     <option value="gemini">Gemini</option>
                                     <option value="groq">Groq</option>
-                                    <option value="huggingface">HuggingFace</option>
                                     <option value="openai">OpenAI</option>
                                     <option value="openrouter">OpenRouter</option>
                                   </select>
@@ -2742,7 +2538,7 @@ export default function Voucher() {
                         {orc.destino && <span className="flex items-center gap-1 text-xs text-gray-500"><MapPin className="w-3 h-3" />{orc.destino}</span>}
                       </div>
 
-                      {orc.statusViagem && (() => { const cfgV = statusViagemConfig[orc.statusViagem] || statusViagemConfig; return <Badge className={`${cfgV.bg} ${cfgV.cor} hover:${cfgV.bg} text-xs flex-shrink-0`}>{orc.statusViagem}</Badge>; })()}
+                      {orc.statusViagem && (() => { const cfgV = statusViagemConfig[orc.statusViagem] || { bg: "bg-slate-100", cor: "text-slate-600" }; return <Badge className={`${cfgV.bg} ${cfgV.cor} hover:${cfgV.bg} text-xs flex-shrink-0`}>{orc.statusViagem}</Badge>; })()}
 
                       {/* Datas de check-in e check-out dos pacotes ao lado do status */}
                       {orc.pacotes && orc.pacotes.length > 0 && orc.pacotes.some((p: any) => p.hospedagemCheckin || p.hospedagemCheckout) && (

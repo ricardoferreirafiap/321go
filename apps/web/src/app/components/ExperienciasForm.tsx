@@ -249,7 +249,7 @@ export default function ExperienciasForm({
   >("automático");
   const [logAnalise, setLogAnalise] = useState<string[]>([]);
   const [vouchersMinimizado, setVouchersMinimizado] = useState(true);
-  const [relatoriosExpandidos, setRelatoriosExpandidos] = useState<Set<number>>(new Set());
+  const [relatoriosExpandidos, setRelatoriosExpandidos] = useState<Set<number>>(new Set<number>());
   const [experienciaParaExcluir, setExperienciaParaExcluir] = useState<number | null>(null);
   const [buscaMinimizado, setBuscaMinimizado] = useState(true);
   const [editandoId, setEditandoId] = useState<number | null>(null);

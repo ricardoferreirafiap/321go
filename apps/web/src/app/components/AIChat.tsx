@@ -3,7 +3,7 @@ import { Card } from "./ui/card";
 import { Bot, PanelLeftClose, Send } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { enviarMensagemIA } from "../data/aiChatApi";
+import { enviarMensagemIA, type AIChatApiMessage, type AIChatRole } from "../data/aiChatApi";
 
 interface AIChatProps {
   setAiChatOpen: (open: boolean) => void;
@@ -43,10 +43,10 @@ export default function AIChat({ setAiChatOpen, isMobile = false }: AIChatProps)
     setIsSending(true);
 
     try {
-      const contextMessages = nextMessages
+      const contextMessages: AIChatApiMessage[] = nextMessages
         .filter((message) => message.includeInContext !== false)
         .map((message) => ({
-          role: message.sender === "ai" ? "assistant" : "user",
+          role: (message.sender === "ai" ? "assistant" : "user") as AIChatRole,
           content: message.text,
         }));
 

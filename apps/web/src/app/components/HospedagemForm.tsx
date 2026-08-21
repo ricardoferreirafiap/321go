@@ -148,7 +148,7 @@ export default function HospedagemForm({
       const prompt = `Você é um assistente de viagens especializado. Preciso do site oficial (URL) do seguinte hotel:\n\nNome: ${nomeTrimmed}${endereco.trim() ? `\nEndereço: ${endereco.trim()}` : ""}\n\nResponda SOMENTE com a URL completa do site oficial do hotel (ex: https://www.nomehotel.com). Se não encontrar o site oficial, responda com a URL do Google Maps ou Booking.com para este hotel. Não adicione explicações, apenas a URL.`;
 
       const resposta = await enviarMensagemIA([{ role: "user", content: prompt }]);
-      const conteudo = resposta?.choices?.[0]?.message?.content?.trim() ?? "";
+      const conteudo = resposta?.reply?.trim() ?? "";
       const urlMatch = conteudo.match(/https?:\/\/[^\s"'<>]+/);
 
       if (urlMatch) {
@@ -594,7 +594,7 @@ export default function HospedagemForm({
                 ))}
               </datalist>
               <Button 
-                onClick={buscarHospedagem}
+                onClick={() => buscarHospedagem()}
                 disabled={carregando}
                 size="icon"
                 className="w-auto gap-2 px-4"

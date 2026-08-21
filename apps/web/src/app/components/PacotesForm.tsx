@@ -1,5 +1,5 @@
-import { useMemo, useState, useRef, useEffect } from "react";
-import { ChevronDown, ChevronUp, Pencil, Plus, Trash2, Link2, Package2, Image, Upload, FileText, X, Sparkles, RefreshCw, ExternalLink, Shield } from "lucide-react";
+import { useMemo, useState, useRef } from "react";
+import { ChevronDown, ChevronUp, Pencil, Plus, Trash2, Link2, Package2, Image, Upload, FileText, X, Sparkles, ExternalLink } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
@@ -21,7 +21,7 @@ import { enviarMensagemIA, type AIChatApiMessageContent } from "../data/aiChatAp
 import { API_CONFIG } from "../data/apiConfig";
 import { buscarFotoDestino } from "../data/placePhotoApi";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
-import { createWorker, type Worker } from "tesseract.js";
+import * as Tesseract from "tesseract.js";
 
 const LOGO_HOTELDO_REF = "/assets/logos/hoteldo.png";
 
@@ -404,18 +404,7 @@ function formatarMoeda(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function formatarMoedaInput(valor: string): string {
-  // Remove todos os caracteres exceto números e vírgula
-  const limpo = valor.replace(/[^\d,]/g, "");
-  // Garante que tenha apenas uma vírgula
-  const partes = limpo.split(",");
-  if (partes.length > 2) {
-    return partes[0] + "," + partes.slice(1).join("");
-  }
-  return limpo;
-}
-
-function parseMoeda(valorTexto: string) {
+function parseMoeda(valorTexto: string): number {
   const limpo = valorTexto
       .replace(/\s/g, "")
       .replace(/R\$/gi, "")
@@ -892,6 +881,7 @@ function aplicarCiaAereaDetectada(
 
 function carregarImagem(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
+    // @ts-ignore
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
@@ -972,7 +962,7 @@ async function compararComLogoReferencia(imageUrl: string, referenciaUrl: string
   }
 }
 
-async function identificarOperadorPorOcr(imageUrl: string, worker: Worker): Promise<string> {
+async function identificarOperadorPorOcr(imageUrl: string, worker: any): Promise<string> {
   if (!imageUrl) return "";
 
   try {
@@ -983,7 +973,7 @@ async function identificarOperadorPorOcr(imageUrl: string, worker: Worker): Prom
   }
 }
 
-async function extrairTextoPorOcr(imageUrl: string, worker: Worker): Promise<string> {
+async function extrairTextoPorOcr(imageUrl: string, worker: any): Promise<string> {
   if (!imageUrl) return "";
   const imagemPreparada = await prepararImagemParaOcr(imageUrl);
   const { data: { text } } = await worker.recognize(imagemPreparada);
@@ -1186,9 +1176,6 @@ function extrairDadosIADeAnalise(analise: string): DadosIAExtraidos {
 
         // Pega o trecho do relatório a partir desta linha até a próxima ocorrência de "Nome da Atração" ou fim
         const inicio = matchNome.index + matchNome[0].length;
-        const proximoNome = reNome.lastIndex > 0
-          ? analise.indexOf("**", reNome.lastIndex) // início do próximo campo **
-          : analise.length;
         // Avança até o próximo bloco "Nome da Atração" ou usa um trecho fixo de ~500 chars
         const bloco = analise.slice(inicio, inicio + 600);
 
@@ -1248,17 +1235,6 @@ function mesclarDadosIA(...fontes: (DadosIAExtraidos | null | undefined)[]): Dad
     }
   }
   return resultado;
-}
-
-function mesclarDadosIADocumentos(documentos: Documento[]): DadosIAExtraidos {
-  const docsVoo = documentos.filter((doc) => ehDocumentoVoo(doc.nome));
-  const docsHotel = documentos.filter((doc) => ehDocumentoHotel(doc.nome));
-  const docsGerais = documentos.filter((doc) => !ehDocumentoVoo(doc.nome) && !ehDocumentoHotel(doc.nome));
-
-  const fontesVoo = [...docsVoo, ...docsGerais].map((doc) => obterDadosIADocumento(doc));
-  const fontesHotel = [...docsHotel, ...docsGerais].map((doc) => obterDadosIADocumento(doc));
-
-  return mesclarDadosIA(...fontesVoo, ...fontesHotel);
 }
 
 function montarDadosIAFromJson(
@@ -1857,16 +1833,6 @@ function ehDocumentoHotel(nome: string): boolean {
   return normalizado.includes("hotel") || normalizado.includes("hospedagem") || normalizado.includes("voucher") || normalizado.includes("reserva");
 }
 
-// Retorna o primeiro documento de voo que possui resultado de IA.
-function encontrarDocumentoVoo(documentos: Documento[]) {
-  return documentos.find((doc) => ehDocumentoVoo(doc.nome) && (doc.dadosIA || doc.analise));
-}
-
-// Retorna o primeiro documento de hotel/hospedagem que possui resultado de IA.
-function encontrarDocumentoHotel(documentos: Documento[]) {
-  return documentos.find((doc) => ehDocumentoHotel(doc.nome) && (doc.dadosIA || doc.analise));
-}
-
 function mapearDetalhesVoo<T extends Pick<
     Pacote,
     | "operador"
@@ -1970,7 +1936,7 @@ function mapearDetalhesHospedagem<T extends Pick<
     hospedagemHorarioCheckin: formAtual.hospedagemHorarioCheckin || dadosIAHospedagem.horarioCheckinHotel || "",
     hospedagemHorarioCheckout: formAtual.hospedagemHorarioCheckout || dadosIAHospedagem.horarioCheckoutHotel || "",
     hospedagemNoites: formAtual.hospedagemNoites || dadosIAHospedagem.noitesHotel || "",
-    hospedagemValor: formAtual.hospedagemValor || dadosIAHospedagem.valorHotel || "",
+    hospedagemValor: formAtual.hospedagemValor || (dadosIAHospedagem.valorHotel ? parseMoeda(dadosIAHospedagem.valorHotel) : 0),
     hospedagemLink: formAtual.hospedagemLink || dadosIAHospedagem.linkHotel || "",
     hospedagemFoto: formAtual.hospedagemFoto || dadosIAHospedagem.fotoHotel || null,
   };
@@ -2043,61 +2009,6 @@ function mapearDetalhesIngresso<T extends Pick<
   };
 }
 
-function mapearDetalhesSeguro<T extends Pick<
-    Pacote,
-    | "seguroAssistencia"
-    | "seguroSeguradora"
-    | "seguroPlano"
-    | "seguroNumeroReserva"
-    | "seguroNumeroConfirmacao"
-    | "seguroApoliceCertificado"
-    | "seguroSegurados"
-    | "seguroDestino"
-    | "seguroAmbitoCobertura"
-    | "seguroVigenciaInicio"
-    | "seguroVigenciaFim"
-    | "seguroCoberturas"
-    | "seguroValor"
-    | "seguroObservacoes"
->>(formAtual: T, dadosIA: NonNullable<Documento["dadosIA"]>): T {
-  return {
-    ...formAtual,
-    seguroAssistencia: dadosIA.seguroAssistencia || formAtual.seguroAssistencia || "",
-    seguroSeguradora: dadosIA.seguroSeguradora || formAtual.seguroSeguradora || "",
-    seguroPlano: dadosIA.seguroPlano || formAtual.seguroPlano || "",
-    seguroNumeroReserva: dadosIA.seguroNumeroReserva || formAtual.seguroNumeroReserva || "",
-    seguroNumeroConfirmacao: dadosIA.seguroNumeroConfirmacao || formAtual.seguroNumeroConfirmacao || "",
-    seguroApoliceCertificado: dadosIA.seguroApoliceCertificado || formAtual.seguroApoliceCertificado || "",
-    seguroSegurados: dadosIA.seguroSegurados || formAtual.seguroSegurados || "",
-    seguroDestino: dadosIA.seguroDestino || formAtual.seguroDestino || "",
-    seguroAmbitoCobertura: dadosIA.seguroAmbitoCobertura || formAtual.seguroAmbitoCobertura || "",
-    seguroVigenciaInicio: dadosIA.seguroVigenciaInicio || formAtual.seguroVigenciaInicio || "",
-    seguroVigenciaFim: dadosIA.seguroVigenciaFim || formAtual.seguroVigenciaFim || "",
-    seguroCoberturas: dadosIA.seguroCoberturas || formAtual.seguroCoberturas || "",
-    seguroValor: dadosIA.seguroValor || formAtual.seguroValor || 0,
-    seguroObservacoes: dadosIA.seguroObservacoes || formAtual.seguroObservacoes || "",
-  };
-}
-
-function possuiDadosSeguro(dados: NonNullable<Documento["dadosIA"]>): boolean {
-  return !!(
-    dados.seguroAssistencia ||
-    dados.seguroSeguradora ||
-    dados.seguroPlano ||
-    dados.seguroNumeroReserva ||
-    dados.seguroNumeroConfirmacao ||
-    dados.seguroApoliceCertificado ||
-    dados.seguroSegurados ||
-    dados.seguroDestino ||
-    dados.seguroAmbitoCobertura ||
-    dados.seguroVigenciaInicio ||
-    dados.seguroVigenciaFim ||
-    dados.seguroCoberturas ||
-    dados.seguroValor ||
-    dados.seguroObservacoes
-  );
-}
-
 function possuiDadosTraslado(dados?: DadosIAExtraidos | null) {
   if (!dados) return false;
   return Boolean(
@@ -2123,17 +2034,7 @@ function possuiDadosIngresso(dados?: DadosIAExtraidos | null) {
   );
 }
 
-// Traslado e Ingresso podem estar descritos em qualquer documento do pacote,
-// independente do nome do arquivo. A busca considera todos os anexos com resultado de IA.
-function encontrarDocumentoTraslado(documentos: Documento[]) {
-  return documentos.find((doc) => possuiDadosTraslado(obterDadosIADocumento(doc)));
-}
-
-function encontrarDocumentoIngresso(documentos: Documento[]) {
-  return documentos.find((doc) => possuiDadosIngresso(obterDadosIADocumento(doc)));
-}
-
-export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onHospedagensChange }: PacotesFormProps) {
+export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormProps) {
   const [form, setForm] = useState<Omit<Pacote, "id">>(pacoteVazio);
   const [valorInput, setValorInput] = useState("");
   const [hospedagemValorInput, setHospedagemValorInput] = useState("");
@@ -2147,7 +2048,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
   const [hospedagemMinimizado, setHospedagemMinimizado] = useState(true);
   const [trasladoMinimizado, setTrasladoMinimizado] = useState(true);
   const [ingressoMinimizado, setIngressoMinimizado] = useState(true);
-  const [logAnaliseMinimizado, setLogAnaliseMinimizado] = useState(true);
+  const [logAnaliseMinimizado] = useState(true);
   const [resumoMinimizado, setResumoMinimizado] = useState(true);
   const [vouchersMinimizado, setVouchersMinimizado] = useState(true);
   const [comodidadesMinimizado, setComodidadesMinimizado] = useState(true);
@@ -2162,7 +2063,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
   // Minimização específica para subcampos de seguro
   const [seguroCoberturasMinimizado, setSeguroCoberturasMinimizado] = useState(true);
   const [seguroObservacoesMinimizado, setSeguroObservacoesMinimizado] = useState(true);
-  const [relatoriosExpandidos, setRelatoriosExpandidos] = useState<Set<number>>(new Set());
+  const [relatoriosExpandidos, setRelatoriosExpandidos] = useState<Set<number>>(new Set<number>());
   const [analisandoIA, setAnalisandoIA] = useState(false);
   const [buscandoLinkHotelIA, setBuscandoLinkHotelIA] = useState(false);
   const [buscandoFotoHotelIA, setBuscandoFotoHotelIA] = useState(false);
@@ -2171,7 +2072,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
   const [hospedagemLinkInput, setHospedagemLinkInput] = useState("");
   const [atualizando, setAtualizando] = useState<string | null>(null);
   const [logAnaliseIA, setLogAnaliseIA] = useState<string[]>([]);
-  const [provedorIA, setProvedorIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
+  const [provedorIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
   const [novaUrlOperador, setNovaUrlOperador] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -2208,8 +2109,8 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
 
     for (const provedor of provedores) {
       try {
-        const resposta = await enviarMensagemIA([{ role: "user", content: prompt }], provedor);
-        const conteudo = resposta?.choices?.[0]?.message?.content?.trim() ?? "";
+        const resposta = await enviarMensagemIA([{ role: "user" as const, content: prompt }], provedor);
+        const conteudo = resposta?.reply?.trim() ?? "";
         // Aceita qualquer URL na resposta
         const urlMatch = conteudo.match(/https?:\/\/[^\s"'<>\]]+/);
         if (urlMatch) {
@@ -2255,8 +2156,8 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
         const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
         for (const provedor of provedores) {
           try {
-            const resposta = await enviarMensagemIA([{ role: "user", content: prompt }], provedor);
-            const conteudo = resposta?.choices?.[0]?.message?.content?.trim() ?? "";
+            const resposta = await enviarMensagemIA([{ role: "user" as const, content: prompt }], provedor);
+            const conteudo = resposta?.reply?.trim() ?? "";
             if (conteudo) {
               termoBusca = conteudo.replace(/["*_]/g, "").trim();
               break;
@@ -2628,6 +2529,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
         .map((linha) => linha.trim())
         .filter(Boolean);
     setLogAnaliseIA(logPacote);
+    // @ts-ignore
     setForm({
       operador: pacote.operador || "",
       ciaAerea: pacote.ciaAerea || "",
@@ -2673,7 +2575,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       hospedagemComodidades: pacote.hospedagemComodidades || "",
       hospedagemPoliticasCondicoesInformacoesEspeciais: pacote.hospedagemPoliticasCondicoesInformacoesEspeciais || "",
       hospedagemNoites: pacote.hospedagemNoites || "",
-      hospedagemValor: pacote.hospedagemValor || "",
+      hospedagemValor: pacote.hospedagemValor || 0,
       hospedagemLink: pacote.hospedagemLink || "",
       hospedagemLinks: Array.isArray(pacote.hospedagemLinks) ? pacote.hospedagemLinks : (pacote.hospedagemLink ? [pacote.hospedagemLink] : []),
       hospedagemFoto: pacote.hospedagemFoto || null,
@@ -2815,48 +2717,6 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     }
   }
 
-  function atualizarCamposComResultadoIA() {
-    const dados = obterDadosUnificados();
-    if (!dados) {
-      setErro("Nenhum documento com resultado de IA foi encontrado. Analise os documentos antes de atualizar.");
-      return;
-    }
-    setErro("");
-    setAtualizando("todos");
-    let novoForm = { ...form };
-    novoForm = mapearDetalhesVoo(novoForm, dados);
-    novoForm = mapearDetalhesHospedagem(novoForm, dados);
-    
-    // Sempre limpar campos de seguro primeiro
-    novoForm = {
-      ...novoForm,
-      seguroAssistencia: "",
-      seguroSeguradora: "",
-      seguroPlano: "",
-      seguroNumeroReserva: "",
-      seguroNumeroConfirmacao: "",
-      seguroApoliceCertificado: "",
-      seguroSegurados: "",
-      seguroDestino: "",
-      seguroAmbitoCobertura: "",
-      seguroVigenciaInicio: "",
-      seguroVigenciaFim: "",
-      seguroCoberturas: "",
-      seguroValor: 0,
-      seguroObservacoes: "",
-    };
-        
-    // Só popular se houver dados de seguro
-    
-    if (possuiDadosTraslado(dados)) novoForm = mapearDetalhesTraslado(novoForm, dados);
-    if (possuiDadosIngresso(dados)) novoForm = mapearDetalhesIngresso(novoForm, dados);
-    if (novoForm.valor > 0) setValorInput(formatarMoeda(novoForm.valor));
-    if (novoForm.hospedagemValor) setHospedagemValorInput(formatarMoeda(parseMoeda(novoForm.hospedagemValor)));
-    setForm((f) => ({ ...novoForm, documentos: f.documentos }));
-    propagarAoPai({ ...novoForm, documentos: form.documentos });
-    setTimeout(() => setAtualizando(null), 800);
-  }
-
   function atualizarDetalhesVoo() {
     const dados = obterDadosUnificados();
     if (!dados) {
@@ -2975,7 +2835,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
       const resposta = await enviarMensagemIA(
           [
             {
-              role: "user",
+              role: "user" as const,
               content: [
                 { type: "text", text: promptOperador },
                 { type: "image_url", image_url: { url: imageUrl } },
@@ -2993,7 +2853,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
 
   async function identificarOperadorNoLogo(
       imageUrl: string,
-      workerOcr: Worker | null,
+      workerOcr: any,
       adicionarLog: (mensagem: string) => void,
   ) {
     if (!imageUrl) return "";
@@ -3022,7 +2882,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
     return operadorIa;
   }
 
-  async function identificarOperadorNoIcone(doc: Documento, workerOcr: Worker | null, adicionarLog: (mensagem: string) => void) {
+  async function identificarOperadorNoIcone(doc: Documento, workerOcr: any, adicionarLog: (mensagem: string) => void) {
     if (!doc.tipo.startsWith("image/") || !doc.arquivo) return "";
     return identificarOperadorNoLogo(doc.arquivo, workerOcr, adicionarLog);
   }
@@ -3067,14 +2927,17 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Falha ao baixar página: ${response.status} ${response.statusText}`);
+          const errorMessage = errorData.error || `Falha ao baixar página: ${response.status} ${response.statusText}`;
+          adicionarLog(errorMessage);
+          continue;
         }
 
         const data = await response.json();
         const htmlContent = data.html;
         
         if (!htmlContent || typeof htmlContent !== 'string') {
-          throw new Error('Conteúdo HTML inválido ou vazio retornado pelo backend.');
+          adicionarLog('Conteúdo HTML inválido ou vazio retornado pelo backend.');
+          continue;
         }
         
         adicionarLog(`Conteúdo baixado com sucesso (${data.contentLength ?? htmlContent?.length ?? 0} caracteres de texto extraído, ${data.rawLength ?? '?'} bruto).`);
@@ -3082,7 +2945,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
         const prompt = criarPromptAnaliseUrl(htmlContent);
 
         const tentarComProvedor = async (provedor?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
-          return enviarMensagemIA([{ role: "user", content: prompt }], provedor);
+          return enviarMensagemIA([{ role: "user" as const, content: prompt }], provedor);
         };
 
         let dataUrl;
@@ -3170,7 +3033,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
           // Verificar se a resposta parece ser JSON válido
           if (!respostaLimpa.startsWith('{') && !respostaLimpa.startsWith('[')) {
             adicionarLog(`Resposta não é JSON válido. Resposta: ${respostaLimpa.substring(0, 100)}...`);
-            throw new Error("A IA não retornou um JSON válido. Verifique os logs para mais detalhes.");
+            continue;
           }
 
           adicionarLog(`Parseando resposta JSON...`);
@@ -3209,15 +3072,14 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
         const mensagemErro = error instanceof Error ? error.message : "Não foi possível analisar a URL.";
         adicionarLog(`Falha ao analisar URL ${url}: ${mensagemErro}`);
         console.error("Erro na análise da URL:", error);
-        // Continue with next URL instead of throwing
-        continue;
       }
     }
 
-    let workerOcr: Worker | null = null;
+    let workerOcr: any = null;
     try {
       try {
-        workerOcr = await createWorker(["por", "eng"]);
+        // @ts-ignore
+        workerOcr = await Tesseract.createWorker("por");
       } catch {
         adicionarLog("OCR indisponível; tentando identificação por IA e comparação visual.");
       }
@@ -3376,7 +3238,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                 ...imagensParaAnalise.map((url) => ({ type: "image_url" as const, image_url: { url } })),
               ]
             : prompt;
-          return enviarMensagemIA([{ role: "user", content }], provedor);
+          return enviarMensagemIA([{ role: "user" as const, content }], provedor);
         };
 
         try {
@@ -3408,7 +3270,10 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                 adicionarLog(`Falha no ${nomeProvedor} para "${doc.nome}". Tentando com o próximo...`);
               }
             }
-            if (!data) throw new Error("Todos os provedores de IA falharam.");
+            if (!data) {
+              adicionarLog("Todos os provedores de IA falharam.");
+              continue;
+            }
           } else {
             provedorUsado = mapaProvedor[provedorIA] || "OpenAI";
             adicionarLog(`Analisando "${doc.nome}" com ${provedorUsado}...`);
@@ -3418,7 +3283,8 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
           const respostaLimpa = data.reply.replace(/^```json\s*/, "").replace(/```$/, "").trim();
           const respostaJson: unknown = JSON.parse(respostaLimpa);
           if (!respostaJson || typeof respostaJson !== "object" || Array.isArray(respostaJson)) {
-            throw new Error("A IA retornou um JSON inválido.");
+            adicionarLog("A IA retornou um JSON inválido.");
+            continue;
           }
 
           const respostaObjeto = respostaJson as Record<string, unknown>;
@@ -3427,8 +3293,8 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
             : "";
           const politicaFinal = politicaAlteracoesCancelamentos || politicaResposta;
           const dadosNormalizados = montarDadosIAFromJson(respostaObjeto, operadorDetectado, politicaFinal);
-          dadosNormalizados.hospedagemPoliticasCondicoesInformacoesEspeciais = textoMaisCompleto(
-              dadosNormalizados.hospedagemPoliticasCondicoesInformacoesEspeciais,
+          dadosNormalizados.politicasCondicoesInformacoesEspeciais = textoMaisCompleto(
+              dadosNormalizados.politicasCondicoesInformacoesEspeciais,
               politicasHospedagemDetectadas,
           );
           const { dados: dadosIACompletos, trechoAplicado } = aplicarCiaAereaDetectada(
@@ -3804,7 +3670,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={analisarDocumentosComIA}
+                      onClick={() => analisarDocumentosComIA()}
                       disabled={analisandoIA || ((form.documentos || []).length === 0 && (!form.urlOperador || form.urlOperador.length === 0))}
                       className="gap-2 text-indigo-600 border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
                   >
@@ -4458,7 +4324,12 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                                 className="pl-8"
                                 value={hospedagemLinkInput}
                                 onChange={(e) => setHospedagemLinkInput(e.target.value)}
-                                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), adicionarLinkHospedagem())}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    adicionarLinkHospedagem();
+                                  }
+                                }}
                             />
                           </div>
                           {hospedagemLinkInput && (
@@ -4590,7 +4461,12 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                                   setErroFotoHotelIA("");
                                   setHospedagemFotoInput(e.target.value);
                                 }}
-                                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), adicionarFotoHospedagem())}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    adicionarFotoHospedagem();
+                                  }
+                                }}
                             />
                           </div>
                           {hospedagemFotoInput && (
@@ -4792,10 +4668,10 @@ export default function PacotesForm({ pacotes, onPacotesChange, hospedagens, onH
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={(e) => { e.stopPropagation(); atualizarDetalhesSeguro(); }}
+                        disabled={true}
                         className="gap-2"
                     >
-                      <Sparkles className={`w-4 h-4 ${atualizando === "seguro" ? "animate-spin" : ""}`} />
+                      <Sparkles className={`w-4 h-4`} />
                     </Button>
                     <Button
                         type="button"
