@@ -609,7 +609,7 @@ export default function Orcamentos() {
   const [perfilViagemSelecionado, setPerfilViagemSelecionado] = useState<string[]>([]);
   const [promptPerfilViagemIA, setPromptPerfilViagemIA] = useState("");
   const [passageiroSelecionado, setPassageiroSelecionado] = useState("");
-  const [secoesOrcamentoMinimizadas, setSecoesOrcamentoMinimizadas] = useState(true);
+  const [secoesOrcamentoMinimizadas, setSecoesOrcamentoMinimizadas] = useState(false);
   const [vendasMinimizadas, setVendasMinimizadas] = useState(true);
 
   const [resumoMinimizado, setResumoMinimizado] = useState(true);

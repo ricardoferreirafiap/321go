@@ -2675,6 +2675,31 @@ app.delete('/api/funcionarios/:id', ensureDb, async (req, res) => {
     }
 });
 
+app.get('/api/counts', ensureDb, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                (SELECT COUNT(*) FROM public.clientes)     AS clientes,
+                (SELECT COUNT(*) FROM public.fornecedores) AS fornecedores,
+                (SELECT COUNT(*) FROM public.produtos)     AS produtos,
+                (SELECT COUNT(*) FROM public.tarefas)      AS tarefas,
+                (SELECT COUNT(*) FROM public.funcionarios) AS funcionarios
+        `);
+        const row = result.rows[0];
+        res.json({
+            clientes:     Number(row.clientes),
+            fornecedores: Number(row.fornecedores),
+            produtos:     Number(row.produtos),
+            tarefas:      Number(row.tarefas),
+            funcionarios: Number(row.funcionarios),
+        });
+    } catch (error) {
+        logServerError('Erro ao obter contagens:', error);
+        const dbError = resolveDatabaseError(error);
+        res.status(dbError.status).json({ error: dbError.message });
+    }
+});
+
 app.get('/api/clientes', ensureDb, async (req, res) => {
     try {
         await ensureClientesSobrenomeColumn();
