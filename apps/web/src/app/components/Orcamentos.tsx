@@ -607,7 +607,7 @@ export default function Orcamentos() {
   const [editandoOcultoLista, setEditandoOcultoLista] = useState(false);
   const [salvandoLancamentoLista, setSalvandoLancamentoLista] = useState(false);
   const [erroLancamentoLista, setErroLancamentoLista] = useState<string | null>(null);
-  const [dadosClienteMinimizados, setDadosClienteMinimizados] = useState(true);
+  const [dadosClienteMinimizados, setDadosClienteMinimizados] = useState(false);
   const [perfilViagemMinimizado, setPerfilViagemMinimizado] = useState(true);
   const [categoriasPerfilMinimizadas, setCategoriasPerfilMinimizadas] = useState<Record<string, boolean>>(() => ({ ...todasCategoriasMinimizadas }));
   const [perfilViagemSelecionado, setPerfilViagemSelecionado] = useState<string[]>([]);
@@ -1110,7 +1110,7 @@ export default function Orcamentos() {
     setTransporte([]);
     setRestaurante([]);
     setExperiencias([]);
-    setDadosClienteMinimizados(true);
+    setDadosClienteMinimizados(false);
     setPerfilViagemSelecionado([]);
     setPromptPerfilViagemIA("");
     setPerfilViagemMinimizado(true);
@@ -1157,7 +1157,7 @@ export default function Orcamentos() {
     setTransporte(completo.transporte || []);
     setRestaurante(completo.restaurante || []);
     setExperiencias(completo.experiencias || []);
-    setDadosClienteMinimizados(true);
+    setDadosClienteMinimizados(false);
     setPerfilViagemSelecionado(Array.isArray(completo.perfilViagem) ? completo.perfilViagem.filter((item) => typeof item === "string") : []);
     setPromptPerfilViagemIA(typeof completo.promptPerfilViagemIA === "string" ? completo.promptPerfilViagemIA : "");
     setPerfilViagemMinimizado(true);
@@ -1930,82 +1930,8 @@ export default function Orcamentos() {
                             </div>
                         )}
                       </div>
-                      <div className="flex flex-col">
-                        <Label htmlFor="passageiros">Passageiros</Label>
-                        <select
-                            id="passageiros"
-                            value={passageiroSelecionado}
-                            onChange={(e) => {
-                              const nome = e.target.value;
-                              setPassageiroSelecionado("");
-                              adicionarPassageiro(nome);
-                            }}
-                            className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                        >
-                          <option value="">Selecione e adicione passageiros</option>
-                          {[
-                            ...clientesAtivos.map((c) => ({ nome: c.nomeCompleto || c.nome, tipo: "Cliente" as const })),
-                            ...funcionariosAtivos.map((f) => ({ nome: f.name, tipo: "Funcionário" as const })),
-                            ...fornecedoresAtivos.map((f) => ({ nome: f.nomeFantasia || f.razaoSocial, tipo: "Fornecedor" as const })),
-                          ]
-                            .filter((item) => !(form.passageiros || []).includes(item.nome))
-                            .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
-                            .map((item) => (
-                              <option key={`${item.tipo}-${item.nome}`} value={item.nome}>
-                                {item.nome}
-                              </option>
-                            ))}
-                        </select>
-
-                        {(form.passageiros || []).length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {(form.passageiros || []).map((nome) => (
-                                  <span key={nome} className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs text-indigo-700 border border-indigo-100">
-                          {nome}
-                                    <button
-                                        type="button"
-                                        onClick={() => removerPassageiro(nome)}
-                                        className="text-indigo-500 hover:text-indigo-700"
-                                        aria-label={`Remover passageiro ${nome}`}
-                                    >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </span>
-                              ))}
-                            </div>
-                        )}
-                      </div>
-                      <div className="flex flex-col">
-                        <Label htmlFor="agente-viagem">Agente de Viagem</Label>
-                        <select
-                            id="agente-viagem"
-                            value={form.agenteViagem || ""}
-                            onChange={(e) => setForm((prev) => ({ ...prev, agenteViagem: e.target.value }))}
-                            className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                        >
-                          <option value="">Selecione um agente</option>
-                          {funcionariosAtivos.map((funcionario) => (
-                              <option key={funcionario.id} value={funcionario.name}>{funcionario.name}</option>
-                          ))}
-                        </select>
-                        {form.agenteViagem && (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs text-indigo-700 border border-indigo-100">
-                        {form.agenteViagem}
-                        <button
-                            type="button"
-                            onClick={() => setForm((prev) => ({ ...prev, agenteViagem: "" }))}
-                            className="text-indigo-500 hover:text-indigo-700"
-                            aria-label={`Remover agente ${form.agenteViagem}`}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </span>
-                            </div>
-                        )}
-                      </div>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
                       <div className="flex flex-col">
                         <Label htmlFor="dataCriacao">Data de emissão</Label>
                         <Input id="dataCriacao" type="date" value={form.dataCriacao} onChange={(e) => {
@@ -2030,22 +1956,6 @@ export default function Orcamentos() {
                           {allStatus.map((s) => (
                               <option key={s} value={s}>{s}</option>
                           ))}
-                        </select>
-                      </div>
-                      <div className="flex flex-col">
-                        <Label>Status da Viagem</Label>
-                        <select
-                            value={form.statusViagem || ""}
-                            onChange={(e) => {
-                              const novoStatus = e.target.value as StatusViagem | undefined;
-                              setForm((prev) => ({ ...prev, statusViagem: novoStatus }));
-                            }}
-                            className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                        >
-                          <option value="">Selecione...</option>
-                          <option value="Não Iniciada">Não Iniciada</option>
-                          <option value="Em Andamento">Em Andamento</option>
-                          <option value="Finalizada">Finalizada</option>
                         </select>
                       </div>
                     </div>
