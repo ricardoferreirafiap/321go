@@ -538,7 +538,7 @@ const orcVazio = (): OrcamentoPayload => {
   };
 };
 
-export default function Voucher() {
+export default function Roteiros() {
   const navigate = useNavigate();
   const location = useLocation();
   const [lista, setLista] = useState<Orcamento[]>([]);
@@ -1799,7 +1799,7 @@ export default function Voucher() {
               {/* Seções do voucher (sub-páginas) */}
               <Card className="p-3 sm:p-6">
                 <div className="mb-4 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => setSecoesOrcamentoMinimizadas((prev) => !prev)}>
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-500" /> Seções do Voucher</h3>
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-500" /> Seções do Roteiro</h3>
                   <Button
                       type="button"
                       variant="ghost"
@@ -2280,11 +2280,11 @@ export default function Voucher() {
       <div className="px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Vouchers</h1>
-            <p className="text-sm text-gray-500 mt-1">{lista.length} vouchers cadastrados</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Roteiros</h1>
+            <p className="text-sm text-gray-500 mt-1">{lista.length} roteiros cadastrados</p>
           </div>
           <Button onClick={abrirNovo} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white">
-            <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Novo Voucher</span><span className="sm:hidden">Novo</span>
+            <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Novo Roteiro</span><span className="sm:hidden">Novo</span>
           </Button>
         </div>
 

@@ -612,7 +612,7 @@ export default function Orcamentos() {
   const [secoesOrcamentoMinimizadas, setSecoesOrcamentoMinimizadas] = useState(false);
   const [vendasMinimizadas, setVendasMinimizadas] = useState(true);
 
-  const [resumoMinimizado, setResumoMinimizado] = useState(true);
+  const [resumoMinimizado, setResumoMinimizado] = useState(false);
   const [cardsResumoMinimizados, setCardsResumoMinimizados] = useState(false);
   const [orcamentoResumoMinimizado, setOrcamentoResumoMinimizado] = useState(true);
   const [roteiroMinimizado, setRoteiroMinimizado] = useState(true);
@@ -978,7 +978,7 @@ export default function Orcamentos() {
       setLista(listaApi);
       setLancamentosFinanceiros(lancamentos);
     } catch (error) {
-      setErro(error instanceof Error ? error.message : "Erro ao carregar orçamentos.");
+      setErro(error instanceof Error ? error.message : "Erro ao carregar Vendas.");
     } finally {
       setCarregando(false);
     }
@@ -1111,9 +1111,9 @@ export default function Orcamentos() {
     setPromptPerfilViagemIA("");
     setPerfilViagemMinimizado(true);
     setCategoriasPerfilMinimizadas(todasCategoriasMinimizadas);
-    setSecoesOrcamentoMinimizadas(true);
+    setSecoesOrcamentoMinimizadas(false);
     setVendasMinimizadas(true);
-    setResumoMinimizado(true);
+    setResumoMinimizado(false);
     setOrcamentoResumoMinimizado(true);
     setRoteiroMinimizado(true);
     setHouveAlteracoes(false);
@@ -1158,9 +1158,9 @@ export default function Orcamentos() {
     setPromptPerfilViagemIA(typeof completo.promptPerfilViagemIA === "string" ? completo.promptPerfilViagemIA : "");
     setPerfilViagemMinimizado(true);
     setCategoriasPerfilMinimizadas({});
-    setSecoesOrcamentoMinimizadas(true);
+    setSecoesOrcamentoMinimizadas(false);
     setVendasMinimizadas(true);
-    setResumoMinimizado(true);
+    setResumoMinimizado(false);
     setOrcamentoResumoMinimizado(true);
     setRoteiroMinimizado(true);
     setHouveAlteracoes(false);
@@ -1832,9 +1832,9 @@ export default function Orcamentos() {
               {form.cliente && (
                 <span className="text-2xl font-bold text-indigo-700">{form.cliente}</span>
               )}
-              {!editando && !form.cliente && <h2 className="text-xl font-bold text-gray-900">Novo Orçamento</h2>}
+              {!editando && !form.cliente && <h2 className="text-xl font-bold text-gray-900">Nova Venda</h2>}
               <span className="font-mono text-sm text-gray-500">
-                Orçamento: {form.numero || "—"}{form.destino ? ` - ${form.destino}` : ""}
+                Venda: {form.numero || "—"}{form.destino ? ` - ${form.destino}` : ""}
               </span>
             </div>
 
@@ -1911,41 +1911,10 @@ export default function Orcamentos() {
                               </option>
                             ))}
                         </select>
-                        {form.cliente && (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs text-indigo-700 border border-indigo-100">
-                                {form.cliente}
-                                <button
-                                    type="button"
-                                    onClick={() => setForm((prev) => ({ ...prev, cliente: "", email: "" }))}
-                                    className="text-indigo-500 hover:text-indigo-700"
-                                    aria-label={`Remover cliente ${form.cliente}`}
-                                >
-                                  <X className="h-3.5 w-3.5" />
-                                </button>
-                              </span>
-                            </div>
-                        )}
-                      </div>
-                      {/* Destino */}
-                      <div className="flex flex-col sm:col-span-2 md:col-span-1">
-                        <Label htmlFor="destino">Destino</Label>
-                        <Input
-                          id="destino"
-                          value={form.destino || ""}
-                          onChange={(e) => setForm((prev) => ({ ...prev, destino: e.target.value }))}
-                          placeholder="Ex.: Paris, França"
-                          className="mt-1"
-                        />
-                      </div>
-                      {/* Válido até */}
-                      <div className="flex flex-col">
-                        <Label htmlFor="dataValidade">Válido até</Label>
-                        <Input id="dataValidade" type="date" value={form.dataValidade} onChange={(e) => setForm((prev) => ({ ...prev, dataValidade: e.target.value }))} className="mt-1" />
                       </div>
                       {/* Status */}
                       <div className="flex flex-col">
-                        <Label>Status do Orçamento</Label>
+                        <Label>Status da Venda</Label>
                         <select
                             value={form.status}
                             onChange={(e) => void onChangeStatusOrcamento(e.target.value as StatusOrc)}
@@ -1974,7 +1943,7 @@ export default function Orcamentos() {
               {/* Seções do orçamento (sub-páginas) */}
               <Card className="p-3 sm:p-6">
                 <div className="mb-4 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => setSecoesOrcamentoMinimizadas((prev) => !prev)}>
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-500" /> Seções do Orçamento</h3>
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-500" /> Itens da Venda</h3>
                   <Button
                       type="button"
                       variant="ghost"
@@ -1995,7 +1964,12 @@ export default function Orcamentos() {
                               <button
                                   key={s}
                                   type="button"
-                                  onClick={() => setSection(s)}
+                                  onClick={() => {
+                                    setSection(s);
+                                    if (s === 'Vendas') {
+                                      setVendasMinimizadas(true);
+                                    }
+                                  }}
                                   style={{ cursor: 'pointer' }}
                                   className={`shrink-0 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs sm:text-sm cursor-pointer ${section === s ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'}`}
                               >
@@ -2191,7 +2165,7 @@ export default function Orcamentos() {
               {/* Resumo de valores */}
               <Card className="p-3 sm:p-6">
                 <div className="mb-3 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => setResumoMinimizado((prev) => !prev)}>
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><DollarSign className="w-4 h-4 text-indigo-500" /> Resumo</h3>
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><DollarSign className="w-4 h-4 text-indigo-500" /> Resumo da Venda</h3>
                   <Button
                       type="button"
                       variant="ghost"
@@ -2250,7 +2224,7 @@ export default function Orcamentos() {
               {/* Orçamento - Resumo */}
               <Card className="p-3 sm:p-6">
                 <div className="mb-4 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => setOrcamentoResumoMinimizado((prev) => !prev)}>
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-500" /> Orçamento</h3>
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-500" /> Página da Venda</h3>
                   <Button
                       type="button"
                       variant="ghost"
@@ -2270,7 +2244,7 @@ export default function Orcamentos() {
                           <iframe
                             src={`/financeiro/orcamentos/resumo/${editando.publicToken || editando.numero}`}
                             className="w-full h-full border-0 rounded-lg"
-                            title="Resumo do Orçamento"
+                            title="Resumo da Venda"
                             onLoad={() => {
                               try {
                                 const orcJson = JSON.stringify(sanitizarParaStorage(editando));
@@ -2324,11 +2298,11 @@ export default function Orcamentos() {
       <div className="px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Orçamentos</h1>
-            <p className="text-sm text-gray-500 mt-1">{lista.length} orçamentos cadastrados</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Vendas</h1>
+            <p className="text-sm text-gray-500 mt-1">{lista.length} Vendas cadastrados</p>
           </div>
           <Button onClick={abrirNovo} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white">
-            <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Novo Orçamento</span><span className="sm:hidden">Novo</span>
+            <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Nova Venda</span><span className="sm:hidden">Novo</span>
           </Button>
         </div>
 
@@ -2346,22 +2320,22 @@ export default function Orcamentos() {
           {!cardsResumoMinimizados && (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
               <Card onClick={() => setFiltroStatus("Todos")} className={`p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Todos" ? "ring-2 ring-indigo-500" : ""}`}>
-                <div className="text-center"><p className="text-xs text-gray-500">Total</p><p className="text-base font-bold text-gray-900">{moeda(totais.total)}</p><p className="text-xs text-gray-400">{totais.qtdTotal} orçamento{totais.qtdTotal !== 1 ? "s" : ""}</p></div>
+                <div className="text-center"><p className="text-xs text-gray-500">Total</p><p className="text-base font-bold text-gray-900">{moeda(totais.total)}</p><p className="text-xs text-gray-400">{totais.qtdTotal} Venda{totais.qtdTotal !== 1 ? "s" : ""}</p></div>
               </Card>
               <Card onClick={() => setFiltroStatus(filtroStatus === "Rascunho" ? "Todos" : "Rascunho")} className={`p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Rascunho" ? "ring-2 ring-gray-400" : ""}`}>
-                <div className="text-center"><p className="text-xs text-gray-500">Rascunho</p><p className="text-base font-bold text-gray-900">{moeda(totais.rascunhos)}</p><p className="text-xs text-gray-400">{totais.qtdRascunhos} orçamento{totais.qtdRascunhos !== 1 ? "s" : ""}</p></div>
+                <div className="text-center"><p className="text-xs text-gray-500">Rascunho</p><p className="text-base font-bold text-gray-900">{moeda(totais.rascunhos)}</p><p className="text-xs text-gray-400">{totais.qtdRascunhos} Venda{totais.qtdRascunhos !== 1 ? "s" : ""}</p></div>
               </Card>
               <Card onClick={() => setFiltroStatus(filtroStatus === "Enviado" ? "Todos" : "Enviado")} className={`p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Enviado" ? "ring-2 ring-blue-500" : ""}`}>
-                <div className="text-center"><p className="text-xs text-gray-500">Enviado</p><p className="text-base font-bold text-gray-900">{moeda(totais.enviados)}</p><p className="text-xs text-gray-400">{totais.qtdEnviados} orçamento{totais.qtdEnviados !== 1 ? "s" : ""}</p></div>
+                <div className="text-center"><p className="text-xs text-gray-500">Enviado</p><p className="text-base font-bold text-gray-900">{moeda(totais.enviados)}</p><p className="text-xs text-gray-400">{totais.qtdEnviados} Venda{totais.qtdEnviados !== 1 ? "s" : ""}</p></div>
               </Card>
               <Card onClick={() => setFiltroStatus(filtroStatus === "Aprovado" ? "Todos" : "Aprovado")} className={`p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Aprovado" ? "ring-2 ring-green-500" : ""}`}>
-                <div className="text-center"><p className="text-xs text-gray-500">Aprovado</p><p className="text-base font-bold text-gray-900">{moeda(totais.aprovados)}</p><p className="text-xs text-gray-400">{totais.qtdAprovados} orçamento{totais.qtdAprovados !== 1 ? "s" : ""}</p></div>
+                <div className="text-center"><p className="text-xs text-gray-500">Aprovado</p><p className="text-base font-bold text-gray-900">{moeda(totais.aprovados)}</p><p className="text-xs text-gray-400">{totais.qtdAprovados} Venda{totais.qtdAprovados !== 1 ? "s" : ""}</p></div>
               </Card>
               <Card onClick={() => setFiltroStatus(filtroStatus === "Rejeitado" ? "Todos" : "Rejeitado")} className={`p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Rejeitado" ? "ring-2 ring-red-500" : ""}`}>
-                <div className="text-center"><p className="text-xs text-gray-500">Rejeitado</p><p className="text-base font-bold text-gray-900">{moeda(totais.rejeitados)}</p><p className="text-xs text-gray-400">{totais.qtdRejeitados} orçamento{totais.qtdRejeitados !== 1 ? "s" : ""}</p></div>
+                <div className="text-center"><p className="text-xs text-gray-500">Rejeitado</p><p className="text-base font-bold text-gray-900">{moeda(totais.rejeitados)}</p><p className="text-xs text-gray-400">{totais.qtdRejeitados} Venda{totais.qtdRejeitados !== 1 ? "s" : ""}</p></div>
               </Card>
               <Card onClick={() => setFiltroStatus(filtroStatus === "Cancelado" ? "Todos" : "Cancelado")} className={`p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md ${filtroStatus === "Cancelado" ? "ring-2 ring-orange-500" : ""}`}>
-                <div className="text-center"><p className="text-xs text-gray-500">Cancelado</p><p className="text-base font-bold text-gray-900">{moeda(totais.cancelados)}</p><p className="text-xs text-gray-400">{totais.qtdCancelados} orçamento{totais.qtdCancelados !== 1 ? "s" : ""}</p></div>
+                <div className="text-center"><p className="text-xs text-gray-500">Cancelado</p><p className="text-base font-bold text-gray-900">{moeda(totais.cancelados)}</p><p className="text-xs text-gray-400">{totais.qtdCancelados} Venda{totais.qtdCancelados !== 1 ? "s" : ""}</p></div>
               </Card>
             </div>
           )}
@@ -2383,15 +2357,15 @@ export default function Orcamentos() {
         )}
 
         {carregando && (
-            <p className="mb-4 text-sm text-gray-500">Carregando orçamentos...</p>
+            <p className="mb-4 text-sm text-gray-500">Carregando Vendas...</p>
         )}
 
-        {/* Lista de orçamentos */}
+        {/* Lista de Vendas */}
         <div className="space-y-3">
           {!carregando && filtrados.length === 0 && (
               <Card className="py-12 text-center text-gray-400">
                 <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                <p>Nenhum orçamento encontrado</p>
+                <p>Nenhuma Venda encontrada</p>
               </Card>
           )}
           {filtrados.map((orc) => {

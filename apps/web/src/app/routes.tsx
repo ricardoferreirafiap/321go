@@ -7,7 +7,9 @@ import CadastroProdutos from "./components/CadastroProdutos";
 import CadastroTarefas from "./components/CadastroTarefas";
 import Financeiro from "./components/Financeiro";
 import Orcamentos from "./components/Orcamentos";
+import Vendas from "./components/Orcamentos";
 import Voucher from "./components/Voucher";
+import Roteiros from "./components/Voucher";
 import Relatorios from "./components/Relatorios";
 import RelatorioVendas from "./components/RelatorioVendas";
 import RelatorioFinanceiro from "./components/RelatorioFinanceiro";
@@ -44,8 +46,8 @@ export const router = createBrowserRouter([
           { path: "cadastros/produtos", Component: CadastroProdutos },
           { path: "cadastros/tarefas", Component: CadastroTarefas },
           { path: "financeiro", Component: Financeiro },
-          { path: "financeiro/voucher", Component: Voucher },
-          { path: "financeiro/orcamentos", Component: Orcamentos },
+          { path: "financeiro/voucher", Component: Roteiros },
+          { path: "financeiro/orcamentos", Component: Vendas },
           { path: "relatorios", Component: Relatorios },
           { path: "relatorios/vendas", Component: RelatorioVendas },
           { path: "relatorios/financeiro", Component: RelatorioFinanceiro },

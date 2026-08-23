@@ -303,7 +303,7 @@ export default function ResumoOrcamento() {
     <div className="min-h-screen bg-slate-50 p-4 sm:p-8">
       <main className="max-w-4xl mx-auto">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-800">Resumo do Orçamento</h1>
+          <h1 className="text-3xl font-bold text-gray-800">Venda</h1>
           <p className="text-lg text-indigo-600 font-mono mt-1">{orcamento.numero}</p>
         </div>
 
