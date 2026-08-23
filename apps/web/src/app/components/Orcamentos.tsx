@@ -359,9 +359,7 @@ function chavePerfilViagem(tituloCategoria: string, opcao: string) {
 }
 
 function calcItem(item: ItemOrc) {
-  const bruto = item.quantidade * item.valorUnitario;
-  const desc = bruto * (item.desconto / 100);
-  return bruto - desc;
+  return item.valorUnitario;
 }
 
 function calcTotal(itens: ItemOrc[]) {
@@ -556,7 +554,7 @@ export default function Orcamentos() {
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState<StatusOrc | "Todos">("Todos");
   const [expandidos, setExpandidos] = useState<Set<number>>(new Set());
-  const [section, setSection] = useState<SecaoOrcamento>("Pacotes");
+  const [section, setSection] = useState<SecaoOrcamento>("Vendas");
   const [pacotes, setPacotes] = useState<any[]>([]);
   const [voos, setVoos] = useState<Voo[]>([]);
   const [hospedagem, setHospedagem] = useState<any[]>([]);
@@ -585,6 +583,11 @@ export default function Orcamentos() {
   const [valorComissaoLancamento, setValorComissaoLancamento] = useState("");
   const [origemComissaoLancamento, setOrigemComissaoLancamento] = useState<OrigemComissao>(null);
   const [popupAprovadoAberto, setPopupAprovadoAberto] = useState(false);
+  const [modalSalvarAberto, setModalSalvarAberto] = useState(false);
+
+  useEffect(() => {
+    console.log("modalSalvarAberto mudou para:", modalSalvarAberto);
+  }, [modalSalvarAberto]);
 
   // Estados do modal de lançamento financeiro da tela de lista
   const [modalListaLancamentoAberto, setModalListaLancamentoAberto] = useState(false);
@@ -610,7 +613,7 @@ export default function Orcamentos() {
   const [promptPerfilViagemIA, setPromptPerfilViagemIA] = useState("");
   const [passageiroSelecionado, setPassageiroSelecionado] = useState("");
   const [secoesOrcamentoMinimizadas, setSecoesOrcamentoMinimizadas] = useState(false);
-  const [vendasMinimizadas, setVendasMinimizadas] = useState(true);
+  const [vendasMinimizadas, setVendasMinimizadas] = useState(false);
 
   const [resumoMinimizado, setResumoMinimizado] = useState(false);
   const [cardsResumoMinimizados, setCardsResumoMinimizados] = useState(false);
@@ -1112,14 +1115,14 @@ export default function Orcamentos() {
     setPerfilViagemMinimizado(true);
     setCategoriasPerfilMinimizadas(todasCategoriasMinimizadas);
     setSecoesOrcamentoMinimizadas(false);
-    setVendasMinimizadas(true);
+    setVendasMinimizadas(false);
     setResumoMinimizado(false);
     setOrcamentoResumoMinimizado(true);
     setRoteiroMinimizado(true);
     setHouveAlteracoes(false);
     formularioCarregadoRef.current = false;
     setPassageiroSelecionado("");
-    setSection("Pacotes");
+    setSection("Vendas");
     setTela("form");
   }
 
@@ -1159,14 +1162,14 @@ export default function Orcamentos() {
     setPerfilViagemMinimizado(true);
     setCategoriasPerfilMinimizadas({});
     setSecoesOrcamentoMinimizadas(false);
-    setVendasMinimizadas(true);
+    setVendasMinimizadas(false);
     setResumoMinimizado(false);
     setOrcamentoResumoMinimizado(true);
     setRoteiroMinimizado(true);
     setHouveAlteracoes(false);
     formularioCarregadoRef.current = false;
     setPassageiroSelecionado("");
-    setSection("Pacotes");
+    setSection("Vendas");
     setTela("form");
   }
 
@@ -1292,7 +1295,7 @@ export default function Orcamentos() {
     );
   }
 
-  async function salvar() {
+  async function salvar(sairAposSalvar = true) {
     if (!form.cliente.trim()) return null;
     setSalvando(true);
     setErro(null);
@@ -1319,7 +1322,7 @@ export default function Orcamentos() {
       if (editando) {
         await atualizarOrcamento(editando.id, orcComSecoes);
         await carregarOrcamentos();
-        voltar();
+        if (sairAposSalvar) voltar();
         return editando.id;
       }
 
@@ -1333,7 +1336,7 @@ export default function Orcamentos() {
       );
 
       await carregarOrcamentos();
-      voltar();
+      if (sairAposSalvar) voltar();
       return criado.id;
     } catch (error) {
       setErro(error instanceof Error ? error.message : "Erro ao salvar orçamento.");
@@ -1341,6 +1344,29 @@ export default function Orcamentos() {
     } finally {
       setSalvando(false);
     }
+  }
+
+  function abrirModalSalvar() {
+    console.log("abrirModalSalvar chamado");
+    console.log("tela atual:", tela);
+    setTimeout(() => {
+      setModalSalvarAberto(true);
+      console.log("modalSalvarAberto definido para true (no timeout)");
+    }, 0);
+  }
+
+  function fecharModalSalvar() {
+    setModalSalvarAberto(false);
+  }
+
+  async function handleSalvarESair() {
+    fecharModalSalvar();
+    await salvar(true);
+  }
+
+  async function handleSalvarSemSair() {
+    fecharModalSalvar();
+    await salvar(false);
   }
 
   // Remove dados pesados (base64 de PDFs/imagens e URLs de localhost) antes de salvar
@@ -1841,21 +1867,13 @@ export default function Orcamentos() {
             {/* Save/Exit button - shows Salvar if changes, Sair otherwise */}
             <div className="ml-auto flex items-center gap-2">
               <Button
-                onClick={houveAlteracoes ? salvar : voltar}
-                disabled={salvando || (houveAlteracoes && !form.cliente.trim())}
-                className={houveAlteracoes ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-gray-600 hover:bg-gray-700 text-white"}
+                type="button"
+                onClick={abrirModalSalvar}
+                disabled={salvando}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
               >
-                {houveAlteracoes ? (
-                  <>
-                    <Check className="w-4 h-4 mr-2" />
-                    {salvando ? "Salvando..." : editando ? "Salvar" : "Criar orçamento"}
-                  </>
-                ) : (
-                  <>
-                    <X className="w-4 h-4 mr-2" />
-                    Sair
-                  </>
-                )}
+                <Check className="w-4 h-4 mr-2" />
+                {salvando ? "Salvando..." : editando ? "Salvar Venda" : "Criar Venda"}
               </Button>
             </div>
           </div>
@@ -1967,7 +1985,7 @@ export default function Orcamentos() {
                                   onClick={() => {
                                     setSection(s);
                                     if (s === 'Vendas') {
-                                      setVendasMinimizadas(true);
+                                      setVendasMinimizadas(false);
                                     }
                                   }}
                                   style={{ cursor: 'pointer' }}
@@ -2026,12 +2044,15 @@ export default function Orcamentos() {
                                               )}
                                             </div>
                                             <div className="grid grid-cols-6 gap-2">
-                                              <div className="col-span-6">
+                                              <div className="col-span-4">
+                                                <Label htmlFor={`item-descricao-${item.id}`} className="text-xs text-gray-500">Descrição</Label>
                                                 <Input
+                                                    id={`item-descricao-${item.id}`}
                                                     value={item.descricao}
                                                     onChange={(e) => selecionarProdutoItem(item.id, e.target.value)}
                                                     placeholder="Selecione da lista ou digite outro produto/serviço"
                                                     list={`produtos-vendas-${item.id}`}
+                                                    className="mt-1"
                                                 />
                                                 <datalist id={`produtos-vendas-${item.id}`}>
                                                   {produtosAtivos.map((produto) => (
@@ -2040,16 +2061,20 @@ export default function Orcamentos() {
                                                 </datalist>
                                               </div>
                                               <div className="col-span-2">
-                                                <Input type="number" min="1" value={item.quantidade} onChange={(e) => updateItem(item.id, "quantidade", parseFloat(e.target.value) || 1)} placeholder="Qtd" />
-                                              </div>
-                                              <div className="col-span-1">
-                                                <Input value={item.unidade} onChange={(e) => updateItem(item.id, "unidade", e.target.value)} placeholder="Un" />
-                                              </div>
-                                              <div className="col-span-2">
-                                                <Input type="number" min="0" step="0.01" value={item.valorUnitario} onChange={(e) => updateItem(item.id, "valorUnitario", parseFloat(e.target.value) || 0)} placeholder="Valor unit." />
-                                              </div>
-                                              <div className="col-span-1">
-                                                <Input type="number" min="0" max="100" value={item.desconto} onChange={(e) => updateItem(item.id, "desconto", parseFloat(e.target.value) || 0)} placeholder="% desc" />
+                                                <Label htmlFor={`item-valor-${item.id}`} className="text-xs text-gray-500">Valor</Label>
+                                                <div className="relative mt-1">
+                                                  <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400">R$</span>
+                                                  <Input
+                                                      id={`item-valor-${item.id}`}
+                                                      type="number"
+                                                      min="0"
+                                                      step="1"
+                                                      value={item.valorUnitario}
+                                                      onChange={(e) => updateItem(item.id, "valorUnitario", parseFloat(e.target.value) || 0)}
+                                                      placeholder="0,00"
+                                                      className="pl-8"
+                                                  />
+                                                </div>
                                               </div>
                                               <div className="col-span-6 sm:col-span-3">
                                                 <Label htmlFor={`item-link-${item.id}`} className="text-xs text-gray-500">Link</Label>
@@ -2265,7 +2290,37 @@ export default function Orcamentos() {
                 )}
               </Card>
 
-
+          {modalSalvarAberto && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
+              <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Deseja salvar a Venda?</h3>
+                <div className="flex flex-col gap-3">
+                  <Button
+                    onClick={handleSalvarSemSair}
+                    disabled={salvando}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
+                  >
+                    {salvando ? "Salvando..." : "Salvar"}
+                  </Button>
+                  <Button
+                    onClick={handleSalvarESair}
+                    disabled={salvando}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {salvando ? "Salvando..." : "Salvar e Sair"}
+                  </Button>
+                  <Button
+                    onClick={fecharModalSalvar}
+                    variant="outline"
+                    className="w-full"
+                    disabled={salvando}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {popupAprovadoAberto && (
               <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
@@ -2677,7 +2732,7 @@ export default function Orcamentos() {
             </div>
           </div>
         )}
-      </div>
+        </div>
       </>
   );
 }
