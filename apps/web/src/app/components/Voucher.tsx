@@ -164,7 +164,7 @@ const statusViagemConfig: Record<StatusViagem, { bg: string; cor: string }> = {
 };
 
 const allStatus: StatusOrc[] = ["Rascunho", "Enviado", "Aprovado", "Rejeitado", "Cancelado"];
-const secoesOrcamento = ["Pacotes", "Roteiro", "Day by Day", "Transporte", "Restaurante", "Experiências", "Vendas"] as const;
+const secoesOrcamento = ["Pacotes", "Roteiro", "Day by Day", "Transporte", "Restaurante", "Experiências"] as const;
 type SecaoOrcamento = typeof secoesOrcamento[number];
 
 type CategoriaPerfilViagem = {
@@ -564,6 +564,7 @@ export default function Roteiros() {
   const [clientesAtivos, setClientesAtivos] = useState<Cliente[]>([]);
   const [fornecedoresAtivos, setFornecedoresAtivos] = useState<Fornecedor[]>([]);
   const [produtosAtivos, setProdutosAtivos] = useState<Produto[]>([]);
+  const [usuarioLogado, setUsuarioLogado] = useState<Funcionario | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -574,6 +575,7 @@ export default function Roteiros() {
   const [percentualComissaoLancamento, setPercentualComissaoLancamento] = useState("");
   const [valorComissaoLancamento, setValorComissaoLancamento] = useState("");
   const [popupAprovadoAberto, setPopupAprovadoAberto] = useState(false);
+  const [modalSalvarAberto, setModalSalvarAberto] = useState(false);
 
   // Estados do modal de lançamento financeiro da tela de lista
   const [modalListaLancamentoAberto, setModalListaLancamentoAberto] = useState(false);
@@ -606,6 +608,17 @@ export default function Roteiros() {
   const [orcamentoResumoMinimizado, setOrcamentoResumoMinimizado] = useState(true);
   const [roteiroMinimizado, setRoteiroMinimizado] = useState(true);
   const [houveAlteracoes, setHouveAlteracoes] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("authFuncionario");
+      if (raw) {
+        setUsuarioLogado(JSON.parse(raw) as Funcionario);
+      }
+    } catch {
+      setUsuarioLogado(null);
+    }
+  }, []);
   const formularioCarregadoRef = useRef(false);
   const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automático" | "cloudflare" | "gemini" | "groq" | "openai" | "openrouter">("automático");
   const [iaRoteiroExibida, setIaRoteiroExibida] = useState("Automático");
@@ -1136,7 +1149,7 @@ export default function Roteiros() {
     );
   }
 
-  async function salvar() {
+  async function salvar(sairAposSalvar = true) {
     if (!form.cliente.trim()) return null;
     setSalvando(true);
     setErro(null);
@@ -1162,7 +1175,8 @@ export default function Roteiros() {
       if (editando) {
         await atualizarOrcamento(editando.id, orcComSecoes);
         await carregarOrcamentos();
-        voltar();
+        setHouveAlteracoes(false);
+        if (sairAposSalvar) voltar();
         return editando.id;
       }
 
@@ -1176,7 +1190,8 @@ export default function Roteiros() {
       );
 
       await carregarOrcamentos();
-      voltar();
+      setHouveAlteracoes(false);
+      if (sairAposSalvar) voltar();
       return criado.id;
     } catch (error) {
       setErro(error instanceof Error ? error.message : "Erro ao salvar orçamento.");
@@ -1184,6 +1199,24 @@ export default function Roteiros() {
     } finally {
       setSalvando(false);
     }
+  }
+
+  function abrirModalSalvar() {
+    setModalSalvarAberto(true);
+  }
+
+  function fecharModalSalvar() {
+    setModalSalvarAberto(false);
+  }
+
+  async function handleSalvarSemSair() {
+    fecharModalSalvar();
+    await salvar(false);
+  }
+
+  async function handleSalvarESair() {
+    fecharModalSalvar();
+    await salvar(true);
   }
 
   // Remove dados pesados (base64 de PDFs/imagens e URLs de localhost) antes de salvar
@@ -1634,17 +1667,18 @@ export default function Roteiros() {
             )}
             {!editando && <h2 className="text-xl font-bold text-gray-900">Novo Orçamento</h2>}
 
-            {/* Save/Exit button - shows Salvar if changes, Sair otherwise */}
+            {/* Save/Exit button - starts as Sair and only changes to save when the form is dirty */}
             <div className="ml-auto">
               <Button
-                onClick={houveAlteracoes ? salvar : voltar}
+                type="button"
+                onClick={houveAlteracoes ? abrirModalSalvar : voltar}
                 disabled={salvando || (houveAlteracoes && !form.cliente.trim())}
                 className={houveAlteracoes ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-gray-600 hover:bg-gray-700 text-white"}
               >
                 {houveAlteracoes ? (
                   <>
                     <Check className="w-4 h-4 mr-2" />
-                    {salvando ? "Salvando..." : editando ? "Salvar" : "Criar orçamento"}
+                    {salvando ? "Salvando..." : editando ? "Salvar" : "Criar roteiro"}
                   </>
                 ) : (
                   <>
@@ -1674,8 +1708,8 @@ export default function Roteiros() {
                 </div>
                 {!dadosClienteMinimizados && (
                     <>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 relative mt-3">
-                      <div className="flex flex-col">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-3 relative mt-3">
+                      <div className="flex flex-col md:col-span-2">
                         <Label htmlFor="cliente">Cliente *</Label>
                         <select
                             id="cliente"
@@ -1706,21 +1740,20 @@ export default function Roteiros() {
                               </option>
                             ))}
                         </select>
-                        {form.cliente && (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs text-indigo-700 border border-indigo-100">
-                        {form.cliente}
-                        <button
-                            type="button"
-                            onClick={() => setForm((prev) => ({ ...prev, cliente: "", email: "" }))}
-                            className="text-indigo-500 hover:text-indigo-700"
-                            aria-label={`Remover cliente ${form.cliente}`}
+                      </div>
+                      <div className="flex flex-col">
+                        <Label htmlFor="agenteViagem">Agente</Label>
+                        <select
+                            id="agenteViagem"
+                            value={form.agenteViagem || (usuarioLogado?.name || "")}
+                            onChange={(e) => setForm((prev) => ({ ...prev, agenteViagem: e.target.value || undefined }))}
+                            className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                         >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </span>
-                            </div>
-                        )}
+                          <option value="">Selecione um agente</option>
+                          {funcionariosAtivos.map((funcionario) => (
+                            <option key={funcionario.id} value={funcionario.name}>{funcionario.name}</option>
+                          ))}
+                        </select>
                       </div>
                       <div className="flex flex-col">
                         <Label htmlFor="passageiros">Passageiros</Label>
@@ -1907,166 +1940,6 @@ export default function Roteiros() {
                         {section === 'Experiências' && (
                             <ExperienciasForm experiencias={experiencias} onExperienciasChange={setExperiencias} />
                         )}
-
-                        {section === 'Vendas' && (
-                            <div>
-                              <div className="mb-3 flex items-center justify-between gap-3">
-                                <p className="text-sm text-gray-600">Itens relacionados à venda (produtos/serviços). Se quiser, digite um item manualmente.</p>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setVendasMinimizadas((prev) => !prev)}
-                                    className="gap-2 text-gray-600 hover:text-gray-900"
-                                >
-                                  {vendasMinimizadas ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                                  {vendasMinimizadas ? " " : " "}
-                                </Button>
-                              </div>
-
-                              {!vendasMinimizadas && (
-                                  <>
-                                    <div className="space-y-3">
-                                      {form.itens.map((item, idx) => (
-                                          <div key={item.id} className="border border-gray-200 rounded-lg p-3 bg-gray-50/50">
-                                            <div className="flex items-center justify-between mb-2">
-                                              <span className="text-xs font-semibold text-gray-400">Item {idx + 1}</span>
-                                              {form.itens.length > 1 && (
-                                                  <button onClick={() => removeItem(item.id)} className="p-1 rounded text-red-400 hover:bg-red-50"><X className="w-3.5 h-3.5" /></button>
-                                              )}
-                                            </div>
-                                            <div className="grid grid-cols-6 gap-2">
-                                              <div className="col-span-6">
-                                                <Input
-                                                    value={item.descricao}
-                                                    onChange={(e) => selecionarProdutoItem(item.id, e.target.value)}
-                                                    placeholder="Selecione da lista ou digite outro produto/serviço"
-                                                    list={`produtos-vendas-${item.id}`}
-                                                />
-                                                <datalist id={`produtos-vendas-${item.id}`}>
-                                                  {produtosAtivos.map((produto) => (
-                                                      <option key={produto.id} value={produto.nome} />
-                                                  ))}
-                                                </datalist>
-                                              </div>
-                                              <div className="col-span-2">
-                                                <Input type="number" min="1" value={item.quantidade} onChange={(e) => updateItem(item.id, "quantidade", parseFloat(e.target.value) || 1)} placeholder="Qtd" />
-                                              </div>
-                                              <div className="col-span-1">
-                                                <Input value={item.unidade} onChange={(e) => updateItem(item.id, "unidade", e.target.value)} placeholder="Un" />
-                                              </div>
-                                              <div className="col-span-2">
-                                                <Input type="number" min="0" step="0.01" value={item.valorUnitario} onChange={(e) => updateItem(item.id, "valorUnitario", parseFloat(e.target.value) || 0)} placeholder="Valor unit." />
-                                              </div>
-                                              <div className="col-span-1">
-                                                <Input type="number" min="0" max="100" value={item.desconto} onChange={(e) => updateItem(item.id, "desconto", parseFloat(e.target.value) || 0)} placeholder="% desc" />
-                                              </div>
-                                              <div className="col-span-6 sm:col-span-3">
-                                                <Label htmlFor={`item-link-${item.id}`} className="text-xs text-gray-500">Link</Label>
-                                                <div className="relative mt-1">
-                                                  <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                                  <Input
-                                                      id={`item-link-${item.id}`}
-                                                      value={item.link || ""}
-                                                      onChange={(e) => updateItem(item.id, "link", e.target.value)}
-                                                      placeholder="https://..."
-                                                      className="pl-8"
-                                                  />
-                                                </div>
-                                              </div>
-                                              <div className="col-span-6 sm:col-span-3">
-                                                <Label htmlFor={`item-documentos-${item.id}`} className="text-xs text-gray-500">Downloads de documentos</Label>
-                                                <Input
-                                                    id={`item-documentos-${item.id}`}
-                                                    type="file"
-                                                    multiple
-                                                    onChange={(e) => uploadDocumentosVenda(item.id, e)}
-                                                    className="mt-1"
-                                                />
-                                              </div>
-                                            </div>
-                                            <div className="mt-3">
-                                              <Label htmlFor={`item-url-operador-${item.id}`} className="text-xs text-gray-500">URL do Operador</Label>
-                                              <div className="relative mt-1 flex gap-2">
-                                                <Link2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                                <Input
-                                                    id={`item-url-operador-${item.id}`}
-                                                    value={novaUrlOperadorItem}
-                                                    onChange={(e) => setNovaUrlOperadorItem(e.target.value)}
-                                                    placeholder="Cole a URL do operador aqui..."
-                                                    className="pl-8"
-                                                    onKeyDown={(e) => {
-                                                      if (e.key === 'Enter') {
-                                                        e.preventDefault();
-                                                        adicionarUrlOperadorItem(item.id);
-                                                      }
-                                                    }}
-                                                />
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => adicionarUrlOperadorItem(item.id)}
-                                                    className="shrink-0"
-                                                >
-                                                  <Plus className="h-4 w-4" />
-                                                </Button>
-                                              </div>
-                                              {(item.urlOperador || []).length > 0 && (
-                                                  <div className="space-y-1.5 pr-2 mt-2">
-                                                    {(item.urlOperador || []).map((url, urlIndex) => (
-                                                        <div key={urlIndex} className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs">
-                                                          <div className="flex-1 min-w-0">
-                                                            <a href={url} target="_blank" rel="noopener noreferrer" className="truncate text-indigo-600 hover:text-indigo-700 flex items-center gap-2">
-                                                              <Link2 className="h-4 w-4 flex-shrink-0" />
-                                                              <span className="truncate">{url}</span>
-                                                            </a>
-                                                          </div>
-                                                          <button type="button" onClick={() => removerUrlOperadorItem(item.id, urlIndex)} className="ml-2 rounded p-1 text-red-500 hover:bg-red-50" title="Remover URL">
-                                                            <X className="h-3.5 w-3.5" />
-                                                          </button>
-                                                        </div>
-                                                    ))}
-                                                  </div>
-                                              )}
-                                            </div>
-                                            {(item.documentos || []).length > 0 && (
-                                                <div className="mt-3 space-y-1.5">
-                                                  {(item.documentos || []).map((doc) => (
-                                                      <div key={doc.id} className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs">
-                                                        <a
-                                                            href={doc.arquivo}
-                                                            download={doc.nome}
-                                                            className="truncate text-indigo-600 hover:text-indigo-700"
-                                                        >
-                                                          {doc.nome}
-                                                        </a>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removerDocumentoVenda(item.id, doc.id)}
-                                                            className="ml-2 rounded p-1 text-red-500 hover:bg-red-50"
-                                                            title="Remover documento"
-                                                        >
-                                                          <X className="h-3.5 w-3.5" />
-                                                        </button>
-                                                      </div>
-                                                  ))}
-                                                </div>
-                                            )}
-                                            <div className="text-right text-sm font-semibold text-indigo-700 mt-2">
-                                              {moeda(calcItem(item))}
-                                            </div>
-                                          </div>
-                                      ))}
-                                    </div>
-
-                                    <button onClick={addItem} className="mt-3 w-full border-2 border-dashed border-indigo-200 rounded-lg py-2.5 text-sm text-indigo-600 font-medium hover:border-indigo-400 hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2">
-                                      <Plus className="w-4 h-4" /> Adicionar item
-                                    </button>
-                                  </>
-                              )}
-                            </div>
-                        )}
                       </div>
                     </>
                 )}
@@ -2248,6 +2121,38 @@ export default function Roteiros() {
                     </div>
                 )}
               </Card>
+
+          {modalSalvarAberto && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
+              <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Deseja salvar o roteiro?</h3>
+                <div className="flex flex-col gap-3">
+                  <Button
+                    onClick={handleSalvarSemSair}
+                    disabled={salvando}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
+                  >
+                    {salvando ? "Salvando..." : "Salvar"}
+                  </Button>
+                  <Button
+                    onClick={handleSalvarESair}
+                    disabled={salvando}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {salvando ? "Salvando..." : "Salvar e Sair"}
+                  </Button>
+                  <Button
+                    onClick={fecharModalSalvar}
+                    variant="outline"
+                    className="w-full"
+                    disabled={salvando}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {popupAprovadoAberto && (
               <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
@@ -2444,10 +2349,6 @@ export default function Roteiros() {
                           <thead>
                             <tr className="text-gray-400 font-semibold">
                               <th className="text-left pb-2">Descrição</th>
-                              <th className="text-center pb-2 w-12">Qtd</th>
-                              <th className="text-center pb-2 w-10">Un</th>
-                              <th className="text-right pb-2 w-24">Unit.</th>
-                              <th className="text-right pb-2 w-16">Desc.</th>
                               <th className="text-right pb-2 w-24">Total</th>
                             </tr>
                           </thead>
@@ -2455,15 +2356,11 @@ export default function Roteiros() {
                             {linhasDescricao.map((item) => (
                               <tr key={item.id} className="border-t border-gray-200">
                                 <td className="py-1.5 text-gray-700">{item.descricao}</td>
-                                <td className="py-1.5 text-center text-gray-500">{item.quantidade}</td>
-                                <td className="py-1.5 text-center text-gray-400">{item.unidade}</td>
-                                <td className="py-1.5 text-right text-gray-500">{moeda(item.valorUnitario)}</td>
-                                <td className="py-1.5 text-right text-orange-500">{item.desconto > 0 ? `${item.desconto}%` : "—"}</td>
                                 <td className="py-1.5 text-right font-semibold text-gray-800">{moeda(calcItem(item))}</td>
                               </tr>
                             ))}
                             <tr className="border-t-2 border-indigo-200">
-                              <td colSpan={5} className="py-2 font-bold text-gray-700">Total</td>
+                              <td className="py-2 font-bold text-gray-700">Total</td>
                               <td className="py-2 text-right font-bold text-indigo-700">{moeda(totalDescricao)}</td>
                             </tr>
                           </tbody>

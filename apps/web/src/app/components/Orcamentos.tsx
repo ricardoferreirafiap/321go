@@ -1322,6 +1322,7 @@ export default function Orcamentos() {
       if (editando) {
         await atualizarOrcamento(editando.id, orcComSecoes);
         await carregarOrcamentos();
+        setHouveAlteracoes(false);
         if (sairAposSalvar) voltar();
         return editando.id;
       }
@@ -1336,6 +1337,7 @@ export default function Orcamentos() {
       );
 
       await carregarOrcamentos();
+      setHouveAlteracoes(false);
       if (sairAposSalvar) voltar();
       return criado.id;
     } catch (error) {
@@ -1864,16 +1866,25 @@ export default function Orcamentos() {
               </span>
             </div>
 
-            {/* Save/Exit button - shows Salvar if changes, Sair otherwise */}
+            {/* Save/Exit button - starts as Sair and only changes to save when the form is dirty */}
             <div className="ml-auto flex items-center gap-2">
               <Button
                 type="button"
-                onClick={abrirModalSalvar}
-                disabled={salvando}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                onClick={houveAlteracoes ? abrirModalSalvar : voltar}
+                disabled={salvando || (houveAlteracoes && !form.cliente.trim())}
+                className={houveAlteracoes ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-gray-600 hover:bg-gray-700 text-white"}
               >
-                <Check className="w-4 h-4 mr-2" />
-                {salvando ? "Salvando..." : editando ? "Salvar Venda" : "Criar Venda"}
+                {houveAlteracoes ? (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    {salvando ? "Salvando..." : "Salvar Venda"}
+                  </>
+                ) : (
+                  <>
+                    <X className="w-4 h-4 mr-2" />
+                    Sair
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -1900,9 +1911,10 @@ export default function Orcamentos() {
                       {/* Cliente */}
                       <div className="flex flex-col sm:col-span-2 md:col-span-2">
                         <Label htmlFor="cliente">Cliente *</Label>
-                        <select
+                        <Input
                             id="cliente"
                             value={form.cliente}
+                            placeholder="Digite o nome do cliente"
                             onChange={(e) => {
                               const nome = e.target.value;
                               const cliente = clientesAtivos.find((item) => (item.nomeCompleto || item.nome) === nome);
@@ -1914,21 +1926,8 @@ export default function Orcamentos() {
                                 email: cliente?.email ?? funcionario?.email ?? fornecedor?.email ?? "",
                               });
                             }}
-                            className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                        >
-                          <option value="">Selecione um cliente</option>
-                          {[
-                            ...clientesAtivos.map((c) => ({ nome: c.nomeCompleto || c.nome, tipo: "Cliente" as const })),
-                            ...funcionariosAtivos.map((f) => ({ nome: f.name, tipo: "Funcionário" as const })),
-                            ...fornecedoresAtivos.map((f) => ({ nome: f.nomeFantasia || f.razaoSocial, tipo: "Fornecedor" as const })),
-                          ]
-                            .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
-                            .map((item) => (
-                              <option key={`${item.tipo}-${item.nome}`} value={item.nome}>
-                                {item.nome}
-                              </option>
-                            ))}
-                        </select>
+                            className="mt-1"
+                        />
                       </div>
                       {/* Status */}
                       <div className="flex flex-col">

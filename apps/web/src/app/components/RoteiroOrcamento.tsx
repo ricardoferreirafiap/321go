@@ -896,11 +896,23 @@ export default function RoteiroOrcamento() {
   const [carrosselHospedagemAtivo, setCarrosselHospedagemAtivo] = useState<Record<number, number>>({});
   const [carrosselPacoteHospedagemAtivo, setCarrosselPacoteHospedagemAtivo] = useState<Record<number, number>>({});
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
+  const [usuarioLogado, setUsuarioLogado] = useState<Funcionario | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
   const [politicaCancelamentoMinimizada, setPoliticaCancelamentoMinimizada] = useState<Record<number, boolean>>({});
   const [seguroMinimizado, setSeguroMinimizado] = useState(true);
   const [pacotesMinimizado, setPacotesMinimizado] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("authFuncionario");
+      if (raw) {
+        setUsuarioLogado(JSON.parse(raw) as Funcionario);
+      }
+    } catch {
+      setUsuarioLogado(null);
+    }
+  }, []);
 
   // Inicializa índice ativo de cada hospedagem quando o orçamento é carregado
   useEffect(() => {
@@ -1322,11 +1334,17 @@ export default function RoteiroOrcamento() {
   console.log('[RoteiroOrcamento] possuiSeguro:', segurosPacotes.length > 0 || segurosAdicionais.length > 0);
   
   const possuiSeguro = segurosPacotes.length > 0 || segurosAdicionais.length > 0;
-  const agente = orc.agenteViagem
-    ? funcionarios.find((funcionario) => funcionario.name === orc.agenteViagem)
-    : null;
-  const nomeAgente = agente?.name || orc.agenteViagem;
-  const saudacaoAgente = String(agente?.saudacoes || "").trim();
+  const agente = (
+    orc.agenteViagem
+      ? funcionarios.find((funcionario) => funcionario.name === orc.agenteViagem) ?? null
+      : null
+  ) || (
+    usuarioLogado
+      ? funcionarios.find((funcionario) => funcionario.name === usuarioLogado.name) ?? usuarioLogado
+      : null
+  );
+  const nomeAgente = agente?.name || orc.agenteViagem || usuarioLogado?.name || "Agente";
+  const saudacaoAgente = String(agente?.saudacoes || usuarioLogado?.saudacoes || "").trim();
   const iniciaisAgente = nomeAgente
     ?.split(" ")
     .map((nome) => nome[0])

@@ -169,9 +169,7 @@ function moeda(v: number) {
 }
 
 function calcItem(item: ItemOrc) {
-  const bruto = item.quantidade * item.valorUnitario;
-  const desc = bruto * (item.desconto / 100);
-  return bruto - desc;
+  return item.quantidade * item.valorUnitario;
 }
 
 function fmtData(iso?: string) {
@@ -304,7 +302,9 @@ export default function ResumoOrcamento() {
       <main className="max-w-4xl mx-auto">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-gray-800">Venda</h1>
-          <p className="text-lg text-indigo-600 font-mono mt-1">{orcamento.numero}</p>
+          <p className="text-lg text-indigo-600 font-mono mt-1">
+            {orcamento.numero}{orcamento.destino ? ` - ${orcamento.destino}` : ""}
+          </p>
         </div>
 
         <Card className="mb-6 p-6">
@@ -872,9 +872,6 @@ export default function ResumoOrcamento() {
                           <p className="font-medium text-gray-800 truncate">{item.descricao}</p>
                           <p className="text-xs text-gray-500 mt-0.5">
                             {item.quantidade} {item.unidade} × {moeda(item.valorUnitario)}
-                            {item.desconto > 0 && (
-                              <span className="ml-2 text-green-600">− {item.desconto}% desc.</span>
-                            )}
                           </p>
                         </div>
                         <span className="text-sm font-semibold text-gray-800 whitespace-nowrap">{moeda(subtotal)}</span>
