@@ -2089,7 +2089,7 @@ export default function Roteiros() {
               {/* Roteiro */}
               <Card className="p-3 sm:p-6">
                 <div className="mb-4 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => setRoteiroMinimizado((prev) => !prev)}>
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><MapPin className="w-4 h-4 text-indigo-500" /> Roteiro</h3>
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><MapPin className="w-4 h-4 text-indigo-500" /> Página de Roteiro do Cliente</h3>
                   <Button
                       type="button"
                       variant="ghost"
