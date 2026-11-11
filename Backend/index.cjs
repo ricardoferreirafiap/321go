@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
+
 function loadEnvFile(filePath) {
     if (!fs.existsSync(filePath)) {
         return;
@@ -26,14 +27,16 @@ function loadEnvFile(filePath) {
         }
     }
 }
-loadEnvFile(path.resolve(__dirname, '.env'));
+
+loadEnvFile(path.resolve(__dirname, './.env'));
+loadEnvFile(path.resolve(__dirname, './.env.local'));
+
 const express = require('express');
 const http = require('http');
 const axios = require('axios');
 const { Server } = require('socket.io');
 const { Pool } = require('pg');
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
 
 const GroqService = require('./groq/index.cjs');
 const GeminiService = require('./gemini/index.cjs');
@@ -67,95 +70,18 @@ const AIService = {
     }
 };
 
-function loadEnvFile(filePath) {
-    if (!fs.existsSync(filePath)) {
-        return;
+function normalizeDatabaseConnectionString(connectionString) {
+    if (!connectionString) {
+        return '';
     }
 
-    const content = fs.readFileSync(filePath, 'utf8');
-    const lines = content.split(/\r?\n/);
-
-    for (const line of lines) {
-        const trimmed = line.trim();
-
-        if (!trimmed || trimmed.startsWith('#')) {
-            continue;
-        }
-
-        const separatorIndex = trimmed.indexOf('=');
-        if (separatorIndex <= 0) {
-            continue;
-        }
-
-        const key = trimmed.slice(0, separatorIndex).trim();
-        let value = trimmed.slice(separatorIndex + 1).trim();
-
-        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-            value = value.slice(1, -1);
-        }
-
-        if (!(key in process.env)) {
-            process.env[key] = value;
-        }
-    }
-}
-
-loadEnvFile(path.resolve(__dirname, './.env'));
-loadEnvFile(path.resolve(__dirname, './.env.local'));
-
-const PORT = process.env.PORT || 3001;
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
-const FRONTEND_ORIGINS = (process.env.FRONTEND_ORIGINS || FRONTEND_ORIGIN)
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-const LOCALHOST_ORIGIN_REGEX = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
-const WHATSAPP_AUTH_PATH =
-    process.env.WHATSAPP_AUTH_PATH ||
-    path.resolve(process.env.LOCALAPPDATA || process.env.TEMP || process.cwd(), 'PortalWeb', 'wwebjs_auth');
-const WHATSAPP_CACHE_PATH =
-    process.env.WHATSAPP_CACHE_PATH ||
-    path.resolve(process.env.LOCALAPPDATA || process.env.TEMP || process.cwd(), 'PortalWeb', 'wwebjs_cache');
-
-const app = express();
-app.use(express.json({ limit: '10mb' }));
-app.use(express.json());
-
-function normalizeOrigin(origin) {
-    return String(origin || '').trim().replace(/\/$/, '').toLowerCase();
-}
-
-function isAllowedOrigin(origin) {
-    if (typeof origin !== 'string') {
-        return false;
-    }
-
-    const normalizedOrigin = normalizeOrigin(origin);
-    if (LOCALHOST_ORIGIN_REGEX.test(normalizedOrigin)) {
-        return true;
-    }
-
-    return FRONTEND_ORIGINS.some((allowedOrigin) => {
-        const normalizedAllowed = normalizeOrigin(allowedOrigin);
-
-        if (!normalizedAllowed) {
-            return false;
-        }
-
-        if (normalizedAllowed.includes('*')) {
-            const regexPattern = normalizedAllowed
-                .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-                .replace(/\*/g, '.*');
-            const wildcardRegex = new RegExp(`^${regexPattern}$`, 'i');
-            return wildcardRegex.test(normalizedOrigin);
-        }
-
-        return normalizedAllowed === normalizedOrigin;
-    });
+    return connectionString
+        .replace(/([?&])sslmode=(prefer|required|verify-ca)/gi, '$1sslmode=verify-full')
+        .replace(/([?&])sslmode=verify-full(&|$)/i, '$1sslmode=verify-full$2');
 }
 
 function resolveConnectionString() {
-    return (
+    return normalizeDatabaseConnectionString(
         process.env.DATABASE_URL ||
         process.env.POSTGRES_URL ||
         process.env.POSTGRES_PRISMA_URL ||
@@ -165,33 +91,30 @@ function resolveConnectionString() {
     );
 }
 
-app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    const allowed = isAllowedOrigin(origin);
-
-    if (allowed) {
-        res.header('Access-Control-Allow-Origin', origin);
-        res.header('Vary', 'Origin');
-    }
-
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-
-    if (req.method === 'OPTIONS') {
-        return allowed ? res.sendStatus(204) : res.sendStatus(403);
-    }
-
-    next();
-});
-
 const connectionString = resolveConnectionString();
+const isSecureDatabaseConnection = /(?:neon\.tech|postgres\.ssl|railway\.app|render\.com|supabase\.co|sslmode=verify-full)/i.test(connectionString);
 
 const pool = connectionString
     ? new Pool({
         connectionString,
-        ssl: { rejectUnauthorized: false },
+        ssl: isSecureDatabaseConnection ? { rejectUnauthorized: false } : false,
     })
     : null;
+
+if (pool) {
+    const originalPoolQuery = pool.query.bind(pool);
+    pool.query = (...args) => originalPoolQuery(...args).catch((error) => {
+        const dbError = resolveDatabaseError(error);
+        if (dbError.status >= 500) {
+            logServerError('Erro de conexão do pool PostgreSQL:', error);
+        }
+        throw error;
+    });
+
+    pool.on('error', (error) => {
+        logServerError('Erro no pool de conexões PostgreSQL:', error);
+    });
+}
 
 let ensureOrcamentosDestinoColumnPromise = null;
 let ensureOrcamentosPassageirosColumnPromise = null;
@@ -207,7 +130,6 @@ let ensureFinanceiroComissaoColumnsPromise = null;
 let ensureFinanceiroDesnormalizacaoColumnsPromise = null;
 let ensureOrcamentosObservacoesColumnPromise = null;
 let ensureOrcamentosStatusViagemColumnPromise = null;
-let ensureOrcamentosStatusViagemConstraintPromise = null;
 
 async function ensureOrcamentosDestinoColumn() {
     if (!pool) {
@@ -1782,228 +1704,6 @@ async function searchDestinationPhotoName(place) {
                 item,
                 score: scorePlaceForPhoto(item, place),
             }))
-        if (rawMessage) {
-            if (status === 401 || status === 403) {
-                return { status: 502, message: rawMessage };
-            }
-            if (status >= 400 && status < 500) {
-                return { status: 502, message: rawMessage };
-            }
-        }
-    }
-
-    if (status === 401 || status === 403) {
-        return { status: 502, message: 'Falha ao autenticar na Google Places API. Verifique GOOGLE_MAPS_API_KEY.' };
-    }
-
-    if (status === 429) {
-        return { status: 429, message: 'Limite de requisições da Google Places API atingido. Tente novamente em instantes.' };
-    }
-
-    if (status >= 400 && status < 500) {
-        return { status: 502, message: apiMessage || fallbackMessage };
-    }
-
-    if (error?.code === 'ECONNABORTED') {
-        return { status: 504, message: 'Tempo de resposta da Google Places API excedido.' };
-    }
-
-    return { status: 502, message: fallbackMessage };
-}
-
-function buildStaticDestinationFallbackUrl(place) {
-    const candidates = buildPlaceSearchCandidates(place);
-    const preferred = candidates.find((item) => !/[()]/.test(item)) || candidates[0] || '';
-    const normalized = normalizeTextForComparison(preferred || place || 'destino viagem brasil');
-    const seed = encodeURIComponent(normalized.replace(/\s+/g, '-'));
-    return {
-        url: `https://picsum.photos/seed/${seed}/1600/900`,
-        source: 'picsum-seeded',
-    };
-}
-
-function buildWikipediaTitleCandidates(place) {
-    const candidates = buildPlaceSearchCandidates(place)
-        .map((item) => normalizePlaceQuery(item).replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim())
-        .filter(Boolean);
-
-    const normalizedCandidates = [];
-    for (const value of candidates) {
-        const cleaned = value
-            .replace(/\b(brasil|brazil)\b/gi, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-        if (cleaned && !normalizedCandidates.includes(cleaned)) {
-            normalizedCandidates.push(cleaned);
-        }
-    }
-
-    return normalizedCandidates.map((item) => item.replace(/\s+/g, '_'));
-}
-
-async function fetchWikipediaThumbnail(place) {
-    const titles = buildWikipediaTitleCandidates(place);
-    const locales = ['pt', 'en'];
-
-    for (const title of titles) {
-        for (const locale of locales) {
-            try {
-                const response = await axios.get(`https://${locale}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`, {
-                    timeout: 10000,
-                    headers: {
-                        'User-Agent': 'PortalWeb-PlacePhoto/1.0',
-                    },
-                });
-
-                const thumbnail = response?.data?.thumbnail?.source;
-                if (typeof thumbnail === 'string' && /^https?:\/\//i.test(thumbnail)) {
-                    return {
-                        url: thumbnail,
-                        source: `wikipedia-${locale}`,
-                        title,
-                    };
-                }
-            } catch (_) {
-                // Ignore and continue trying other title/locale combinations.
-            }
-        }
-    }
-
-    return null;
-}
-
-async function canUseStreetView(apiKey, latitude, longitude) {
-    try {
-        const response = await axios.get('https://maps.googleapis.com/maps/api/streetview/metadata', {
-            timeout: 10000,
-            params: {
-                location: `${latitude},${longitude}`,
-                source: 'outdoor',
-                key: apiKey,
-            },
-        });
-
-        const status = String(response?.data?.status || '').toUpperCase();
-        return {
-            ok: status === 'OK',
-            status,
-        };
-    } catch (error) {
-        return {
-            ok: false,
-            status: Number(error?.response?.status || 0) ? `HTTP_${error.response.status}` : 'ERROR',
-        };
-    }
-}
-
-async function searchDestinationPhotoName(place) {
-    const apiKey = getGoogleMapsApiKey();
-    const candidates = buildPlaceSearchCandidates(place);
-    let selected = null;
-    let fallbackCenter = null;
-    const optionsMap = new Map();
-
-    const registerOptions = (places) => {
-        if (!Array.isArray(places)) {
-            return;
-        }
-
-        for (const item of places) {
-            const name = String(item?.displayName?.text || '').trim();
-            const address = String(item?.formattedAddress || '').trim();
-            const key = normalizeTextForComparison(name || address);
-            if (!key) {
-                continue;
-            }
-
-            if (!optionsMap.has(key)) {
-                optionsMap.set(key, {
-                    name: name || address,
-                    address: address || null,
-                });
-            }
-        }
-    };
-
-    logPlacePhoto('TextSearch candidates', { place, candidates });
-
-    for (const textQuery of candidates) {
-        logPlacePhoto('TextSearch request', { place, textQuery });
-
-        const placesRaw = await searchPlacesByText(textQuery, apiKey);
-        registerOptions(placesRaw);
-        const places = await hydratePlacesWithDetailsPhotos(placesRaw, apiKey);
-        const centerCandidates = places
-            .map((item) => ({
-                item,
-                score: scoreCenterCandidate(item, textQuery),
-            }))
-            .filter((entry) => Number.isFinite(entry.score))
-            .sort((a, b) => b.score - a.score);
-
-        if (centerCandidates.length > 0) {
-            const bestCenter = centerCandidates[0];
-            if (!fallbackCenter || bestCenter.score > fallbackCenter.score) {
-                fallbackCenter = {
-                    latitude: bestCenter.item.location.latitude,
-                    longitude: bestCenter.item.location.longitude,
-                    sourceQuery: textQuery,
-                    sourcePlace: bestCenter.item?.displayName?.text || null,
-                    score: bestCenter.score,
-                };
-            }
-        }
-        const ranked = places
-            .map((item) => ({
-                item,
-                score: scorePlaceForPhoto(item, textQuery),
-            }))
-            .filter((entry) => Number.isFinite(entry.score))
-            .sort((a, b) => b.score - a.score);
-
-        logPlacePhoto('TextSearch response', {
-            place,
-            textQuery,
-            totalPlaces: placesRaw.length,
-            rankedWithPhoto: ranked.length,
-            topMatches: places.slice(0, 3).map((item) => ({
-                name: item?.displayName?.text || null,
-                address: item?.formattedAddress || null,
-                photoCount: Array.isArray(item?.photos) ? item.photos.length : 0,
-                airportLike: isAirportLike(item),
-            })),
-        });
-
-        if (ranked.length > 0) {
-            selected = {
-                textQuery,
-                place: ranked[0].item,
-                score: ranked[0].score,
-                method: 'textSearch',
-            };
-            break;
-        }
-    }
-
-    if (!selected && fallbackCenter) {
-        logPlacePhoto('NearbySearch request', {
-            place,
-            center: {
-                latitude: fallbackCenter.latitude,
-                longitude: fallbackCenter.longitude,
-            },
-            sourceQuery: fallbackCenter.sourceQuery,
-            sourcePlace: fallbackCenter.sourcePlace,
-        });
-
-        const nearbyPlacesRaw = await searchNearbyPhotoPlace(fallbackCenter, apiKey);
-        registerOptions(nearbyPlacesRaw);
-        const nearbyPlaces = await hydratePlacesWithDetailsPhotos(nearbyPlacesRaw, apiKey);
-        const nearbyRanked = nearbyPlaces
-            .map((item) => ({
-                item,
-                score: scorePlaceForPhoto(item, place),
-            }))
             .filter((entry) => Number.isFinite(entry.score))
             .sort((a, b) => b.score - a.score);
 
@@ -2644,7 +2344,7 @@ app.put('/api/funcionarios/:id', ensureDb, async (req, res) => {
         res.json(mapFuncionario(result.rows[0]));
     } catch (error) {
         if (error.code === '23505') {
-            return res.status(409).json({ error: 'Já existe funcionário com este e-mail.' });
+            return res.status(409).json({ error: 'Já existe funcion��rio com este e-mail.' });
         }
 
         logServerError('Erro ao atualizar funcionário:', error);
@@ -4526,4 +4226,3 @@ io.on('connection', (socket) => {
 server.listen(PORT, () => {
     logServerError(`Servidor ouvindo na porta ${PORT}`);
 });
-

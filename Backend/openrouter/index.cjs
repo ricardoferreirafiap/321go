@@ -1,12 +1,14 @@
 const OpenAI = require("openai");
 
-const openrouter = new OpenAI({
-    apiKey: process.env.OPENROUTER_API_KEY,
-    baseURL: "https://openrouter.ai/api/v1",
-});
+const openrouter = process.env.OPENROUTER_API_KEY
+    ? new OpenAI({
+        apiKey: process.env.OPENROUTER_API_KEY,
+        baseURL: "https://openrouter.ai/api/v1",
+    })
+    : null;
 
 async function generate(messages = []) {
-    if (!process.env.OPENROUTER_API_KEY) {
+    if (!openrouter) {
         throw new Error("OPENROUTER_API_KEY não configurada.");
     }
 
