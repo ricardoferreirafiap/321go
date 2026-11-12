@@ -1,0 +1,44 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "allowJs": true,
+    "checkJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "strict": false,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    "Backend/**/*.js",
+    "Backend/**/*.cjs",
+    "Backend/**/*.mjs",
+    "api/**/*.js",
+    "api/**/*.cjs",
+    "api/**/*.mjs",
+    "prisma/**/*.ts",
+    "*.js",
+    "*.cjs",
+    "*.mjs",
+    "tmp*.js",
+    "tmp*.cjs",
+    "tmp*.mjs"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/dist",
+    "**/build",
+    "**/.next",
+    "apps/web/**",
+    "apps/mobile/**"
+  ]
+}
+

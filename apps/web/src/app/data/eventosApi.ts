@@ -1,19 +1,21 @@
+import { API_CONFIG } from './apiConfig';
+
 export type TipoEvento = 'Reunião' | 'Viagem' | 'Tarefa' | 'Lembrete' | 'Outro';
 
 export interface Evento {
-  id: number;
+  id?: number;
   titulo: string;
-  descricao: string;
+  descricao?: string;
   data: string;
   hora: string;
-  tipo: TipoEvento;
-  cliente: string;
-  agente: string;
+  tipo: string;
+  cliente?: string;
+  agente?: string;
 }
 
 export type EventoPayload = Omit<Evento, 'id'>;
 
-const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || (import.meta.env.DEV ? '/api' : (() => { throw new Error('VITE_API_URL não configurada no deploy. Defina a URL do backend, por exemplo: https://seu-backend.up.railway.app/api.'); })());
+const API_BASE_URL = API_CONFIG.apiBase;
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   let response: Response;

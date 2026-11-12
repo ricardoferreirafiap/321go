@@ -21,7 +21,6 @@
 ### Deploy
 
 - Frontend: Vercel
-- Backend: Railway
 
 ## Regras obrigatórias
 

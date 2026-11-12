@@ -2,7 +2,7 @@
 
 Projeto com frontend em Vite/React localizado em `apps/web`.
 
-O frontend consome um backend HTTP/Socket.IO externo configurado por variáveis de ambiente.
+O frontend consome um backend HTTP local configurado por variáveis de ambiente.
 
 ## Rodar localmente (frontend)
 
@@ -12,7 +12,7 @@ O frontend consome um backend HTTP/Socket.IO externo configurado por variáveis 
 npm install
 ```
 
-2. Crie os arquivos de ambiente necessários para o frontend.
+2. Ajuste os arquivos `.env` na raiz e em `Backend/.env` conforme seu ambiente local.
 
 3. Suba o frontend:
 
@@ -32,31 +32,29 @@ Use os arquivos de ambiente do frontend em `apps/web` como referência.
 
 ### Frontend (Vite)
 
-- `VITE_API_URL`: URL base do backend HTTP. Em produção, deve incluir o prefixo `/api` do backend.
-- `VITE_SOCKET_URL`: URL base do Socket.IO.
+- `VITE_API_URL`: URL base do backend HTTP local.
+- `VITE_SOCKET_URL`: URL base do Socket.IO local.
 
-Exemplo de produção em `apps/web/.env.production`:
+Exemplo local:
 
 ```env
-# Defina os valores reais na Vercel.
-VITE_API_URL=https://SEU_BACKEND_REAL.up.railway.app/api
-VITE_SOCKET_URL=https://SEU_BACKEND_REAL.up.railway.app
+VITE_API_URL=http://localhost:3001/api
+VITE_SOCKET_URL=http://localhost:3001
 ```
 
-## Deploy: Vercel + Railway
+## Deploy
 
 ### Vercel (frontend)
 
 Configure no projeto Vercel:
 
-- `VITE_API_URL=https://SEU_BACKEND_REAL.up.railway.app/api`
-- `VITE_SOCKET_URL=https://SEU_BACKEND_REAL.up.railway.app`
+- `VITE_API_URL=https://SEU_BACKEND_REAL/api`
+- `VITE_SOCKET_URL=https://SEU_BACKEND_REAL`
 
-### Railway (backend externo)
+### Backend local / hospedado
 
-Configure no serviço Railway:
+Configure no ambiente do backend:
 
 - `FRONTEND_ORIGIN=https://SEU_FRONTEND.vercel.app`
 - `FRONTEND_ORIGINS=https://SEU_FRONTEND.vercel.app,http://localhost:5173`
 - `DATABASE_URL=...`
-  

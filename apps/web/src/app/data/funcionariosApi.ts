@@ -1,3 +1,5 @@
+import { API_CONFIG } from './apiConfig';
+
 export interface Funcionario {
   id: number;
   name: string;
@@ -20,7 +22,7 @@ export interface LoginFuncionarioResponse {
 
 export type FuncionarioPayload = Omit<Funcionario, 'id' | 'initials'>;
 
-const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || (import.meta.env.DEV ? '/api' : (() => { throw new Error('VITE_API_URL não configurada no deploy. Defina a URL do backend, por exemplo: https://seu-backend.up.railway.app/api.'); })());
+const API_BASE_URL = API_CONFIG.apiBase;
 const LIST_CACHE_TTL_MS = 5 * 60 * 1000;
 
 let cachedList: { expiresAt: number; value: Funcionario[] } | null = null;
@@ -145,7 +147,7 @@ export function loginFuncionario(email: string, password: string) {
     const responseText = await response.text();
     const isLikelyHtml = responseText.trimStart().startsWith('<!DOCTYPE') || responseText.trimStart().startsWith('<html');
 
-    let parsedBody: any = null;
+    let parsedBody: unknown = null;
     if (responseText) {
       try {
         parsedBody = JSON.parse(responseText);
@@ -154,16 +156,23 @@ export function loginFuncionario(email: string, password: string) {
       }
     }
 
+    const apiPayload =
+      parsedBody && typeof parsedBody === 'object'
+        ? (parsedBody as { message?: string | string[]; error?: string })
+        : null;
+
     if (!response.ok) {
       if (isLikelyHtml) {
         throw new Error('A rota da API retornou HTML. Verifique a configuração do backend de autenticação.');
       }
 
-      const apiMessage = Array.isArray(parsedBody?.message)
-        ? parsedBody.message.join(', ')
-        : parsedBody?.message;
+      const apiMessage = Array.isArray(apiPayload?.message)
+        ? apiPayload.message.join(', ')
+        : typeof apiPayload?.message === 'string'
+          ? apiPayload.message
+          : undefined;
 
-      throw new Error(apiMessage || parsedBody?.error || `Erro ao comunicar com o servidor (${response.status}).`);
+      throw new Error(apiMessage || apiPayload?.error || `Erro ao comunicar com o servidor (${response.status}).`);
     }
 
     if (isLikelyHtml || !contentType.includes('application/json')) {

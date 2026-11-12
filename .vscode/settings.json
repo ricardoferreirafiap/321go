@@ -1,0 +1,29 @@
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "javascript.validate.enable": true,
+  "typescript.validate.enable": true,
+  "files.exclude": {
+    "**/.git": true,
+    "**/.next": true,
+    "**/dist": true,
+    "**/node_modules": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.next": true
+  },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
+  },
+  "javascript.suggest.enabled": true,
+  "typescript.suggest.enabled": true,
+  "npm.packageManager": "npm",
+  "nodejs.packageManager": "npm",
+  "nodejs.autodetect": true,
+  "nodejs.enableNodeJSService": true,
+  "debug.node.autoAttachChildProcesses": true
+}
+

@@ -1,3 +1,5 @@
+import { API_CONFIG } from './apiConfig';
+
 export interface DestinationApiResponseItem {
   id: number;
   data: Record<string, unknown>;
@@ -58,7 +60,7 @@ export interface ExperienciaBuscaResponse {
   fallbackReason?: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || (import.meta.env.DEV ? '/api' : (() => { throw new Error('VITE_API_URL não configurada no deploy. Defina a URL do backend, por exemplo: https://seu-backend.up.railway.app/api.'); })());
+const API_BASE_URL = API_CONFIG.apiBase;
 
 async function request<T>(path: string): Promise<T> {
   let response: Response;
@@ -77,25 +79,27 @@ async function request<T>(path: string): Promise<T> {
   const responseText = await response.text();
   const isLikelyHtml = responseText.trimStart().startsWith('<!DOCTYPE') || responseText.trimStart().startsWith('<html');
 
-  let parsedBody: any = null;
+  let parsedBody: Record<string, unknown> | null = null;
   if (responseText) {
     try {
-      parsedBody = JSON.parse(responseText);
+      parsedBody = JSON.parse(responseText) as Record<string, unknown>;
     } catch {
       parsedBody = null;
     }
   }
+
+  const parsedBodyData = parsedBody ?? {};
 
   if (!response.ok) {
     if (isLikelyHtml) {
       throw new Error('A rota da API de destinos retornou HTML. Verifique a configuração do backend NestJS.');
     }
 
-    const apiMessage = Array.isArray(parsedBody?.message)
-      ? parsedBody.message.join(', ')
-      : parsedBody?.message;
+    const apiMessage = Array.isArray(parsedBodyData.message)
+      ? parsedBodyData.message.join(', ')
+      : parsedBodyData.message;
 
-    throw new Error(apiMessage || parsedBody?.error || `Erro ao comunicar com o servidor (${response.status}).`);
+    throw new Error(String(apiMessage || parsedBodyData.error || `Erro ao comunicar com o servidor (${response.status}).`));
   }
 
   if (isLikelyHtml || !contentType.includes('application/json')) {

@@ -1,29 +1,14 @@
-interface PlacePhotoResponse {
+import { API_CONFIG } from './apiConfig';
+
+export interface PlacePhotoResult {
   photo: string | null;
-  error?: string;
-  totalPlaces?: number;
-  options?: Array<{
-    name: string;
-    address?: string | null;
-  }>;
+  totalPlaces: number;
+  options: string[];
 }
 
-export interface DestinationPlaceOption {
-  name: string;
-  address?: string | null;
-}
+const API_BASE_URL = API_CONFIG.apiBase;
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL?.replace(/\/$/, "") ||
-  (import.meta.env.DEV
-    ? "/api"
-    : (() => {
-        throw new Error(
-          "VITE_API_URL não configurada no deploy. Defina a URL do backend, por exemplo: https://seu-backend.up.railway.app/api."
-        );
-      })());
-
-async function requestPlacePhoto(destination: string): Promise<PlacePhotoResponse> {
+async function requestPlacePhoto(destination: string): Promise<PlacePhotoResult> {
   const normalizedDestination = String(destination || "").trim();
 
   if (!normalizedDestination) {
@@ -47,11 +32,11 @@ async function requestPlacePhoto(destination: string): Promise<PlacePhotoRespons
   }
 
   const text = await response.text();
-  let body: PlacePhotoResponse = { photo: null, totalPlaces: 0, options: [] };
+  let body: PlacePhotoResult = { photo: null, totalPlaces: 0, options: [] };
 
   if (text) {
     try {
-      body = JSON.parse(text) as PlacePhotoResponse;
+      body = JSON.parse(text) as PlacePhotoResult;
     } catch {
       body = { photo: null, totalPlaces: 0, options: [] };
     }

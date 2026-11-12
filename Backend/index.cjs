@@ -2,6 +2,39 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
+const express = require('express');
+const http = require('http');
+const axios = require('axios');
+const { Server } = require('socket.io');
+const { Pool } = require('pg');
+const { Client, LocalAuth } = require('whatsapp-web.js');
+
+const app = express();
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+const PORT = Number(process.env.PORT || 3001);
+const FRONTEND_ORIGIN = [
+    'http://localhost:5173',
+    'https://localhost:5173',
+    'http://localhost:5174',
+    'https://localhost:5174',
+    'http://127.0.0.1:5173',
+    'https://127.0.0.1:5173',
+];
+const WHATSAPP_AUTH_PATH = path.join(__dirname, '.wwebjs_auth');
+const WHATSAPP_CACHE_PATH = path.join(__dirname, '.wwebjs_cache');
+
+function isPlaceholderDatabaseValue(value) {
+    if (typeof value !== 'string') {
+        return false;
+    }
+
+    const trimmed = value.trim();
+    return trimmed === '' ||
+        /^(your_|change_me|placeholder|dummy|example|USER:PASSWORD@HOST)/i.test(trimmed) ||
+        /^postgresql:\/\/USER:PASSWORD@HOST:5432\/321go\?sslmode=require$/i.test(trimmed);
+}
 
 function loadEnvFile(filePath) {
     if (!fs.existsSync(filePath)) {
@@ -21,28 +54,17 @@ function loadEnvFile(filePath) {
 
         const key = trimmed.slice(0, separatorIndex).trim();
         const value = trimmed.slice(separatorIndex + 1).trim();
+        const existingValue = process.env[key];
 
-        if (!(key in process.env)) {
+        if (!existingValue || (isPlaceholderDatabaseValue(existingValue) && !isPlaceholderDatabaseValue(value))) {
             process.env[key] = value;
         }
     }
 }
 
+loadEnvFile(path.resolve(__dirname, '../.env'));
 loadEnvFile(path.resolve(__dirname, './.env'));
 loadEnvFile(path.resolve(__dirname, './.env.local'));
-
-const express = require('express');
-const http = require('http');
-const axios = require('axios');
-const { Server } = require('socket.io');
-const { Pool } = require('pg');
-const { Client, LocalAuth } = require('whatsapp-web.js');
-
-const GroqService = require('./groq/index.cjs');
-const GeminiService = require('./gemini/index.cjs');
-const OpenAIService = require('./openai/index.cjs');
-const OpenRouterService = require('./openrouter/index.cjs');
-const CloudflareService = require('./cloudflare/index.cjs');
 
 // AIService roteia para o provedor correto
 const AIService = {
@@ -92,7 +114,7 @@ function resolveConnectionString() {
 }
 
 const connectionString = resolveConnectionString();
-const isSecureDatabaseConnection = /(?:neon\.tech|postgres\.ssl|railway\.app|render\.com|supabase\.co|sslmode=verify-full)/i.test(connectionString);
+const isSecureDatabaseConnection = /(neon\.tech|postgres\.ssl|render\.com|supabase\.co|sslmode=verify-full)/i.test(connectionString);
 
 const pool = connectionString
     ? new Pool({
@@ -716,7 +738,7 @@ function normalizeLeadPayload(body) {
         whatsapp: String(body?.whatsapp || '').trim(),
         status: status === 'Em Contato' || status === 'Qualificado' || status === 'Perdido' || status === 'Vendido' ? status : 'Novo',
         statusCrm:
-            statusCrm === 'Qualificação' ||
+            statusCrm === 'Qualifica��ão' ||
             statusCrm === 'Reunião' ||
             statusCrm === 'Follow-ups' ||
             statusCrm === 'Pagos' ||
@@ -845,6 +867,22 @@ function normalizeLancamentoFinanceiroPayload(body) {
     };
 }
 
+function jsonArraySafeSql(columnName) {
+    return `CASE
+        WHEN jsonb_typeof(COALESCE(${columnName}, '[]'::jsonb)) = 'array' THEN
+            COALESCE((
+                SELECT jsonb_agg(
+                    CASE
+                        WHEN jsonb_typeof(item) = 'object' THEN item - ARRAY['documentos', 'voucher', 'voucherTipo', 'voucherNome', 'documento', 'arquivo', 'base64']::text[]
+                        ELSE item
+                    END
+                )
+                FROM jsonb_array_elements(COALESCE(${columnName}, '[]'::jsonb)) AS item
+            ), '[]'::jsonb)
+        ELSE '[]'::jsonb
+    END`;
+}
+
 function resolveDatabaseError(error) {
     if (!error) {
         return { status: 500, message: 'Erro de conexão com o banco de dados.' };
@@ -862,77 +900,11 @@ function resolveDatabaseError(error) {
         return { status: 503, message: 'Tempo de conexão com o banco esgotado. Verifique rede e disponibilidade do Neon.' };
     }
 
+    if (typeof error.message === 'string' && error.message.trim()) {
+        return { status: 500, message: error.message };
+    }
+
     return { status: 500, message: 'Erro de conexão com o banco de dados.' };
-}
-
-const DEFAULT_OPENAI_SYSTEM_PROMPT =
-    process.env.OPENAI_SYSTEM_PROMPT ||
-    'Você é o Agente IA do PortalWeb. Responda em português do Brasil, com objetividade e foco em produtividade comercial.';
-
-function mapOpenAiError(status, parsedBody) {
-    const providerCode = String(parsedBody?.error?.code || '').toLowerCase();
-
-    if (status === 401 || providerCode === 'invalid_api_key') {
-        return {
-            status: 502,
-            code: 'OPENAI_INVALID_KEY',
-            message: 'A chave da OpenAI está inválida ou expirada. Atualize GEMINI_API_KEY no backend.',
-        };
-    }
-
-    if (status === 402 || providerCode === 'insufficient_quota') {
-        return {
-            status: 429,
-            code: 'OPENAI_QUOTA_EXCEEDED',
-            message: 'Seu limite de cota da OpenAI foi atingido. Verifique faturamento e créditos da conta.',
-        };
-    }
-
-    if (status === 429 || providerCode === 'rate_limit_exceeded') {
-        return {
-            status: 429,
-            code: 'OPENAI_RATE_LIMIT',
-            message: 'Muitas solicitações em sequência. Aguarde alguns segundos e tente novamente.',
-        };
-    }
-
-    if (providerCode === 'model_not_found') {
-        return {
-            status: 502,
-            code: 'OPENAI_MODEL_NOT_FOUND',
-            message: 'O modelo configurado em OPENAI_MODEL não foi encontrado para esta conta.',
-        };
-    }
-
-    if (status >= 500) {
-        return {
-            status: 502,
-            code: 'OPENAI_UNAVAILABLE',
-            message: 'A OpenAI está indisponível no momento. Tente novamente em instantes.',
-        };
-    }
-
-    return {
-        status: 502,
-        code: 'OPENAI_API_ERROR',
-        message: parsedBody?.error?.message || 'Falha ao comunicar com a OpenAI.',
-    };
-}
-
-function normalizeAiMessages(rawMessages) {
-    if (!Array.isArray(rawMessages)) {
-        return [];
-    }
-
-    const allowedRoles = new Set(['user', 'assistant']);
-
-    return rawMessages
-        .map((item) => ({
-            role: typeof item?.role === 'string' ? item.role : '',
-            content: typeof item?.content === 'string' ? item.content.trim() : '',
-        }))
-        .filter((item) => item.content && allowedRoles.has(item.role))
-        .slice(-20);
 }
 
 function getGoogleMapsApiKey() {
@@ -997,7 +969,7 @@ async function generateAiFallbackOptions(place, tipo) {
 // Google Places API — busca hospedagens, restaurantes e experiências
 // ---------------------------------------------------------------------------
 
-async function searchPlacesByType(textQuery, apiKey, includedTypes) {
+async function searchPlacesByType(textQuery, apiKey, _includedTypes) {
     if (!textQuery || !apiKey) return [];
 
     try {
@@ -1790,41 +1762,27 @@ function extrairTextoDoHtml(html) {
 // Endpoint para fazer scraping de URLs de operadores (evita CORS no frontend)
 app.post('/api/scrape-url', async (req, res) => {
     let browser = null;
+
     try {
-        const { url } = req.body;
-
-        if (!url) {
-            return res.status(400).json({ error: 'URL não fornecida.' });
+        // validate URL before opening browser
+        const url = req.query.url;
+        if (typeof url !== 'string' || !url.trim()) {
+            return res.status(400).json({ error: 'Parâmetro url é obrigatório.' });
         }
 
-        let parsedUrl;
-        try {
-            parsedUrl = new URL(url);
-        } catch (_) {
-            return res.status(400).json({ error: 'URL inválida.' });
-        }
-
-        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        const normalizedUrl = url.trim();
+        if (!/^https?:\/\//i.test(normalizedUrl)) {
             return res.status(400).json({ error: 'Apenas URLs http e https são permitidas.' });
         }
 
         // Usar Puppeteer para capturar conteúdo completo (incluindo JavaScript dinâmico)
         browser = await puppeteer.launch({
             headless: 'new',
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-accelerated-2d-canvas',
-                '--no-first-run',
-                '--no-zygote',
-                '--single-process',
-                '--disable-gpu'
-            ]
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
 
         const page = await browser.newPage();
-        
+
         // Configurar User-Agent e headers
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         await page.setExtraHTTPHeaders({
@@ -1832,7 +1790,7 @@ app.post('/api/scrape-url', async (req, res) => {
         });
 
         // Navegar para a URL e esperar carregar
-        await page.goto(url, {
+        await page.goto(normalizedUrl, {
             waitUntil: 'networkidle2',
             timeout: 30000
         });
@@ -1863,9 +1821,11 @@ app.post('/api/scrape-url', async (req, res) => {
     } catch (error) {
         if (browser) {
             await browser.close().catch(() => {});
+            browser = null;
         }
         logServerError('Erro ao fazer scraping da URL:', error);
-        const errorMessage = error.message || 'Não foi possível baixar o conteúdo da URL.';
+
+        const errorMessage = error instanceof Error ? error.message : 'Não foi possível baixar o conteúdo da URL.';
         return res.status(500).json({ error: errorMessage });
     }
 });
@@ -3184,16 +3144,20 @@ app.get('/api/orcamentos', ensureDb, async (req, res) => {
         // Os documentos completos continuam disponíveis no endpoint de detalhe.
         const result = await pool.query(
             `SELECT id, numero, public_token, cliente, email, destino, agente_viagem, status, data_criacao, data_validade, observacoes,
-                            COALESCE((SELECT jsonb_agg(item - ARRAY['documentos', 'voucher', 'voucherTipo', 'voucherNome', 'documento', 'arquivo', 'base64']::text[]) FROM jsonb_array_elements(COALESCE(itens, '[]'::jsonb)) item), '[]'::jsonb) AS itens,
-                            COALESCE((SELECT jsonb_agg(item - ARRAY['documentos', 'voucher', 'voucherTipo', 'voucherNome', 'documento', 'arquivo', 'base64']::text[]) FROM jsonb_array_elements(COALESCE(pacotes, '[]'::jsonb)) item), '[]'::jsonb) AS pacotes,
-                            COALESCE((SELECT jsonb_agg(item - ARRAY['documentos', 'voucher', 'voucherTipo', 'voucherNome', 'documento', 'arquivo', 'base64']::text[]) FROM jsonb_array_elements(COALESCE(voos, '[]'::jsonb)) item), '[]'::jsonb) AS voos,
-                            COALESCE((SELECT jsonb_agg(item - ARRAY['documentos', 'voucher', 'voucherTipo', 'voucherNome', 'documento', 'arquivo', 'base64']::text[]) FROM jsonb_array_elements(COALESCE(hospedagem, '[]'::jsonb)) item), '[]'::jsonb) AS hospedagem,
-                            day_by_day,
-                            COALESCE((SELECT jsonb_agg(item - ARRAY['documentos', 'voucher', 'voucherTipo', 'voucherNome', 'documento', 'arquivo', 'base64']::text[]) FROM jsonb_array_elements(COALESCE(transporte, '[]'::jsonb)) item), '[]'::jsonb) AS transporte,
-                            COALESCE((SELECT jsonb_agg(item - ARRAY['documentos', 'voucher', 'voucherTipo', 'voucherNome', 'documento', 'arquivo', 'base64']::text[]) FROM jsonb_array_elements(COALESCE(restaurante, '[]'::jsonb)) item), '[]'::jsonb) AS restaurante,
-                            COALESCE((SELECT jsonb_agg(item - ARRAY['documentos', 'voucher', 'voucherTipo', 'voucherNome', 'documento', 'arquivo', 'base64']::text[]) FROM jsonb_array_elements(COALESCE(experiencias, '[]'::jsonb)) item), '[]'::jsonb) AS experiencias,
-                            COALESCE((SELECT jsonb_agg(item - ARRAY['documentos', 'voucher', 'voucherTipo', 'voucherNome', 'documento', 'arquivo', 'base64']::text[]) FROM jsonb_array_elements(COALESCE(seguro, '[]'::jsonb)) item), '[]'::jsonb) AS seguro,
-                            perfil_viagem, passageiros,
+                            ${jsonArraySafeSql('itens')} AS itens,
+                            ${jsonArraySafeSql('pacotes')} AS pacotes,
+                            ${jsonArraySafeSql('voos')} AS voos,
+                            ${jsonArraySafeSql('hospedagem')} AS hospedagem,
+                            COALESCE(roteiro, '') AS roteiro,
+                            COALESCE(prompt_roteiro_ia, '') AS prompt_roteiro_ia,
+                            COALESCE(day_by_day, '[]'::jsonb) AS day_by_day,
+                            ${jsonArraySafeSql('transporte')} AS transporte,
+                            ${jsonArraySafeSql('restaurante')} AS restaurante,
+                            ${jsonArraySafeSql('experiencias')} AS experiencias,
+                            ${jsonArraySafeSql('seguro')} AS seguro,
+                            ${jsonArraySafeSql('perfil_viagem')} AS perfil_viagem,
+                            COALESCE(prompt_perfil_ia, '') AS prompt_perfil_ia,
+                            ${jsonArraySafeSql('passageiros')} AS passageiros,
                             forma_pagamento, parcelas, status_viagem
        FROM public.orcamentos
        ORDER BY data_criacao DESC, id DESC`
@@ -3611,7 +3575,11 @@ app.post('/api/financeiro', ensureDb, async (req, res) => {
             lancamentoId = result.rows[0].id;
         } catch (insertError) {
             // Se já existe receita para este orçamento, substitui
-            if (insertError.code === '23505' && payload.orcamentoId) {
+            if (insertError.code !== '23505' || !payload.orcamentoId) {
+                throw insertError;
+            }
+
+            if (payload.orcamentoId) {
                 const updated = await pool.query(
                     `UPDATE public.financeiro
                      SET tipo = $1,
@@ -3646,8 +3614,6 @@ app.post('/api/financeiro', ensureDb, async (req, res) => {
                     ]
                 );
                 lancamentoId = updated.rows[0].id;
-            } else {
-                throw insertError;
             }
         }
 
@@ -3932,7 +3898,9 @@ async function listContactsFallback() {
         throw new Error(`Falha ao listar contatos: ${getErrorMessage(contactsError)}`);
     }
 
-    return contacts
+    const safeContacts = contacts;
+
+    return safeContacts
         .map((contact) => serializeContactAsChat(contact))
         .filter(Boolean)
         .sort((a, b) => String(a.name).localeCompare(String(b.name), 'pt-BR'));

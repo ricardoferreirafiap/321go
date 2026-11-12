@@ -1,3 +1,5 @@
+import { API_CONFIG } from './apiConfig';
+
 export type StatusTarefa = 'Pendente' | 'Em andamento' | 'Concluída' | 'Cancelada';
 export type PrioridadeTarefa = 'Alta' | 'Média' | 'Baixa';
 
@@ -14,7 +16,7 @@ export interface Tarefa {
 
 export type TarefaPayload = Omit<Tarefa, 'id'>;
 
-const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || (import.meta.env.DEV ? '/api' : (() => { throw new Error('VITE_API_URL não configurada no deploy. Defina a URL do backend, por exemplo: https://seu-backend.up.railway.app/api.'); })());
+const API_BASE_URL = API_CONFIG.apiBase;
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   let response: Response;

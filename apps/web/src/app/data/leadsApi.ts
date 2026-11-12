@@ -1,3 +1,5 @@
+import { API_CONFIG } from './apiConfig';
+
 export type StatusLead = 'Novo' | 'Em Contato' | 'Qualificado' | 'Perdido' | 'Vendido';
 export type StatusCrm = 'Novo Lead' | 'Qualificação' | 'Reunião' | 'Follow-ups' | 'Pagos' | 'Nutrição' | 'Finalizados';
 
@@ -15,7 +17,7 @@ export interface Lead {
 
 export type LeadPayload = Omit<Lead, 'id'>;
 
-const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || (import.meta.env.DEV ? '/api' : (() => { throw new Error('VITE_API_URL não configurada no deploy. Defina a URL do backend, por exemplo: https://seu-backend.up.railway.app/api.'); })());
+const API_BASE_URL = API_CONFIG.apiBase;
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   let response: Response;

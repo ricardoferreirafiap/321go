@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "checkJs": false,
+    "allowJs": true,
+    "types": ["node"],
+    "lib": ["ES2022"],
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": [
+    "Backend/**/*.js",
+    "Backend/**/*.cjs",
+    "api/**/*.js",
+    "*.js",
+    "*.cjs",
+    "tmp*.js",
+    "tmp*.cjs"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "apps/web/**",
+    "apps/mobile/**"
+  ]
+}
+

@@ -1,10 +1,7 @@
-# This workflow builds the PortalWeb application and deploys the backend to Railway.
-# The frontend deploys automatically to Vercel via its native GitHub integration.
+# This workflow builds the PortalWeb application and deploys the frontend to Vercel.
+# The backend remains on its own deployment pipeline and should be configured separately.
 #
-# To configure backend deployment:
-# 1. Add a RAILWAY_TOKEN secret to this repository.
-#    Obtain it from your Railway project settings (Account Settings > Tokens).
-# 2. Optionally set RAILWAY_SERVICE_ID to target a specific service.
+# If you need to deploy the backend, configure the necessary environment variables in your backend host.
 
 on:
   push:
@@ -55,10 +52,7 @@ jobs:
       with:
         name: node-app
 
-    - name: Deploy backend to Railway
-      if: ${{ secrets.RAILWAY_TOKEN != '' }}
+    - name: Deployment note
       run: |
-        npm install -g @railway/cli
-        railway up
-      env:
-        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        echo "Frontend deploy is handled by Vercel via its native GitHub integration."
+        echo "No Railway deployment step is configured here."

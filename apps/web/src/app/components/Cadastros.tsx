@@ -1,3 +1,4 @@
+import { API_CONFIG } from "../data/apiConfig";
 import { Users, UserPlus, Package, CheckSquare, Briefcase } from "lucide-react";
 import { Card } from "./ui/card";
 import { useNavigate } from "react-router";
@@ -11,9 +12,7 @@ interface Counts {
   funcionarios: number;
 }
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL?.replace(/\/$/, "") ||
-  (import.meta.env.DEV ? "/api" : "");
+const API_BASE_URL = API_CONFIG.apiBase;
 
 const cadastroOptions = [
   {

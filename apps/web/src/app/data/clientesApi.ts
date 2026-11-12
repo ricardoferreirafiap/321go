@@ -1,3 +1,5 @@
+import { API_CONFIG } from './apiConfig';
+
 export interface Cliente {
   id: number;
   nome: string;
@@ -20,7 +22,7 @@ export interface Cliente {
 
 export type ClientePayload = Omit<Cliente, 'id'>;
 
-const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || (import.meta.env.DEV ? '/api' : (() => { throw new Error('VITE_API_URL não configurada no deploy. Defina a URL do backend, por exemplo: https://seu-backend.up.railway.app/api.'); })());
+const API_BASE_URL = API_CONFIG.apiBase;
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   let response: Response;
@@ -53,7 +55,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     if (isLikelyHtml) {
-      throw new Error('A rota da API retornou HTML. No Vercel, configure VITE_API_URL para o backend e exclua /api do rewrite para index.html.');
+      throw new Error('A rota da API retornou HTML. Verifique a rota do app/api no Vercel.');
     }
 
     throw new Error(parsedBody?.error || `Erro ao comunicar com o servidor (${response.status}).`);
@@ -64,7 +66,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   if (isLikelyHtml || !contentType.includes('application/json')) {
-    throw new Error('Resposta inválida da API: esperado JSON. Verifique a configuração de deploy do backend.');
+    throw new Error('Resposta inválida da API: esperado JSON. Verifique a configuração do endpoint /api.');
   }
 
   return parsedBody as T;

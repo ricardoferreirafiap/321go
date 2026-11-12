@@ -106,10 +106,13 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",
+    "@types/node": "^24.1.0",
     "@vitejs/plugin-basic-ssl": "^2.1.0",
     "@vitejs/plugin-react": "4.7.0",
     "prisma": "^7.10.1",
     "tailwindcss": "4.1.12",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2",
     "vite": "6.4.6"
   },
   "peerDependencies": {
