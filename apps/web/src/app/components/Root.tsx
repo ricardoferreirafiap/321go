@@ -10,6 +10,9 @@ import FavoritosOrcamentos from "./FavoritosOrcamentos";
 import QuickAccessPanel from "./QuickAccessPanel";
 import type { Funcionario } from "../data/funcionariosApi";
 
+const APP_VERSION = "0.0.1";
+const LAST_UPDATE = "13/11/2026";
+
 const menuItems = [
   { name: "DASHBOARD", path: "/" },
   { name: "LEADS", path: "/leads/list" },
@@ -257,6 +260,12 @@ export default function Root() {
         chatOpen={chatOpen}
       />
 
+      {/* Rodapé - Versão e Última Atualização */}
+      <div className="bg-white border-t mt-4 py-2 text-center text-xs text-gray-500">
+        <div>
+          Versão {APP_VERSION} - Última atualização em {LAST_UPDATE}
+        </div>
+      </div>
     </div>
   );
 }

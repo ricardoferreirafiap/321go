@@ -7,6 +7,10 @@ import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
 import logoImg from "@/imports/logo.png";
 import { useNavigate } from "react-router";
 import { loginFuncionario } from "../data/funcionariosApi";
+import packageJson from "../../../../../package.json";
+
+const appVersion = import.meta.env.VITE_APP_VERSION || packageJson.version || "0.0.1";
+const lastUpdate = import.meta.env.VITE_LAST_UPDATE || "N/A";
 
 // A simple SVG for Google icon
 const GoogleIcon = () => (
@@ -44,11 +48,8 @@ export default function Login() {
     }
   };
 
-  // Placeholder function for Google login
   const handleGoogleLogin = () => {
-    // TODO: Add Google OAuth logic here
     console.log("Attempting to log in with Google...");
-    // On successful login, navigate to the dashboard
     sessionStorage.setItem("isAuthenticated", "true");
     navigate("/");
   };
@@ -107,6 +108,12 @@ export default function Login() {
             <GoogleIcon />
             Entrar com Google
           </Button>
+        </div>
+
+        <div className="mt-4 text-center text-[11px] text-gray-500">
+          <span>Versão: {appVersion}</span>
+          <span className="mx-2">•</span>
+          <span>Última atualização: {lastUpdate}</span>
         </div>
       </div>
     </div>
