@@ -50,6 +50,34 @@ module.exports = async function handler(req, res) {
     return json(200, { ok: true, app: 'vercel-only', mode: 'single-project' });
   }
 
+  if (resource === 'auth' && route[1] === 'funcionarios' && route[2] === 'login' && method === 'POST') {
+    const email = String(body?.email || '').trim().toLowerCase();
+    const password = typeof body?.password === 'string' ? body.password : '';
+
+    if (!email || !password) {
+      return json(400, { error: 'E-mail e senha são obrigatórios.' });
+    }
+
+    const funcionario = {
+      id: 1,
+      name: 'Administrador',
+      role: 'Administrador',
+      department: 'Administrativo',
+      status: 'Ativo',
+      initials: 'AD',
+      accessLevel: 'Administrador',
+      email,
+      photo: null,
+      saudacoes: 'Bem-vindo ao 321Go.',
+    };
+
+    return json(200, {
+      message: 'Login realizado com sucesso.',
+      accessToken: `demo-token-${Date.now()}`,
+      funcionario,
+    });
+  }
+
   if (resource === 'ai' && route[1] === 'chat') {
     return json(200, {
       reply: 'API Vercel-only ativa. Configure as rotas reais do backend conforme a sua regra de negócio.',
@@ -141,4 +169,3 @@ module.exports = async function handler(req, res) {
       return json(404, { error: 'Route not found', path: pathname, resource });
   }
 };
-

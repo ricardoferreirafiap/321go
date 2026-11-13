@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite'
 import path from 'path'
-import fs from 'fs'
 import { execSync } from 'child_process'
 import tailwindcss from '@tailwindcss/vite'
 import basicSsl from '@vitejs/plugin-basic-ssl'
@@ -8,19 +7,37 @@ import react from '@vitejs/plugin-react'
 
 
 const rootDir = path.resolve(__dirname, '../..')
-const packageJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf-8'))
+
+const getBuildVersion = () => {
+  try {
+    const sha = execSync('git -C "' + rootDir + '" rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
+    if (sha) return `0.0.1+${sha}`;
+  } catch {
+    // fallback silencioso
+  }
+
+  return `0.0.1+${Date.now()}`;
+};
 
 const getLastCommitDate = () => {
   try {
-    const rawDate = execSync('git -C "' + rootDir + '" log -1 --format=%cs', { encoding: 'utf-8' }).trim()
-    if (!rawDate) return 'N/A'
+    const rawDate = execSync('git -C "' + rootDir + '" log -1 --format=%cI', { encoding: 'utf-8' }).trim();
+    if (!rawDate) return 'N/A';
 
-    const [year, month, day] = rawDate.split('-')
-    return `${day}/${month}/${year}`
+    const date = new Date(rawDate);
+    if (Number.isNaN(date.getTime())) return 'N/A';
+
+    return date.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   } catch {
-    return 'N/A'
+    return 'N/A';
   }
-}
+};
 
 function figmaAssetResolver() {
   return {
@@ -36,7 +53,7 @@ function figmaAssetResolver() {
 
 export default defineConfig({
   define: {
-    'import.meta.env.VITE_APP_VERSION': JSON.stringify(packageJson.version || '0.0.1'),
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(getBuildVersion()),
     'import.meta.env.VITE_LAST_UPDATE': JSON.stringify(getLastCommitDate()),
   },
   build: {
