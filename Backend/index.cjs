@@ -13,6 +13,47 @@ const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+app.use((req, res, next) => {
+    const origin = req.headers.origin || '';
+    const allowedOrigins = [
+        'http://localhost:5173',
+        'https://localhost:5173',
+        'http://localhost:5174',
+        'https://localhost:5174',
+        'http://127.0.0.1:5173',
+        'https://127.0.0.1:5173',
+        'https://three21go.onrender.com',
+        'https://three21go.vercel.app',
+        'https://321go.vercel.app',
+        'https://www.321go.vercel.app',
+    ];
+
+    const isAllowedOrigin =
+        allowedOrigins.includes(origin) ||
+        /^(https?:\/\/.*\.vercel\.app)$/i.test(origin) ||
+        /^(https?:\/\/.*\.onrender\.com)$/i.test(origin) ||
+        /^(https?:\/\/.*\.github\.dev)$/i.test(origin) ||
+        /^(https?:\/\/localhost(?::\d+)?)$/i.test(origin) ||
+        /^(https?:\/\/127\.0\.0\.1(?::\d+)?)$/i.test(origin);
+
+    if (origin && isAllowedOrigin) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    } else if (!origin) {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+
+    next();
+});
+
 const PORT = Number(process.env.PORT || 3001);
 const FRONTEND_ORIGIN = [
     'http://localhost:5173',
@@ -21,6 +62,13 @@ const FRONTEND_ORIGIN = [
     'https://localhost:5174',
     'http://127.0.0.1:5173',
     'https://127.0.0.1:5173',
+    'https://three21go.onrender.com',
+    'https://three21go.vercel.app',
+    'https://321go.vercel.app',
+    'https://www.321go.vercel.app',
+    /^https?:\/\/.*\.vercel\.app$/i,
+    /^https?:\/\/.*\.onrender\.com$/i,
+    /^https?:\/\/.*\.github\.dev$/i,
 ];
 const WHATSAPP_AUTH_PATH = path.join(__dirname, '.wwebjs_auth');
 const WHATSAPP_CACHE_PATH = path.join(__dirname, '.wwebjs_cache');
