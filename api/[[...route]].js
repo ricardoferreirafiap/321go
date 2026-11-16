@@ -1,4 +1,4 @@
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   const method = (req.method || 'GET').toUpperCase();
   const pathname = (req.url || '/').split('?')[0] || '/';
   const route = pathname.replace(/^\/api\/?/, '').split('/').filter(Boolean);
@@ -168,4 +168,4 @@ module.exports = async function handler(req, res) {
     default:
       return json(404, { error: 'Route not found', path: pathname, resource });
   }
-};
+}
