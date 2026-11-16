@@ -6,11 +6,11 @@ import basicSsl from '@vitejs/plugin-basic-ssl'
 import react from '@vitejs/plugin-react'
 
 
-const rootDir = path.resolve(__dirname, '../..')
+const projectRoot = process.cwd();
 
 const getBuildVersion = () => {
   try {
-    const sha = execSync('git -C "' + rootDir + '" rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
+    const sha = execSync('git -C "' + projectRoot + '" rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
     if (sha) return `0.0.1+${sha}`;
   } catch {
     // fallback silencioso
@@ -21,7 +21,7 @@ const getBuildVersion = () => {
 
 const getLastCommitDate = () => {
   try {
-    const rawDate = execSync('git -C "' + rootDir + '" log -1 --format=%cI', { encoding: 'utf-8' }).trim();
+    const rawDate = execSync('git -C "' + projectRoot + '" log -1 --format=%cI', { encoding: 'utf-8' }).trim();
     if (!rawDate) return 'N/A';
 
     const date = new Date(rawDate);
@@ -52,12 +52,13 @@ function figmaAssetResolver() {
 }
 
 export default defineConfig({
+  root: path.resolve(projectRoot, 'apps/web'),
   define: {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(getBuildVersion()),
     'import.meta.env.VITE_LAST_UPDATE': JSON.stringify(getLastCommitDate()),
   },
   build: {
-    outDir: path.resolve(__dirname, '../../dist'),
+    outDir: path.resolve(projectRoot, 'dist'),
     emptyOutDir: true,
   },
   plugins: [
