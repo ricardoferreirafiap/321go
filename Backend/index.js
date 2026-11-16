@@ -33,6 +33,10 @@ app.get('/', (req, res) => {
   res.send('Servidor do WhatsApp está rodando.');
 });
 
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ ok: true, service: '321go-backend' });
+});
+
 // Endpoint para fazer scraping de URLs de operadores
 app.post('/api/scrape-url', async (req, res) => {
   try {
