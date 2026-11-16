@@ -14,7 +14,7 @@ const normalizeBase = (value?: string) => {
     const parsed = new URL(trimmed);
     const host = parsed.hostname.toLowerCase();
     if (host === 'localhost' || host === '127.0.0.1' || host === '[::1]') {
-      return undefined;
+      return trimmed;
     }
     return trimmed;
   } catch {
@@ -22,8 +22,8 @@ const normalizeBase = (value?: string) => {
   }
 };
 
-const sameDomainBase = '/api';
-const resolvedBase = normalizeBase(envBase) || sameDomainBase;
+const productionBase = 'https://321go-backend.vercel.app';
+const resolvedBase = normalizeBase(envBase) || productionBase;
 
 export const API_CONFIG = {
   // Prefixo para chamadas ao backend (inclui /api)
