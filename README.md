@@ -32,13 +32,13 @@ Use os arquivos de ambiente do frontend em `apps/web` como referência.
 
 ### Frontend (Vite)
 
-- `VITE_API_URL`: URL base do backend HTTP local.
+- `VITE_API_URL`: URL base do backend HTTP, sem `/api` no final para o frontend consumir com prefixo de rota.
 - `VITE_SOCKET_URL`: URL base do Socket.IO local.
 
 Exemplo local:
 
 ```env
-VITE_API_URL=http://localhost:3001/api
+VITE_API_URL=http://localhost:3001
 VITE_SOCKET_URL=http://localhost:3001
 ```
 
@@ -48,8 +48,10 @@ VITE_SOCKET_URL=http://localhost:3001
 
 Configure no projeto Vercel:
 
-- `VITE_API_URL=https://SEU_BACKEND_REAL/api`
+- `VITE_API_URL=https://SEU_BACKEND_REAL`
 - `VITE_SOCKET_URL=https://SEU_BACKEND_REAL`
+
+Importante: o rewrite do frontend não deve capturar `/api` para `index.html`.
 
 ### Backend local / hospedado
 
