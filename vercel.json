@@ -1,6 +1,16 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://321go-backend.vercel.app/api/$1"
+    },
+    {
+      "source": "/((?!api).*)",
+      "destination": "/index.html"
+    }
+  ],
   "headers": [
     {
       "source": "/service-worker.js",
@@ -9,8 +19,5 @@
         { "key": "Service-Worker-Allowed", "value": "/" }
       ]
     }
-  ],
-  "rewrites": [
-    { "source": "/((?!api(?:/|$)).*)", "destination": "/index.html" }
   ]
 }

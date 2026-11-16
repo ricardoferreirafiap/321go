@@ -1,33 +1,30 @@
 // Configuração centralizada de URLs da API
-// Em produção, o frontend deve chamar o backend via mesma origem em /api para não cair no HTML do SPA.
-// Estratégia robusta: priorizar /api na mesma origem e ignorar backends inconsistentes.
+// Em produção, o frontend deve chamar o backend via VITE_API_URL.
+// Nunca forçar /api quando a URL do backend foi configurada corretamente.
 const envBase =
   typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_API_URL : undefined;
 
 const normalizeBase = (value?: string) => {
   if (!value) return undefined;
-  const trimmed = value.trim().replace(/\/+$/g, '');
+
+  let trimmed = value.trim().replace(/\/+$/g, '');
   if (!trimmed) return undefined;
+
   if (trimmed === '/' || trimmed === '/api') return '/api';
+  if (trimmed.endsWith('/api')) {
+    trimmed = trimmed.slice(0, -'/api'.length);
+  }
+
+  if (!trimmed) return '/api';
   if (trimmed.startsWith('/')) return trimmed;
   return trimmed;
 };
 
-const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+const currentHost = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+const isLocalhost = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(currentHost);
 const envBaseNormalized = normalizeBase(envBase);
-const shouldIgnoreRemoteEnv =
-  !!envBaseNormalized &&
-  !!currentOrigin &&
-  (() => {
-    try {
-      const parsed = new URL(envBaseNormalized);
-      return parsed.origin === currentOrigin || parsed.hostname === 'localhost';
-    } catch {
-      return false;
-    }
-  })();
 
 export const API_CONFIG = {
-  // Prefixo para chamadas ao backend. Em produção deve ser preenchido via VITE_API_URL.
-  apiBase: shouldIgnoreRemoteEnv ? '/api' : envBaseNormalized || '/api',
+  // Em produção, usar o backend explícito. Em desenvolvimento local, /api pode ser usado via proxy do Vite.
+  apiBase: envBaseNormalized || (isLocalhost ? '/api' : 'https://321go-backend.vercel.app'),
 };
