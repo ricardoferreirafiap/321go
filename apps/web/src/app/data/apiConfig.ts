@@ -23,7 +23,8 @@ const normalizeBase = (value?: string) => {
 };
 
 const defaultLocalApi = 'http://localhost:3001';
-const resolvedBase = normalizeBase(envBase) || defaultLocalApi;
+const isProductionLike = typeof window !== 'undefined' && window.location && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+const resolvedBase = normalizeBase(envBase) || (isProductionLike ? '' : defaultLocalApi);
 
 export const API_CONFIG = {
   // Prefixo para chamadas ao backend. Em produção deve ser preenchido via VITE_API_URL.
