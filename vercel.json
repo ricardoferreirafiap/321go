@@ -12,7 +12,7 @@
   ],
   "rewrites": [
     { "source": "/api", "destination": "https://321go-backend.vercel.app/api" },
-    { "source": "/api/(.*)", "destination": "https://321go-backend.vercel.app/api/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/api/:path*", "destination": "https://321go-backend.vercel.app/api/:path*" },
+    { "source": "/:path*", "destination": "/index.html" }
   ]
 }
