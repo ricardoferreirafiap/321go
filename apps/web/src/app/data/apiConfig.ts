@@ -1,28 +1,32 @@
-// Configuração centralizada para o caso simples e funcional: frontend + API no mesmo projeto Vercel.
-// Em produção, o browser pode chamar a mesma origem e o rewrite apenas não captura /api.
+// Configuração centralizada da API do frontend.
+// Mantém o backend fora do frontend e evita duplicar /api ou cair na própria origem do Vercel.
 const envBase =
   typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_API_URL : undefined;
+
+const DEFAULT_LOCAL_API_BASE = 'http://localhost:3001/api';
+const DEFAULT_PRODUCTION_API_BASE = '/api';
 
 const normalizeBase = (value?: string) => {
   if (!value) return undefined;
 
-  const trimmed = value.trim().replace(/\/+$/g, '');
-  if (!trimmed) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === '/') return undefined;
 
-  if (trimmed === '/' || trimmed === '/api') return '/api';
-  if (trimmed.endsWith('/api')) return trimmed;
+  const withoutTrailingSlash = trimmed.replace(/\/+$/g, '');
+  if (!withoutTrailingSlash) return undefined;
 
-  return `${trimmed}/api`;
+  if (withoutTrailingSlash === '/api') return '/api';
+  if (withoutTrailingSlash.endsWith('/api')) return withoutTrailingSlash;
+
+  return `${withoutTrailingSlash}/api`;
 };
 
 const currentHost = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
-const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
 const isLocalhost = /^(localhost|127\.0\.0\.1|\[::1])$/.test(currentHost);
 const envBaseNormalized = normalizeBase(envBase);
-const sameOriginApiBase = currentOrigin ? `${currentOrigin}/api` : undefined;
 
 export const API_CONFIG = {
   apiBase:
     envBaseNormalized ||
-    (isLocalhost ? 'http://localhost:3001/api' : sameOriginApiBase || 'http://localhost:3001/api'),
+    (isLocalhost ? DEFAULT_LOCAL_API_BASE : DEFAULT_PRODUCTION_API_BASE),
 };

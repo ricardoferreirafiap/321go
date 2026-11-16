@@ -51,6 +51,8 @@ function figmaAssetResolver() {
   }
 }
 
+const apiProxyTarget = (process.env.VITE_API_URL || 'http://localhost:3001').replace(/\/+$/g, '')
+
 export default defineConfig({
   root: appRoot,
   define: {
@@ -84,7 +86,7 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: apiProxyTarget,
         changeOrigin: true,
       },
     },
