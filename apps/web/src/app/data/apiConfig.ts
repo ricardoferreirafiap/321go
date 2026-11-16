@@ -1,5 +1,5 @@
 // Configuração centralizada de URLs da API
-// Em produção, quando o frontend e o backend ficam no mesmo domínio, use /api.
+// Em produção, o frontend deve apontar explicitamente para o backend do Vercel.
 const envBase =
   typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_API_URL : undefined;
 
