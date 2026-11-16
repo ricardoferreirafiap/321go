@@ -6,11 +6,11 @@ import basicSsl from '@vitejs/plugin-basic-ssl'
 import react from '@vitejs/plugin-react'
 
 
-const projectRoot = path.resolve(__dirname, '../..')
+const appRoot = __dirname
 
 const getBuildVersion = () => {
   try {
-    const sha = execSync('git -C "' + projectRoot + '" rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
+    const sha = execSync('git -C "' + appRoot + '" rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
     if (sha) return `0.0.1+${sha}`;
   } catch {
     // fallback silencioso
@@ -21,7 +21,7 @@ const getBuildVersion = () => {
 
 const getLastCommitDate = () => {
   try {
-    const rawDate = execSync('git -C "' + projectRoot + '" log -1 --format=%cI', { encoding: 'utf-8' }).trim();
+    const rawDate = execSync('git -C "' + appRoot + '" log -1 --format=%cI', { encoding: 'utf-8' }).trim();
     if (!rawDate) return 'N/A';
 
     const date = new Date(rawDate);
@@ -45,20 +45,20 @@ function figmaAssetResolver() {
     resolveId(id) {
       if (id.startsWith('figma:asset/')) {
         const filename = id.replace('figma:asset/', '')
-        return path.resolve(__dirname, 'src/assets', filename)
+        return path.resolve(appRoot, 'src/assets', filename)
       }
     },
   }
 }
 
 export default defineConfig({
-  root: __dirname,
+  root: appRoot,
   define: {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(getBuildVersion()),
     'import.meta.env.VITE_LAST_UPDATE': JSON.stringify(getLastCommitDate()),
   },
   build: {
-    outDir: path.resolve(projectRoot, 'dist'),
+    outDir: path.resolve(__dirname, 'dist'),
     emptyOutDir: true,
   },
   plugins: [
@@ -72,7 +72,7 @@ export default defineConfig({
   resolve: {
     alias: {
       // Alias @ to the src directory
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(appRoot, './src'),
     },
   },
   server: {
