@@ -3,11 +3,7 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://321go-backend.vercel.app/api/$1"
-    },
-    {
-      "source": "/((?!api).*)",
+      "source": "/((?!api$|api/).*)",
       "destination": "/index.html"
     }
   ],
