@@ -6,7 +6,7 @@ import basicSsl from '@vitejs/plugin-basic-ssl'
 import react from '@vitejs/plugin-react'
 
 
-const projectRoot = process.cwd();
+const projectRoot = path.resolve(__dirname, '../..')
 
 const getBuildVersion = () => {
   try {
@@ -52,7 +52,7 @@ function figmaAssetResolver() {
 }
 
 export default defineConfig({
-  root: path.resolve(projectRoot, 'apps/web'),
+  root: __dirname,
   define: {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(getBuildVersion()),
     'import.meta.env.VITE_LAST_UPDATE': JSON.stringify(getLastCommitDate()),
