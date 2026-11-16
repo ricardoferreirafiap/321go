@@ -22,10 +22,10 @@ const normalizeBase = (value?: string) => {
   }
 };
 
-const productionBase = 'https://321go-backend.vercel.app';
-const resolvedBase = normalizeBase(envBase) || productionBase;
+const defaultLocalApi = 'http://localhost:3001';
+const resolvedBase = normalizeBase(envBase) || defaultLocalApi;
 
 export const API_CONFIG = {
-  // Prefixo para chamadas ao backend (inclui /api)
+  // Prefixo para chamadas ao backend. Em produção deve ser preenchido via VITE_API_URL.
   apiBase: resolvedBase,
 };
