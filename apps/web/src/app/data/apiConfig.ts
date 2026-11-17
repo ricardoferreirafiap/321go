@@ -26,9 +26,13 @@ const isLocalhost = /^(localhost|127\.0\.0\.1|\[::1])$/.test(currentHost);
 const envBaseNormalized = normalizeBase(envBase);
 
 const isProductionLike = typeof window !== 'undefined' && !/^(localhost|127\.0\.0\.1|\[::1])$/.test(window.location.hostname.toLowerCase());
+const isAbsoluteHttpUrl = (value: string) => /^https?:\/\//i.test(value);
+
+const envBaseInProduction =
+  envBaseNormalized && (!isAbsoluteHttpUrl(envBaseNormalized) || envBaseNormalized === '/api') ? undefined : envBaseNormalized;
 
 export const API_CONFIG = {
   apiBase:
-    envBaseNormalized ||
+    (isProductionLike ? envBaseInProduction : envBaseNormalized) ||
     (isLocalhost ? DEFAULT_LOCAL_API_BASE : isProductionLike ? DEFAULT_PRODUCTION_API_BASE : DEFAULT_LOCAL_API_BASE),
 };
