@@ -1,0 +1,49 @@
+import { OrcamentosRepository } from './orcamentos.repository';
+import { CreateOrcamentoDto } from './dto/create-orcamento.dto';
+import { UpdateOrcamentoDto } from './dto/update-orcamento.dto';
+type OrcamentoResponseDto = {
+    id: number;
+    numero: string;
+    publicToken?: string;
+    cliente: string;
+    email: string;
+    perfilViagem: string[];
+    promptPerfilViagemIA: string;
+    promptRoteiroIA: string;
+    passageiros: string[];
+    formaPagamento: string;
+    parcelas: number | null;
+    destino: string;
+    agenteViagem: string;
+    status: string;
+    statusViagem: string;
+    dataCriacao: string;
+    dataValidade: string;
+    itens: unknown[];
+    pacotes: unknown[];
+    voos: unknown[];
+    hospedagem: unknown[];
+    roteiro: string;
+    dayByDay: unknown[];
+    transporte: unknown[];
+    restaurante: unknown[];
+    experiencias: unknown[];
+    seguro: unknown[];
+    observacoes: string;
+};
+export declare class OrcamentosService {
+    private readonly orcamentosRepository;
+    constructor(orcamentosRepository: OrcamentosRepository);
+    private toResponse;
+    findAll(): Promise<OrcamentoResponseDto[]>;
+    findOne(id: number): Promise<OrcamentoResponseDto>;
+    findByNumero(numero: string): Promise<OrcamentoResponseDto>;
+    findByPublicToken(publicToken: string): Promise<OrcamentoResponseDto>;
+    create(dto: CreateOrcamentoDto): Promise<OrcamentoResponseDto>;
+    update(id: number, dto: UpdateOrcamentoDto): Promise<OrcamentoResponseDto>;
+    remove(id: number): Promise<{
+        deleted: boolean;
+        id: number;
+    }>;
+}
+export {};

@@ -1,0 +1,29 @@
+export declare class CreateOrcamentoDto {
+    numero: string;
+    cliente: string;
+    email?: string;
+    destino?: string;
+    agenteViagem?: string;
+    status?: string;
+    statusViagem?: string;
+    dataCriacao?: string;
+    dataValidade?: string;
+    observacoes?: string;
+    itens?: unknown[];
+    pacotes?: unknown[];
+    voos?: unknown[];
+    hospedagem?: unknown[];
+    roteiro?: string;
+    promptRoteiroIA?: string;
+    dayByDay?: unknown[];
+    transporte?: unknown[];
+    restaurante?: unknown[];
+    experiencias?: unknown[];
+    seguro?: unknown[];
+    promptPerfilViagemIA?: string;
+    publicToken?: string;
+    perfilViagem?: string[];
+    passageiros?: string[];
+    formaPagamento?: string;
+    parcelas?: number;
+}

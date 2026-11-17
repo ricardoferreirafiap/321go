@@ -7,3 +7,23 @@ To prepare for this change:
 
 See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
 (Use `node --trace-warnings ...` to show where the warning was created)
+[31m[Nest] 24616  - [39m17/11/2026, 11:49:10 [31m  ERROR[39m [38;5;3m[ExceptionsHandler] [39mTypeError: Do not know how to serialize a BigInt
+    at JSON.stringify (<anonymous>)
+    at stringify (C:\RICARDO\PROJETOS\321GO\node_modules\[4m@nestjs\platform-express[24m\node_modules\[4mexpress[24m\lib\response.js:1034:12)
+    at ServerResponse.json (C:\RICARDO\PROJETOS\321GO\node_modules\[4m@nestjs\platform-express[24m\node_modules\[4mexpress[24m\lib\response.js:245:14)
+    at ExpressAdapter.reply (C:\RICARDO\PROJETOS\321GO\node_modules\[4m@nestjs\platform-express[24m\adapters\express-adapter.js:107:62)
+    at RouterResponseController.apply (C:\RICARDO\PROJETOS\321GO\node_modules\[4m@nestjs\core[24m\router\router-response-controller.js:179:36)
+    at C:\RICARDO\PROJETOS\321GO\node_modules\[4m@nestjs\core[24m\router\router-execution-context.js:266:51
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)[39m
+    at async C:\RICARDO\PROJETOS\321GO\node_modules\[4m@nestjs\core[24m\router\router-execution-context.js:93:13
+    at async C:\RICARDO\PROJETOS\321GO\node_modules\[4m@nestjs\core[24m\router\router-proxy.js:9:17
+[31m[Nest] 24616  - [39m17/11/2026, 11:54:37 [31m  ERROR[39m [38;5;3m[ExceptionsHandler] [39mTypeError: Do not know how to serialize a BigInt
+    at JSON.stringify (<anonymous>)
+    at stringify (C:\RICARDO\PROJETOS\321GO\node_modules\[4m@nestjs\platform-express[24m\node_modules\[4mexpress[24m\lib\response.js:1034:12)
+    at ServerResponse.json (C:\RICARDO\PROJETOS\321GO\node_modules\[4m@nestjs\platform-express[24m\node_modules\[4mexpress[24m\lib\response.js:245:14)
+    at ExpressAdapter.reply (C:\RICARDO\PROJETOS\321GO\node_modules\[4m@nestjs\platform-express[24m\adapters\express-adapter.js:107:62)
+    at RouterResponseController.apply (C:\RICARDO\PROJETOS\321GO\node_modules\[4m@nestjs\core[24m\router\router-response-controller.js:179:36)
+    at C:\RICARDO\PROJETOS\321GO\node_modules\[4m@nestjs\core[24m\router\router-execution-context.js:266:51
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)[39m
+    at async C:\RICARDO\PROJETOS\321GO\node_modules\[4m@nestjs\core[24m\router\router-execution-context.js:93:13
+    at async C:\RICARDO\PROJETOS\321GO\node_modules\[4m@nestjs\core[24m\router\router-proxy.js:9:17

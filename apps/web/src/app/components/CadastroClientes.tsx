@@ -147,9 +147,10 @@ export default function CadastroClientes() {
     }
   }
 
-  function normalizarTelefoneWhatsApp(telefone: string) {
-    const digitos = telefone.replace(/\D/g, "");
+  function normalizarTelefoneWhatsApp(telefone?: string | null) {
+    if (!telefone) return null;
 
+    const digitos = String(telefone).replace(/\D/g, "");
     if (!digitos) return null;
 
     if (digitos.startsWith("55") && digitos.length >= 12) {
@@ -163,10 +164,21 @@ export default function CadastroClientes() {
     return digitos;
   }
 
-  function linkWhatsApp(telefone: string) {
-    const numero = normalizarTelefoneWhatsApp(telefone);
-    if (!numero) return null;
-    return `https://wa.me/${numero}`;
+  function linkWhatsApp(telefone?: string | null) {
+    try {
+      const numero = normalizarTelefoneWhatsApp(telefone);
+      if (!numero) {
+        console.warn("[CadastroClientes] Telefone inválido para WhatsApp:", telefone);
+        return null;
+      }
+      return `https://wa.me/${numero}`;
+    } catch (error) {
+      console.error("[CadastroClientes] Erro ao montar link do WhatsApp:", {
+        telefone,
+        error,
+      });
+      return null;
+    }
   }
 
   async function buscarEnderecoPorCep(cepDigitado: string) {
@@ -183,7 +195,8 @@ export default function CadastroClientes() {
       const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
 
       if (!response.ok) {
-        throw new Error("Falha ao consultar CEP.");
+        setErro("Falha ao consultar CEP.");
+        return;
       }
 
       const data = await response.json();
@@ -530,7 +543,7 @@ export default function CadastroClientes() {
                   />
                 </div>
               </div>
-              <div className="sm:col-span-2 xl:col-span-2">
+              <div className="sm:col-span-2 xl:col-span-1">
                 <Label htmlFor="endereco">Endereço</Label>
                 <Input
                   id="endereco"

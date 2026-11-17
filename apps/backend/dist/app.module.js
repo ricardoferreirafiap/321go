@@ -47,6 +47,14 @@ const prisma_module_1 = require("./prisma/prisma.module");
 const health_module_1 = require("./health/health.module");
 const financeiro_module_1 = require("./financeiro/financeiro.module");
 const clientes_module_1 = require("./clientes/clientes.module");
+const leads_module_1 = require("./leads/leads.module");
+const fornecedores_module_1 = require("./fornecedores/fornecedores.module");
+const funcionarios_module_1 = require("./funcionarios/funcionarios.module");
+const produtos_module_1 = require("./produtos/produtos.module");
+const tarefas_module_1 = require("./tarefas/tarefas.module");
+const orcamentos_module_1 = require("./orcamentos/orcamentos.module");
+const counts_module_1 = require("./counts/counts.module");
+const request_logging_middleware_1 = require("./common/middleware/request-logging.middleware");
 const envFilePath = [
     path.resolve(__dirname, '../../../.env'),
     path.resolve(__dirname, '../../../.env.local'),
@@ -54,6 +62,9 @@ const envFilePath = [
     '.env.local',
 ];
 let AppModule = class AppModule {
+    configure(consumer) {
+        consumer.apply(request_logging_middleware_1.RequestLoggingMiddleware).forRoutes('*');
+    }
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
@@ -67,6 +78,13 @@ exports.AppModule = AppModule = __decorate([
             health_module_1.HealthModule,
             financeiro_module_1.FinanceiroModule,
             clientes_module_1.ClientesModule,
+            leads_module_1.LeadsModule,
+            fornecedores_module_1.FornecedoresModule,
+            funcionarios_module_1.FuncionariosModule,
+            produtos_module_1.ProdutosModule,
+            tarefas_module_1.TarefasModule,
+            orcamentos_module_1.OrcamentosModule,
+            counts_module_1.CountsModule,
         ],
     })
 ], AppModule);

@@ -17,17 +17,38 @@ let FinanceiroService = class FinanceiroService {
     constructor(prisma) {
         this.prisma = prisma;
     }
-    findAll() {
-        return this.prisma.financeiro.findMany({
+    toResponse(item) {
+        return {
+            id: Number(item.id),
+            tipo: item.tipo,
+            descricao: item.descricao,
+            valor: Number(item.valor),
+            comissaoPercentual: item.comissaoPercentual == null ? null : Number(item.comissaoPercentual),
+            comissaoValor: item.comissaoValor == null ? null : Number(item.comissaoValor),
+            data: item.dataLancamento ? new Date(item.dataLancamento).toISOString().slice(0, 10) : '',
+            oculto: Boolean(item.oculto),
+            orcamentoPago: Boolean(item.orcamentoPago),
+            formaPagamento: item.formaPagamento ?? null,
+            parcelas: item.parcelas ?? null,
+            orcamentoId: item.orcamentoId == null ? null : Number(item.orcamentoId),
+            orcamentoNumero: item.orcamentoNumero ?? null,
+            cliente: item.clienteNome ?? null,
+            criadoEm: new Date(item.criadoEm).toISOString(),
+            atualizadoEm: new Date(item.atualizadoEm).toISOString(),
+        };
+    }
+    async findAll() {
+        const itens = await this.prisma.financeiro.findMany({
             orderBy: { criadoEm: 'desc' },
         });
+        return itens.map((item) => this.toResponse(item));
     }
     async findOne(id) {
         const item = await this.prisma.financeiro.findUnique({ where: { id: BigInt(id) } });
         if (!item) {
             throw new common_1.NotFoundException('Financeiro não encontrado');
         }
-        return item;
+        return this.toResponse(item);
     }
     create(dto) {
         return this.prisma.financeiro.create({
@@ -46,14 +67,14 @@ let FinanceiroService = class FinanceiroService {
                 orcamentoNumero: dto.orcamentoNumero ?? null,
                 clienteNome: dto.cliente ?? null,
             },
-        });
+        }).then((item) => this.toResponse(item));
     }
     async update(id, dto) {
         const item = await this.prisma.financeiro.findUnique({ where: { id: BigInt(id) } });
         if (!item) {
             throw new common_1.NotFoundException('Financeiro não encontrado');
         }
-        return this.prisma.financeiro.update({
+        const updated = await this.prisma.financeiro.update({
             where: { id: BigInt(id) },
             data: {
                 tipo: dto.tipo,
@@ -71,6 +92,7 @@ let FinanceiroService = class FinanceiroService {
                 clienteNome: dto.cliente ?? item.clienteNome,
             },
         });
+        return this.toResponse(updated);
     }
     async remove(id) {
         const item = await this.prisma.financeiro.findUnique({ where: { id: BigInt(id) } });

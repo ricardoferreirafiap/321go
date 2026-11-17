@@ -8,8 +8,37 @@ datasource db {
 }
 
 model Orcamento {
-  id          BigInt       @id @default(autoincrement())
-  financeiros Financeiro[]
+  id              BigInt       @id @default(autoincrement())
+  numero          String       @unique @db.VarChar(20)
+  cliente         String       @db.VarChar(150)
+  email           String?      @db.VarChar(255)
+  destino         String?      @db.VarChar(255)
+  agenteViagem    String?      @map("agente_viagem") @db.VarChar(150)
+  status          String       @default("Rascunho") @db.VarChar(20)
+  statusViagem    String?      @map("status_viagem") @db.VarChar(20)
+  dataCriacao     DateTime?    @map("data_criacao") @db.Date
+  dataValidade    DateTime?    @map("data_validade") @db.Date
+  observacoes     String?
+  itens           Json         @default("[]")
+  pacotes         Json         @default("[]")
+  voos            Json         @default("[]")
+  hospedagem      Json         @default("[]")
+  roteiro         String?
+  promptRoteiroIa String?      @map("prompt_roteiro_ia")
+  dayByDay        Json         @map("day_by_day") @default("[]")
+  transporte      Json         @default("[]")
+  restaurante     Json         @default("[]")
+  experiencias    Json         @default("[]")
+  seguro          Json         @default("[]")
+  promptPerfilIa  String?      @map("prompt_perfil_ia")
+  publicToken     String?      @unique @map("public_token") @db.VarChar(36)
+  criadoEm        DateTime     @default(now()) @map("criado_em") @db.Timestamptz(6)
+  atualizadoEm    DateTime     @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  financeiros     Financeiro[]
+
+  @@index([cliente], map: "idx_orcamentos_cliente")
+  @@index([status], map: "idx_orcamentos_status")
+  @@index([dataCriacao], map: "idx_orcamentos_data_criacao")
 
   @@map("orcamentos")
   @@schema("public")
@@ -68,5 +97,99 @@ model Cliente {
   @@index([email], map: "idx_clientes_email")
   @@index([nomeCompleto], map: "idx_clientes_nome_completo")
   @@map("clientes")
+  @@schema("public")
+}
+
+model Lead {
+  id           BigInt    @id @default(autoincrement())
+  nome         String    @db.VarChar(200)
+  email        String?   @db.VarChar(200)
+  whatsapp     String?   @db.VarChar(40)
+  status       String    @default("Novo") @db.VarChar(20)
+  statusCrm    String    @default("Novo Lead") @map("status_crm") @db.VarChar(20)
+  viagens      Int       @default(0)
+  criadoEm     DateTime  @default(now()) @map("criado_em") @db.Date
+  atendente    String?   @db.VarChar(150)
+  atualizadoEm DateTime  @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+
+  @@index([nome], map: "idx_leads_nome")
+  @@index([status], map: "idx_leads_status")
+  @@index([statusCrm], map: "idx_leads_status_crm")
+  @@index([atendente], map: "idx_leads_atendente")
+  @@index([criadoEm(sort: Desc)], map: "idx_leads_criado_em")
+  @@map("leads")
+  @@schema("public")
+}
+
+model Fornecedor {
+  id             BigInt    @id @default(autoincrement())
+  razaoSocial    String    @map("razao_social") @db.VarChar(255)
+  nomeFantasia   String?   @map("nome_fantasia") @db.VarChar(255)
+  cnpj           String?   @db.VarChar(32)
+  email          String?   @db.VarChar(255)
+  telefone       String?   @db.VarChar(40)
+  cep            String?   @db.VarChar(16)
+  endereco       String?   @db.VarChar(255)
+  complemento    String?   @db.VarChar(120)
+  cidade         String?   @db.VarChar(120)
+  estado         String?   @db.VarChar(2)
+  status         String    @default("Ativo") @db.VarChar(10)
+  categoria      String?   @db.VarChar(120)
+  criadoEm       DateTime  @default(now()) @map("criado_em") @db.Timestamptz(6)
+  atualizadoEm   DateTime  @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+
+  @@map("fornecedores")
+  @@schema("public")
+}
+
+model Funcionario {
+  id           BigInt    @id @default(autoincrement())
+  nome         String    @db.VarChar(200)
+  email        String?   @db.VarChar(255)
+  senhaHash    String?   @map("senha_hash") @db.VarChar(255)
+  cargo        String?   @db.VarChar(120)
+  departamento String?   @db.VarChar(120)
+  status       String    @default("Ativo") @db.VarChar(10)
+  nivelAcesso  String?   @default("Agente") @map("nivel_acesso") @db.VarChar(30)
+  fotoUrl      String?   @map("foto_url") @db.VarChar(255)
+  saudacoes    String?   @db.VarChar(150)
+  iniciais     String?   @db.VarChar(10)
+  criadoEm     DateTime  @default(now()) @map("criado_em") @db.Timestamptz(6)
+  atualizadoEm DateTime  @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+
+  @@map("funcionarios")
+  @@schema("public")
+}
+
+model Produto {
+  id          BigInt    @id @default(autoincrement())
+  nome        String    @db.VarChar(200)
+  codigo      String?   @db.VarChar(80)
+  categoria   String?   @db.VarChar(120)
+  preco       Decimal   @db.Decimal(14, 2)
+  fornecedor  String?   @db.VarChar(150)
+  operadora   String?   @db.VarChar(150)
+  unidade     String?   @default("un") @db.VarChar(20)
+  status      String    @default("Ativo") @db.VarChar(10)
+  criadoEm    DateTime  @default(now()) @map("criado_em") @db.Timestamptz(6)
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+
+  @@map("produtos")
+  @@schema("public")
+}
+
+model Tarefa {
+  id          BigInt    @id @default(autoincrement())
+  titulo      String    @db.VarChar(200)
+  descricao   String?   @db.VarChar(500)
+  responsavel String?   @db.VarChar(150)
+  prioridade  String    @default("Média") @db.VarChar(20)
+  status      String    @default("Pendente") @db.VarChar(20)
+  prazo       DateTime? @db.Date
+  categoria   String?   @db.VarChar(120)
+  criadoEm    DateTime  @default(now()) @map("criado_em") @db.Timestamptz(6)
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+
+  @@map("tarefas")
   @@schema("public")
 }

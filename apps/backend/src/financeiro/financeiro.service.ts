@@ -3,14 +3,56 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateFinanceiroDto } from './dto/create-financeiro.dto';
 import { UpdateFinanceiroDto } from './dto/update-financeiro.dto';
 
+export type FinanceiroResponseDto = {
+  id: number;
+  tipo: 'receita' | 'despesa';
+  descricao: string;
+  valor: number;
+  comissaoPercentual: number | null;
+  comissaoValor: number | null;
+  data: string;
+  oculto: boolean;
+  orcamentoPago: boolean;
+  formaPagamento: string | null;
+  parcelas: number | null;
+  orcamentoId: number | null;
+  orcamentoNumero: string | null;
+  cliente: string | null;
+  criadoEm: string;
+  atualizadoEm: string;
+};
+
 @Injectable()
 export class FinanceiroService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll() {
-    return this.prisma.financeiro.findMany({
+  private toResponse(item: any): FinanceiroResponseDto {
+    return {
+      id: Number(item.id),
+      tipo: item.tipo,
+      descricao: item.descricao,
+      valor: Number(item.valor),
+      comissaoPercentual: item.comissaoPercentual == null ? null : Number(item.comissaoPercentual),
+      comissaoValor: item.comissaoValor == null ? null : Number(item.comissaoValor),
+      data: item.dataLancamento ? new Date(item.dataLancamento).toISOString().slice(0, 10) : '',
+      oculto: Boolean(item.oculto),
+      orcamentoPago: Boolean(item.orcamentoPago),
+      formaPagamento: item.formaPagamento ?? null,
+      parcelas: item.parcelas ?? null,
+      orcamentoId: item.orcamentoId == null ? null : Number(item.orcamentoId),
+      orcamentoNumero: item.orcamentoNumero ?? null,
+      cliente: item.clienteNome ?? null,
+      criadoEm: new Date(item.criadoEm).toISOString(),
+      atualizadoEm: new Date(item.atualizadoEm).toISOString(),
+    };
+  }
+
+  async findAll() {
+    const itens = await this.prisma.financeiro.findMany({
       orderBy: { criadoEm: 'desc' },
     });
+
+    return itens.map((item) => this.toResponse(item));
   }
 
   async findOne(id: number) {
@@ -18,7 +60,7 @@ export class FinanceiroService {
     if (!item) {
       throw new NotFoundException('Financeiro não encontrado');
     }
-    return item;
+    return this.toResponse(item);
   }
 
   create(dto: CreateFinanceiroDto) {
@@ -38,7 +80,7 @@ export class FinanceiroService {
         orcamentoNumero: dto.orcamentoNumero ?? null,
         clienteNome: dto.cliente ?? null,
       },
-    });
+    }).then((item) => this.toResponse(item));
   }
 
   async update(id: number, dto: UpdateFinanceiroDto) {
@@ -47,7 +89,7 @@ export class FinanceiroService {
       throw new NotFoundException('Financeiro não encontrado');
     }
 
-    return this.prisma.financeiro.update({
+    const updated = await this.prisma.financeiro.update({
       where: { id: BigInt(id) },
       data: {
         tipo: dto.tipo,
@@ -65,6 +107,8 @@ export class FinanceiroService {
         clienteNome: dto.cliente ?? item.clienteNome,
       },
     });
+
+    return this.toResponse(updated);
   }
 
   async remove(id: number) {
@@ -77,4 +121,3 @@ export class FinanceiroService {
     return { deleted: true };
   }
 }
-
