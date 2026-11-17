@@ -13,10 +13,23 @@ exports.PrismaService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const adapter_pg_1 = require("@prisma/adapter-pg");
+function resolveDatabaseUrl() {
+    const env = process.env;
+    const value = env.DATABASE_URL ||
+        env.POSTGRES_PRISMA_URL ||
+        env.POSTGRES_URL_NON_POOLING ||
+        env.POSTGRES_URL ||
+        env.POSTGRESQL_URL ||
+        env.NEON_DATABASE_URL;
+    if (!value || !value.trim()) {
+        throw new Error('DATABASE_URL ausente. Defina DATABASE_URL (ou POSTGRES_URL/POSTGRES_PRISMA_URL) no ambiente do backend.');
+    }
+    return value.trim();
+}
 let PrismaService = class PrismaService extends client_1.PrismaClient {
     constructor() {
         const adapter = new adapter_pg_1.PrismaPg({
-            connectionString: process.env.DATABASE_URL,
+            connectionString: resolveDatabaseUrl(),
         });
         super({ adapter });
     }

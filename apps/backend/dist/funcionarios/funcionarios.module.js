@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FuncionariosModule = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_module_1 = require("../prisma/prisma.module");
+const auth_funcionarios_controller_1 = require("./auth-funcionarios.controller");
 const funcionarios_controller_1 = require("./funcionarios.controller");
 const funcionarios_repository_1 = require("./funcionarios.repository");
 const funcionarios_service_1 = require("./funcionarios.service");
@@ -18,7 +19,7 @@ exports.FuncionariosModule = FuncionariosModule;
 exports.FuncionariosModule = FuncionariosModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule],
-        controllers: [funcionarios_controller_1.FuncionariosController],
+        controllers: [funcionarios_controller_1.FuncionariosController, auth_funcionarios_controller_1.AuthFuncionariosController],
         providers: [funcionarios_service_1.FuncionariosService, funcionarios_repository_1.FuncionariosRepository],
         exports: [funcionarios_service_1.FuncionariosService],
     })
