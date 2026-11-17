@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { FuncionariosRepository } from './funcionarios.repository';
 import { CreateFuncionarioDto } from './dto/create-funcionario.dto';
 import { UpdateFuncionarioDto } from './dto/update-funcionario.dto';
@@ -22,6 +23,22 @@ export type FuncionarioResponseDto = {
 export class FuncionariosService {
   constructor(private readonly funcionariosRepository: FuncionariosRepository) {}
 
+  private formatDate(value: unknown): string {
+    if (!value) {
+      return '';
+    }
+
+    const parsed = new Date(value as string | number | Date);
+    return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString();
+  }
+
+  private isSchemaDriftError(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      (error.code === 'P2021' || error.code === 'P2022')
+    );
+  }
+
   private toResponse(item: any): FuncionarioResponseDto {
     return {
       id: Number(item.id),
@@ -34,14 +51,21 @@ export class FuncionariosService {
       email: item.email,
       saudacoes: item.saudacoes ?? null,
       photo: item.fotoUrl ?? null,
-      criadoEm: new Date(item.criadoEm).toISOString(),
-      atualizadoEm: new Date(item.atualizadoEm).toISOString(),
+      criadoEm: this.formatDate(item.criadoEm),
+      atualizadoEm: this.formatDate(item.atualizadoEm),
     };
   }
 
   async findAll() {
-    const itens: any[] = await this.funcionariosRepository.findAll();
-    return itens.map((item: any) => this.toResponse(item));
+    try {
+      const itens: any[] = await this.funcionariosRepository.findAll();
+      return itens.map((item: any) => this.toResponse(item));
+    } catch (error) {
+      if (this.isSchemaDriftError(error)) {
+        return [];
+      }
+      throw error;
+    }
   }
 
   async findOne(id: number) {

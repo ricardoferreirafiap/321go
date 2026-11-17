@@ -43,6 +43,22 @@ type OrcamentoResponseDto = {
 export class OrcamentosService {
   constructor(private readonly orcamentosRepository: OrcamentosRepository) {}
 
+  private formatDate(value: unknown): string {
+    if (!value) {
+      return '';
+    }
+
+    const parsed = new Date(value as string | number | Date);
+    return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
+  }
+
+  private isSchemaDriftError(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      (error.code === 'P2021' || error.code === 'P2022')
+    );
+  }
+
   private toResponse(item: any): OrcamentoResponseDto {
     return {
       id: Number(item.id),
@@ -60,12 +76,8 @@ export class OrcamentosService {
       agenteViagem: item.agenteViagem ?? '',
       status: item.status ?? 'Rascunho',
       statusViagem: item.statusViagem ?? 'Não Iniciada',
-      dataCriacao: item.dataCriacao
-        ? new Date(item.dataCriacao).toISOString().slice(0, 10)
-        : new Date(item.criadoEm).toISOString().slice(0, 10),
-      dataValidade: item.dataValidade
-        ? new Date(item.dataValidade).toISOString().slice(0, 10)
-        : '',
+      dataCriacao: this.formatDate(item.dataCriacao ?? item.criadoEm),
+      dataValidade: this.formatDate(item.dataValidade),
       itens: Array.isArray(item.itens) ? item.itens : [],
       pacotes: Array.isArray(item.pacotes) ? item.pacotes : [],
       voos: Array.isArray(item.voos) ? item.voos : [],
@@ -81,8 +93,15 @@ export class OrcamentosService {
   }
 
   async findAll() {
-    const itens = await this.orcamentosRepository.findAll();
-    return itens.map((item) => this.toResponse(item));
+    try {
+      const itens = await this.orcamentosRepository.findAll();
+      return itens.map((item) => this.toResponse(item));
+    } catch (error) {
+      if (this.isSchemaDriftError(error)) {
+        return [];
+      }
+      throw error;
+    }
   }
 
   async findOne(id: number) {

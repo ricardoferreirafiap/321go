@@ -11,11 +11,26 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LeadsService = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
 const leads_repository_1 = require("./leads.repository");
 let LeadsService = class LeadsService {
     leadsRepository;
     constructor(leadsRepository) {
         this.leadsRepository = leadsRepository;
+    }
+    formatDate(value, withTime = false) {
+        if (!value) {
+            return '';
+        }
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) {
+            return '';
+        }
+        return withTime ? parsed.toISOString() : parsed.toISOString().slice(0, 10);
+    }
+    isSchemaDriftError(error) {
+        return (error instanceof client_1.Prisma.PrismaClientKnownRequestError &&
+            (error.code === 'P2021' || error.code === 'P2022'));
     }
     toResponse(row) {
         return {
@@ -26,14 +41,22 @@ let LeadsService = class LeadsService {
             status: row.status ?? 'Novo',
             statusCrm: row.statusCrm ?? 'Novo Lead',
             viagens: Number(row.viagens ?? 0),
-            criadoEm: row.criadoEm ? new Date(row.criadoEm).toISOString().slice(0, 10) : '',
+            criadoEm: this.formatDate(row.criadoEm),
             atendente: row.atendente ?? null,
-            atualizadoEm: row.atualizadoEm ? new Date(row.atualizadoEm).toISOString() : new Date().toISOString(),
+            atualizadoEm: this.formatDate(row.atualizadoEm, true),
         };
     }
     async findAll() {
-        const rows = await this.leadsRepository.findAll();
-        return rows.map((row) => this.toResponse(row));
+        try {
+            const rows = await this.leadsRepository.findAll();
+            return rows.map((row) => this.toResponse(row));
+        }
+        catch (error) {
+            if (this.isSchemaDriftError(error)) {
+                return [];
+            }
+            throw error;
+        }
     }
     async findOne(id) {
         const item = await this.leadsRepository.findOne(id);

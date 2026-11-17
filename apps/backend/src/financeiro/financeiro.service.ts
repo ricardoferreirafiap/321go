@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFinanceiroDto } from './dto/create-financeiro.dto';
 import { UpdateFinanceiroDto } from './dto/update-financeiro.dto';
@@ -26,6 +27,26 @@ export type FinanceiroResponseDto = {
 export class FinanceiroService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private formatDate(value: unknown, withTime = false): string {
+    if (!value) {
+      return '';
+    }
+
+    const parsed = new Date(value as string | number | Date);
+    if (Number.isNaN(parsed.getTime())) {
+      return '';
+    }
+
+    return withTime ? parsed.toISOString() : parsed.toISOString().slice(0, 10);
+  }
+
+  private isSchemaDriftError(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      (error.code === 'P2021' || error.code === 'P2022')
+    );
+  }
+
   private toResponse(item: any): FinanceiroResponseDto {
     return {
       id: Number(item.id),
@@ -34,7 +55,7 @@ export class FinanceiroService {
       valor: Number(item.valor),
       comissaoPercentual: item.comissaoPercentual == null ? null : Number(item.comissaoPercentual),
       comissaoValor: item.comissaoValor == null ? null : Number(item.comissaoValor),
-      data: item.dataLancamento ? new Date(item.dataLancamento).toISOString().slice(0, 10) : '',
+      data: this.formatDate(item.dataLancamento),
       oculto: Boolean(item.oculto),
       orcamentoPago: Boolean(item.orcamentoPago),
       formaPagamento: item.formaPagamento ?? null,
@@ -42,17 +63,24 @@ export class FinanceiroService {
       orcamentoId: item.orcamentoId == null ? null : Number(item.orcamentoId),
       orcamentoNumero: item.orcamentoNumero ?? null,
       cliente: item.clienteNome ?? null,
-      criadoEm: new Date(item.criadoEm).toISOString(),
-      atualizadoEm: new Date(item.atualizadoEm).toISOString(),
+      criadoEm: this.formatDate(item.criadoEm, true),
+      atualizadoEm: this.formatDate(item.atualizadoEm, true),
     };
   }
 
   async findAll() {
-    const itens = await this.prisma.financeiro.findMany({
-      orderBy: { criadoEm: 'desc' },
-    });
+    try {
+      const itens = await this.prisma.financeiro.findMany({
+        orderBy: { criadoEm: 'desc' },
+      });
 
-    return itens.map((item) => this.toResponse(item));
+      return itens.map((item) => this.toResponse(item));
+    } catch (error) {
+      if (this.isSchemaDriftError(error)) {
+        return [];
+      }
+      throw error;
+    }
   }
 
   async findOne(id: number) {

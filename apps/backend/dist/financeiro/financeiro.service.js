@@ -11,11 +11,26 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FinanceiroService = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../prisma/prisma.service");
 let FinanceiroService = class FinanceiroService {
     prisma;
     constructor(prisma) {
         this.prisma = prisma;
+    }
+    formatDate(value, withTime = false) {
+        if (!value) {
+            return '';
+        }
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) {
+            return '';
+        }
+        return withTime ? parsed.toISOString() : parsed.toISOString().slice(0, 10);
+    }
+    isSchemaDriftError(error) {
+        return (error instanceof client_1.Prisma.PrismaClientKnownRequestError &&
+            (error.code === 'P2021' || error.code === 'P2022'));
     }
     toResponse(item) {
         return {
@@ -25,7 +40,7 @@ let FinanceiroService = class FinanceiroService {
             valor: Number(item.valor),
             comissaoPercentual: item.comissaoPercentual == null ? null : Number(item.comissaoPercentual),
             comissaoValor: item.comissaoValor == null ? null : Number(item.comissaoValor),
-            data: item.dataLancamento ? new Date(item.dataLancamento).toISOString().slice(0, 10) : '',
+            data: this.formatDate(item.dataLancamento),
             oculto: Boolean(item.oculto),
             orcamentoPago: Boolean(item.orcamentoPago),
             formaPagamento: item.formaPagamento ?? null,
@@ -33,15 +48,23 @@ let FinanceiroService = class FinanceiroService {
             orcamentoId: item.orcamentoId == null ? null : Number(item.orcamentoId),
             orcamentoNumero: item.orcamentoNumero ?? null,
             cliente: item.clienteNome ?? null,
-            criadoEm: new Date(item.criadoEm).toISOString(),
-            atualizadoEm: new Date(item.atualizadoEm).toISOString(),
+            criadoEm: this.formatDate(item.criadoEm, true),
+            atualizadoEm: this.formatDate(item.atualizadoEm, true),
         };
     }
     async findAll() {
-        const itens = await this.prisma.financeiro.findMany({
-            orderBy: { criadoEm: 'desc' },
-        });
-        return itens.map((item) => this.toResponse(item));
+        try {
+            const itens = await this.prisma.financeiro.findMany({
+                orderBy: { criadoEm: 'desc' },
+            });
+            return itens.map((item) => this.toResponse(item));
+        }
+        catch (error) {
+            if (this.isSchemaDriftError(error)) {
+                return [];
+            }
+            throw error;
+        }
     }
     async findOne(id) {
         const item = await this.prisma.financeiro.findUnique({ where: { id: BigInt(id) } });

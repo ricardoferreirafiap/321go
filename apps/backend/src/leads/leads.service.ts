@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { LeadsRepository } from './leads.repository';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
@@ -20,6 +21,26 @@ export type LeadResponseDto = {
 export class LeadsService {
   constructor(private readonly leadsRepository: LeadsRepository) {}
 
+  private formatDate(value: unknown, withTime = false): string {
+    if (!value) {
+      return '';
+    }
+
+    const parsed = new Date(value as string | number | Date);
+    if (Number.isNaN(parsed.getTime())) {
+      return '';
+    }
+
+    return withTime ? parsed.toISOString() : parsed.toISOString().slice(0, 10);
+  }
+
+  private isSchemaDriftError(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      (error.code === 'P2021' || error.code === 'P2022')
+    );
+  }
+
   private toResponse(row: any): LeadResponseDto {
     return {
       id: Number(row.id),
@@ -29,15 +50,22 @@ export class LeadsService {
       status: row.status ?? 'Novo',
       statusCrm: row.statusCrm ?? 'Novo Lead',
       viagens: Number(row.viagens ?? 0),
-      criadoEm: row.criadoEm ? new Date(row.criadoEm).toISOString().slice(0, 10) : '',
+      criadoEm: this.formatDate(row.criadoEm),
       atendente: row.atendente ?? null,
-      atualizadoEm: row.atualizadoEm ? new Date(row.atualizadoEm).toISOString() : new Date().toISOString(),
+      atualizadoEm: this.formatDate(row.atualizadoEm, true),
     };
   }
 
   async findAll() {
-    const rows = await this.leadsRepository.findAll();
-    return rows.map((row) => this.toResponse(row));
+    try {
+      const rows = await this.leadsRepository.findAll();
+      return rows.map((row) => this.toResponse(row));
+    } catch (error) {
+      if (this.isSchemaDriftError(error)) {
+        return [];
+      }
+      throw error;
+    }
   }
 
   async findOne(id: number) {

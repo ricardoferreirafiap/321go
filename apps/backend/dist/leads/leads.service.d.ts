@@ -16,6 +16,8 @@ export type LeadResponseDto = {
 export declare class LeadsService {
     private readonly leadsRepository;
     constructor(leadsRepository: LeadsRepository);
+    private formatDate;
+    private isSchemaDriftError;
     private toResponse;
     findAll(): Promise<LeadResponseDto[]>;
     findOne(id: number): Promise<LeadResponseDto>;

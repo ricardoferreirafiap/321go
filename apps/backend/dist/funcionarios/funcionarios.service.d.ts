@@ -18,6 +18,8 @@ export type FuncionarioResponseDto = {
 export declare class FuncionariosService {
     private readonly funcionariosRepository;
     constructor(funcionariosRepository: FuncionariosRepository);
+    private formatDate;
+    private isSchemaDriftError;
     private toResponse;
     findAll(): Promise<FuncionarioResponseDto[]>;
     findOne(id: number): Promise<FuncionarioResponseDto>;

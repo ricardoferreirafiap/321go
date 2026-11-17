@@ -4,6 +4,16 @@ const core_1 = require("@nestjs/core");
 const common_1 = require("@nestjs/common");
 const app_module_1 = require("./app.module");
 const http_exception_filter_1 = require("./common/filters/http-exception.filter");
+const bigIntPrototype = BigInt.prototype;
+if (!bigIntPrototype.toJSON) {
+    Object.defineProperty(BigInt.prototype, 'toJSON', {
+        value() {
+            return this.toString();
+        },
+        writable: true,
+        configurable: true,
+    });
+}
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.setGlobalPrefix('api');

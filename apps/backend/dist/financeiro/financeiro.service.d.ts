@@ -22,6 +22,8 @@ export type FinanceiroResponseDto = {
 export declare class FinanceiroService {
     private readonly prisma;
     constructor(prisma: PrismaService);
+    private formatDate;
+    private isSchemaDriftError;
     private toResponse;
     findAll(): Promise<FinanceiroResponseDto[]>;
     findOne(id: number): Promise<FinanceiroResponseDto>;

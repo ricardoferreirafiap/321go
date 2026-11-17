@@ -34,6 +34,8 @@ type OrcamentoResponseDto = {
 export declare class OrcamentosService {
     private readonly orcamentosRepository;
     constructor(orcamentosRepository: OrcamentosRepository);
+    private formatDate;
+    private isSchemaDriftError;
     private toResponse;
     findAll(): Promise<OrcamentoResponseDto[]>;
     findOne(id: number): Promise<OrcamentoResponseDto>;

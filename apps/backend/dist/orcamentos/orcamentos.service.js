@@ -18,6 +18,17 @@ let OrcamentosService = class OrcamentosService {
     constructor(orcamentosRepository) {
         this.orcamentosRepository = orcamentosRepository;
     }
+    formatDate(value) {
+        if (!value) {
+            return '';
+        }
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
+    }
+    isSchemaDriftError(error) {
+        return (error instanceof client_1.Prisma.PrismaClientKnownRequestError &&
+            (error.code === 'P2021' || error.code === 'P2022'));
+    }
     toResponse(item) {
         return {
             id: Number(item.id),
@@ -35,12 +46,8 @@ let OrcamentosService = class OrcamentosService {
             agenteViagem: item.agenteViagem ?? '',
             status: item.status ?? 'Rascunho',
             statusViagem: item.statusViagem ?? 'Não Iniciada',
-            dataCriacao: item.dataCriacao
-                ? new Date(item.dataCriacao).toISOString().slice(0, 10)
-                : new Date(item.criadoEm).toISOString().slice(0, 10),
-            dataValidade: item.dataValidade
-                ? new Date(item.dataValidade).toISOString().slice(0, 10)
-                : '',
+            dataCriacao: this.formatDate(item.dataCriacao ?? item.criadoEm),
+            dataValidade: this.formatDate(item.dataValidade),
             itens: Array.isArray(item.itens) ? item.itens : [],
             pacotes: Array.isArray(item.pacotes) ? item.pacotes : [],
             voos: Array.isArray(item.voos) ? item.voos : [],
@@ -55,8 +62,16 @@ let OrcamentosService = class OrcamentosService {
         };
     }
     async findAll() {
-        const itens = await this.orcamentosRepository.findAll();
-        return itens.map((item) => this.toResponse(item));
+        try {
+            const itens = await this.orcamentosRepository.findAll();
+            return itens.map((item) => this.toResponse(item));
+        }
+        catch (error) {
+            if (this.isSchemaDriftError(error)) {
+                return [];
+            }
+            throw error;
+        }
     }
     async findOne(id) {
         const item = await this.orcamentosRepository.findOne(id);

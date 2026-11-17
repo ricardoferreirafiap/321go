@@ -11,11 +11,23 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FuncionariosService = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
 const funcionarios_repository_1 = require("./funcionarios.repository");
 let FuncionariosService = class FuncionariosService {
     funcionariosRepository;
     constructor(funcionariosRepository) {
         this.funcionariosRepository = funcionariosRepository;
+    }
+    formatDate(value) {
+        if (!value) {
+            return '';
+        }
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString();
+    }
+    isSchemaDriftError(error) {
+        return (error instanceof client_1.Prisma.PrismaClientKnownRequestError &&
+            (error.code === 'P2021' || error.code === 'P2022'));
     }
     toResponse(item) {
         return {
@@ -29,13 +41,21 @@ let FuncionariosService = class FuncionariosService {
             email: item.email,
             saudacoes: item.saudacoes ?? null,
             photo: item.fotoUrl ?? null,
-            criadoEm: new Date(item.criadoEm).toISOString(),
-            atualizadoEm: new Date(item.atualizadoEm).toISOString(),
+            criadoEm: this.formatDate(item.criadoEm),
+            atualizadoEm: this.formatDate(item.atualizadoEm),
         };
     }
     async findAll() {
-        const itens = await this.funcionariosRepository.findAll();
-        return itens.map((item) => this.toResponse(item));
+        try {
+            const itens = await this.funcionariosRepository.findAll();
+            return itens.map((item) => this.toResponse(item));
+        }
+        catch (error) {
+            if (this.isSchemaDriftError(error)) {
+                return [];
+            }
+            throw error;
+        }
     }
     async findOne(id) {
         const item = await this.funcionariosRepository.findOne(id);
