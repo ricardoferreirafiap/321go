@@ -1,10 +1,10 @@
 // Configuração centralizada da API do frontend.
-// Mantém o backend fora do frontend e evita duplicar /api ou cair na própria origem do Vercel.
+// Em produção, nunca apontar para a própria origem do Vercel. A API real deve ficar no backend.
 const envBase =
   typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_API_URL : undefined;
 
 const DEFAULT_LOCAL_API_BASE = 'http://localhost:3001/api';
-const DEFAULT_PRODUCTION_API_BASE = '/api';
+const DEFAULT_PRODUCTION_API_BASE = 'https://321go-backend.vercel.app/api';
 
 const normalizeBase = (value?: string) => {
   if (!value) return undefined;
@@ -25,8 +25,10 @@ const currentHost = typeof window !== 'undefined' ? window.location.hostname.toL
 const isLocalhost = /^(localhost|127\.0\.0\.1|\[::1])$/.test(currentHost);
 const envBaseNormalized = normalizeBase(envBase);
 
+const isProductionLike = typeof window !== 'undefined' && !/^(localhost|127\.0\.0\.1|\[::1])$/.test(window.location.hostname.toLowerCase());
+
 export const API_CONFIG = {
   apiBase:
     envBaseNormalized ||
-    (isLocalhost ? DEFAULT_LOCAL_API_BASE : DEFAULT_PRODUCTION_API_BASE),
+    (isLocalhost ? DEFAULT_LOCAL_API_BASE : isProductionLike ? DEFAULT_PRODUCTION_API_BASE : DEFAULT_LOCAL_API_BASE),
 };

@@ -1,0 +1,82 @@
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateFinanceiroDto } from './dto/create-financeiro.dto';
+import { UpdateFinanceiroDto } from './dto/update-financeiro.dto';
+export declare class FinanceiroService {
+    private readonly prisma;
+    constructor(prisma: PrismaService);
+    findAll(): import(".prisma/client").Prisma.PrismaPromise<{
+        id: bigint;
+        tipo: string;
+        descricao: string;
+        valor: import("@prisma/client-runtime-utils").Decimal;
+        comissaoPercentual: import("@prisma/client-runtime-utils").Decimal | null;
+        comissaoValor: import("@prisma/client-runtime-utils").Decimal | null;
+        dataLancamento: Date;
+        oculto: boolean;
+        orcamentoPago: boolean;
+        formaPagamento: string | null;
+        parcelas: number | null;
+        orcamentoId: bigint | null;
+        orcamentoNumero: string | null;
+        clienteNome: string | null;
+        criadoEm: Date;
+        atualizadoEm: Date;
+    }[]>;
+    findOne(id: number): Promise<{
+        id: bigint;
+        tipo: string;
+        descricao: string;
+        valor: import("@prisma/client-runtime-utils").Decimal;
+        comissaoPercentual: import("@prisma/client-runtime-utils").Decimal | null;
+        comissaoValor: import("@prisma/client-runtime-utils").Decimal | null;
+        dataLancamento: Date;
+        oculto: boolean;
+        orcamentoPago: boolean;
+        formaPagamento: string | null;
+        parcelas: number | null;
+        orcamentoId: bigint | null;
+        orcamentoNumero: string | null;
+        clienteNome: string | null;
+        criadoEm: Date;
+        atualizadoEm: Date;
+    }>;
+    create(dto: CreateFinanceiroDto): import(".prisma/client").Prisma.Prisma__FinanceiroClient<{
+        id: bigint;
+        tipo: string;
+        descricao: string;
+        valor: import("@prisma/client-runtime-utils").Decimal;
+        comissaoPercentual: import("@prisma/client-runtime-utils").Decimal | null;
+        comissaoValor: import("@prisma/client-runtime-utils").Decimal | null;
+        dataLancamento: Date;
+        oculto: boolean;
+        orcamentoPago: boolean;
+        formaPagamento: string | null;
+        parcelas: number | null;
+        orcamentoId: bigint | null;
+        orcamentoNumero: string | null;
+        clienteNome: string | null;
+        criadoEm: Date;
+        atualizadoEm: Date;
+    }, never, import("@prisma/client/runtime/client").DefaultArgs, import(".prisma/client").Prisma.PrismaClientOptions>;
+    update(id: number, dto: UpdateFinanceiroDto): Promise<{
+        id: bigint;
+        tipo: string;
+        descricao: string;
+        valor: import("@prisma/client-runtime-utils").Decimal;
+        comissaoPercentual: import("@prisma/client-runtime-utils").Decimal | null;
+        comissaoValor: import("@prisma/client-runtime-utils").Decimal | null;
+        dataLancamento: Date;
+        oculto: boolean;
+        orcamentoPago: boolean;
+        formaPagamento: string | null;
+        parcelas: number | null;
+        orcamentoId: bigint | null;
+        orcamentoNumero: string | null;
+        clienteNome: string | null;
+        criadoEm: Date;
+        atualizadoEm: Date;
+    }>;
+    remove(id: number): Promise<{
+        deleted: boolean;
+    }>;
+}

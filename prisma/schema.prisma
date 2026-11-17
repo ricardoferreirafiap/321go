@@ -40,3 +40,33 @@ model Financeiro {
   @@map("financeiro")
   @@schema("public")
 }
+
+model Cliente {
+  id             BigInt    @id @default(autoincrement())
+  nome           String?   @db.VarChar(150)
+  sobrenome      String?   @db.VarChar(150)
+  nomeCompleto   String?   @map("nome_completo") @db.VarChar(255)
+  email          String?   @db.VarChar(255)
+  telefone       String?   @db.VarChar(40)
+  cep            String?   @db.VarChar(16)
+  endereco       String?   @db.VarChar(255)
+  numero         String?   @db.VarChar(20)
+  complemento    String?   @db.VarChar(120)
+  cidade         String?   @db.VarChar(120)
+  estado         String?   @db.VarChar(2)
+  status         String    @default("Ativo") @db.VarChar(10)
+  cpfCnpj        String?   @map("cpf_cnpj") @db.VarChar(32)
+  rg             String?   @db.VarChar(32)
+  dataNascimento DateTime? @map("data_nascimento") @db.Date
+  documentoNome  String?   @map("documento_nome") @db.VarChar(255)
+  criadoEm       DateTime  @default(now()) @map("criado_em") @db.Timestamptz(6)
+  atualizadoEm   DateTime  @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+
+  @@unique([cpfCnpj], map: "idx_clientes_cpf_cnpj_unico")
+  @@index([nome], map: "idx_clientes_nome")
+  @@index([status], map: "idx_clientes_status")
+  @@index([email], map: "idx_clientes_email")
+  @@index([nomeCompleto], map: "idx_clientes_nome_completo")
+  @@map("clientes")
+  @@schema("public")
+}

@@ -1,15 +1,9 @@
-C:\RICARDO\PROJETOS\321GO\Backend\index.cjs:1757
-app.get('/', (req, res) => {
-^
+(node:24616) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
 
-ReferenceError: app is not defined
-    at Object.<anonymous> (C:\RICARDO\PROJETOS\321GO\Backend\index.cjs:1757:1)
-    at Module._compile (node:internal/modules/cjs/loader:1968:14)
-    at Object..js (node:internal/modules/cjs/loader:2108:10)
-    at Module.load (node:internal/modules/cjs/loader:1690:32)
-    at Module._load (node:internal/modules/cjs/loader:1480:12)
-    at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)
-    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
-    at node:internal/main/run_main_module:33:47
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
 
-Node.js v26.13.0
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
