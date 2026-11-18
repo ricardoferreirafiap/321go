@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { OrcamentosRepository } from './orcamentos.repository';
 import { CreateOrcamentoDto } from './dto/create-orcamento.dto';
@@ -145,7 +146,8 @@ export class OrcamentosService {
       roteiro: dto.roteiro?.trim() || undefined,
       promptPerfilViagemIA: dto.promptPerfilViagemIA?.trim() || undefined,
       promptRoteiroIA: dto.promptRoteiroIA?.trim() || undefined,
-      publicToken: dto.publicToken?.trim() || undefined,
+      // Production DB currently enforces public_token as NOT NULL.
+      publicToken: dto.publicToken?.trim() || randomUUID(),
     };
 
     try {

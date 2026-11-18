@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OrcamentosService = void 0;
 const common_1 = require("@nestjs/common");
+const crypto_1 = require("crypto");
 const client_1 = require("@prisma/client");
 const orcamentos_repository_1 = require("./orcamentos.repository");
 let OrcamentosService = class OrcamentosService {
@@ -108,7 +109,7 @@ let OrcamentosService = class OrcamentosService {
             roteiro: dto.roteiro?.trim() || undefined,
             promptPerfilViagemIA: dto.promptPerfilViagemIA?.trim() || undefined,
             promptRoteiroIA: dto.promptRoteiroIA?.trim() || undefined,
-            publicToken: dto.publicToken?.trim() || undefined,
+            publicToken: dto.publicToken?.trim() || (0, crypto_1.randomUUID)(),
         };
         try {
             const created = await this.orcamentosRepository.create(payload);
