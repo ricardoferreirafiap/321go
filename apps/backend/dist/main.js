@@ -33,5 +33,8 @@ async function bootstrap() {
     const port = Number(process.env.PORT || 3001);
     await app.listen(port);
 }
-bootstrap();
+bootstrap().catch((error) => {
+    console.error('Falha ao iniciar backend:', error);
+    process.exit(1);
+});
 //# sourceMappingURL=main.js.map

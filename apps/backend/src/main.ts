@@ -42,4 +42,7 @@ async function bootstrap() {
   await app.listen(port);
 }
 
-bootstrap();
+bootstrap().catch((error: unknown) => {
+  console.error('Falha ao iniciar backend:', error);
+  process.exit(1);
+});
