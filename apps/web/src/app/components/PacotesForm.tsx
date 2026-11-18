@@ -22,6 +22,7 @@ import { API_CONFIG } from "../data/apiConfig";
 import { buscarFotoDestino } from "../data/placePhotoApi";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
 import * as Tesseract from "tesseract.js";
+import { toast } from "sonner";
 
 const LOGO_HOTELDO_REF = "/assets/logos/hoteldo.png";
 
@@ -217,6 +218,7 @@ interface Pacote {
 interface PacotesFormProps {
   pacotes: Pacote[];
   onPacotesChange: (pacotes: Pacote[]) => void;
+  onSalvarPacotes?: (pacotes: Pacote[]) => Promise<void>;
   hospedagens?: any[];
   onHospedagensChange?: (hospedagens: any[]) => void;
 }
@@ -2035,7 +2037,7 @@ function possuiDadosIngresso(dados?: DadosIAExtraidos | null) {
   );
 }
 
-export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormProps) {
+export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes }: PacotesFormProps) {
   const [form, setForm] = useState<Omit<Pacote, "id">>(pacoteVazio);
   const [valorInput, setValorInput] = useState("");
   const [hospedagemValorInput, setHospedagemValorInput] = useState("");
@@ -2072,6 +2074,7 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   const [hospedagemFotoInput, setHospedagemFotoInput] = useState("");
   const [hospedagemLinkInput, setHospedagemLinkInput] = useState("");
   const [atualizando, setAtualizando] = useState<string | null>(null);
+  const [salvandoNoBackend, setSalvandoNoBackend] = useState(false);
   const [logAnaliseIA, setLogAnaliseIA] = useState<string[]>([]);
   const [provedorIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
   const [novaUrlOperador, setNovaUrlOperador] = useState("");
@@ -2292,114 +2295,130 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
   const [confirmAnaliseOpen, setConfirmAnaliseOpen] = useState(false);
 
 
-  function salvarPacote() {
+    async function persistirPacotesAtualizados(pacotesAtualizados: Pacote[]) {
+    if (!onSalvarPacotes) return;
+    setSalvandoNoBackend(true);
+    try {
+      await onSalvarPacotes(pacotesAtualizados);
+      toast.success("Voucher salvo com sucesso.");
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : "Erro ao salvar voucher no servidor.");
+    } finally {
+      setSalvandoNoBackend(false);
+    }
+    }
+
+    function limparFormularioAposSalvar() {
+    setForm(pacoteVazio);
+    setValorInput("");
+    setHospedagemValorInput("");
+    setEditandoId(null);
+    setFormMinimizado(true);
+    setTrechoIdaMinimizado(false);
+    setTrechoVoltaMinimizado(false);
+    setPoliticaCancelamentoMinimizado(true);
+    setComodidadesMinimizado(true);
+    setErro("");
+    }
+
+    async function salvarPacote() {
     if (!form.operador.trim()) {
       setErro("Informe o operador do pacote.");
       return;
     }
 
     if (editandoId !== null) {
-      onPacotesChange(
-          pacotes.map((item) =>
-              item.id === editandoId
-                  ? {
-                    ...item,
-                    operador: form.operador.trim(),
-                    ciaAerea: form.ciaAerea?.trim(),
-                    ciaAereaVolta: form.ciaAereaVolta?.trim(),
-                    numeroVooIda: form.numeroVooIda?.trim(),
-                    numeroVooVolta: form.numeroVooVolta?.trim(),
-                    bagagemIda: form.bagagemIda?.trim(),
-                    bagagemVolta: form.bagagemVolta?.trim(),
-                    origem: (form.origemIda || form.origem).trim(),
-                    destino: (form.destinoIda || form.destino).trim(),
-                    reserva: form.reserva?.trim(),
-                    reservaVolta: form.reservaVolta?.trim(),
-                    link: form.link.trim(),
-                    linkVolta: form.linkVolta?.trim(),
-
-                    foto: form.foto,
-                    valor: form.valor,
-                    dataIda: form.dataIda,
-                    dataVolta: form.dataVolta,
-                    passageiros: form.passageiros,
-                    origemIda: form.origemIda?.trim(),
-                    destinoIda: form.destinoIda?.trim(),
-                    duracaoIda: form.duracaoIda?.trim(),
-                    origemVolta: form.origemVolta?.trim(),
-                    destinoVolta: form.destinoVolta?.trim(),
-                    duracaoVolta: form.duracaoVolta?.trim(),
-                    horaSaidaIda: form.horaSaidaIda?.trim(),
-                    horaChegadaIda: form.horaChegadaIda?.trim(),
-                    horaSaidaVolta: form.horaSaidaVolta?.trim(),
-                    horaChegadaVolta: form.horaChegadaVolta?.trim(),
-                    politicaAlteracoesCancelamentos: form.politicaAlteracoesCancelamentos?.trim(),
-                    hospedagemNome: form.hospedagemNome?.trim(),
-                    hospedagemEndereco: form.hospedagemEndereco?.trim(),
-                    hospedagemTelefone: form.hospedagemTelefone?.trim(),
-                    hospedagemEmail: form.hospedagemEmail?.trim(),
-                    hospedagemCheckin: form.hospedagemCheckin,
-                    hospedagemCheckout: form.hospedagemCheckout,
-                    hospedagemHorarioCheckin: form.hospedagemHorarioCheckin,
-                    hospedagemHorarioCheckout: form.hospedagemHorarioCheckout,
-                    hospedagemTipoQuarto: form.hospedagemTipoQuarto?.trim(),
-                    hospedagemRegime: form.hospedagemRegime?.trim(),
-                    hospedagemComodidades: form.hospedagemComodidades?.trim(),
-                    hospedagemPoliticasCondicoesInformacoesEspeciais: form.hospedagemPoliticasCondicoesInformacoesEspeciais?.trim(),
-                    hospedagemNoites: form.hospedagemNoites?.trim(),
-                    hospedagemValor: form.hospedagemValor,
-                    hospedagemLink: form.hospedagemLink?.trim(),
-                    hospedagemLinks: form.hospedagemLinks || [],
-                    hospedagemFoto: form.hospedagemFoto,
-                    hospedagemFotos: form.hospedagemFotos || [],
-                    seguroAssistencia: form.seguroAssistencia?.trim(),
-                    seguroSeguradora: form.seguroSeguradora?.trim(),
-                    seguroPlano: form.seguroPlano?.trim(),
-                    seguroNumeroReserva: form.seguroNumeroReserva?.trim(),
-                    seguroNumeroConfirmacao: form.seguroNumeroConfirmacao?.trim(),
-                    seguroApoliceCertificado: form.seguroApoliceCertificado?.trim(),
-                    seguroSegurados: form.seguroSegurados?.trim(),
-                    seguroDestino: form.seguroDestino?.trim(),
-                    seguroAmbitoCobertura: form.seguroAmbitoCobertura?.trim(),
-                    seguroVigenciaInicio: form.seguroVigenciaInicio,
-                    seguroVigenciaFim: form.seguroVigenciaFim,
-                    seguroCoberturas: form.seguroCoberturas?.trim(),
-                    seguroValor: form.seguroValor,
-                    seguroObservacoes: form.seguroObservacoes?.trim(),
-                    trasladoTipo: form.trasladoTipo?.trim(),
-                    trasladoData: form.trasladoData,
-                    trasladoHorario: form.trasladoHorario,
-                    trasladoLocalPartida: form.trasladoLocalPartida?.trim(),
-                    trasladoLocalChegada: form.trasladoLocalChegada?.trim(),
-                    trasladoVeiculoEmpresa: form.trasladoVeiculoEmpresa?.trim(),
-                    trasladoObservacoes: form.trasladoObservacoes?.trim(),
-                    ingressoNomeAtracao: form.ingressoNomeAtracao?.trim(),
-                    ingressoData: form.ingressoData,
-                    ingressoHorario: form.ingressoHorario,
-                    ingressoQuantidade: form.ingressoQuantidade?.trim(),
-                    ingressoObservacoes: form.ingressoObservacoes?.trim(),
-                    ingressos: form.ingressos || [],
-                    descricao: (form.descricao?.trim() || gerarResumoPacote(form)),
-                    documentos: form.documentos || [],
-                    logAnalise: logAnaliseIA.join("\n"),
-                  }
-                  : item,
-          ),
+      const pacotesAtualizados = pacotes.map((item) =>
+        item.id === editandoId
+          ? {
+              ...item,
+              operador: form.operador.trim(),
+              ciaAerea: form.ciaAerea?.trim(),
+              ciaAereaVolta: form.ciaAereaVolta?.trim(),
+              numeroVooIda: form.numeroVooIda?.trim(),
+              numeroVooVolta: form.numeroVooVolta?.trim(),
+              bagagemIda: form.bagagemIda?.trim(),
+              bagagemVolta: form.bagagemVolta?.trim(),
+              origem: (form.origemIda || form.origem).trim(),
+              destino: (form.destinoIda || form.destino).trim(),
+              reserva: form.reserva?.trim(),
+              reservaVolta: form.reservaVolta?.trim(),
+              link: form.link.trim(),
+              linkVolta: form.linkVolta?.trim(),
+              foto: form.foto,
+              valor: form.valor,
+              dataIda: form.dataIda,
+              dataVolta: form.dataVolta,
+              passageiros: form.passageiros,
+              origemIda: form.origemIda?.trim(),
+              destinoIda: form.destinoIda?.trim(),
+              duracaoIda: form.duracaoIda?.trim(),
+              origemVolta: form.origemVolta?.trim(),
+              destinoVolta: form.destinoVolta?.trim(),
+              duracaoVolta: form.duracaoVolta?.trim(),
+              horaSaidaIda: form.horaSaidaIda?.trim(),
+              horaChegadaIda: form.horaChegadaIda?.trim(),
+              horaSaidaVolta: form.horaSaidaVolta?.trim(),
+              horaChegadaVolta: form.horaChegadaVolta?.trim(),
+              politicaAlteracoesCancelamentos: form.politicaAlteracoesCancelamentos?.trim(),
+              hospedagemNome: form.hospedagemNome?.trim(),
+              hospedagemEndereco: form.hospedagemEndereco?.trim(),
+              hospedagemTelefone: form.hospedagemTelefone?.trim(),
+              hospedagemEmail: form.hospedagemEmail?.trim(),
+              hospedagemCheckin: form.hospedagemCheckin,
+              hospedagemCheckout: form.hospedagemCheckout,
+              hospedagemHorarioCheckin: form.hospedagemHorarioCheckin,
+              hospedagemHorarioCheckout: form.hospedagemHorarioCheckout,
+              hospedagemTipoQuarto: form.hospedagemTipoQuarto?.trim(),
+              hospedagemRegime: form.hospedagemRegime?.trim(),
+              hospedagemComodidades: form.hospedagemComodidades?.trim(),
+              hospedagemPoliticasCondicoesInformacoesEspeciais: form.hospedagemPoliticasCondicoesInformacoesEspeciais?.trim(),
+              hospedagemNoites: form.hospedagemNoites?.trim(),
+              hospedagemValor: form.hospedagemValor,
+              hospedagemLink: form.hospedagemLink?.trim(),
+              hospedagemLinks: form.hospedagemLinks || [],
+              hospedagemFoto: form.hospedagemFoto,
+              hospedagemFotos: form.hospedagemFotos || [],
+              seguroAssistencia: form.seguroAssistencia?.trim(),
+              seguroSeguradora: form.seguroSeguradora?.trim(),
+              seguroPlano: form.seguroPlano?.trim(),
+              seguroNumeroReserva: form.seguroNumeroReserva?.trim(),
+              seguroNumeroConfirmacao: form.seguroNumeroConfirmacao?.trim(),
+              seguroApoliceCertificado: form.seguroApoliceCertificado?.trim(),
+              seguroSegurados: form.seguroSegurados?.trim(),
+              seguroDestino: form.seguroDestino?.trim(),
+              seguroAmbitoCobertura: form.seguroAmbitoCobertura?.trim(),
+              seguroVigenciaInicio: form.seguroVigenciaInicio,
+              seguroVigenciaFim: form.seguroVigenciaFim,
+              seguroCoberturas: form.seguroCoberturas?.trim(),
+              seguroValor: form.seguroValor,
+              seguroObservacoes: form.seguroObservacoes?.trim(),
+              trasladoTipo: form.trasladoTipo?.trim(),
+              trasladoData: form.trasladoData,
+              trasladoHorario: form.trasladoHorario,
+              trasladoLocalPartida: form.trasladoLocalPartida?.trim(),
+              trasladoLocalChegada: form.trasladoLocalChegada?.trim(),
+              trasladoVeiculoEmpresa: form.trasladoVeiculoEmpresa?.trim(),
+              trasladoObservacoes: form.trasladoObservacoes?.trim(),
+              ingressoNomeAtracao: form.ingressoNomeAtracao?.trim(),
+              ingressoData: form.ingressoData,
+              ingressoHorario: form.ingressoHorario,
+              ingressoQuantidade: form.ingressoQuantidade?.trim(),
+              ingressoObservacoes: form.ingressoObservacoes?.trim(),
+              ingressos: form.ingressos || [],
+              descricao: form.descricao?.trim() || gerarResumoPacote(form),
+              documentos: form.documentos || [],
+              logAnalise: logAnaliseIA.join("\n"),
+            }
+          : item,
       );
-      setForm(pacoteVazio);
-      setValorInput("");
-      setHospedagemValorInput("");
-      setEditandoId(null);
-      setFormMinimizado(true);
-      setTrechoIdaMinimizado(false);
-      setTrechoVoltaMinimizado(false);
-      setPoliticaCancelamentoMinimizado(true);
-      setComodidadesMinimizado(true);
-      setErro("");
+      onPacotesChange(pacotesAtualizados);
+      limparFormularioAposSalvar();
+      await persistirPacotesAtualizados(pacotesAtualizados);
       return;
     }
 
-    onPacotesChange([
+    const pacotesAtualizados = [
       ...pacotes,
       {
         id: Date.now(),
@@ -2416,7 +2435,6 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
         reservaVolta: form.reservaVolta?.trim(),
         link: form.link.trim(),
         linkVolta: form.linkVolta?.trim(),
-
         foto: form.foto,
         valor: form.valor,
         dataIda: form.dataIda,
@@ -2478,22 +2496,16 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
         ingressoQuantidade: form.ingressoQuantidade?.trim(),
         ingressoObservacoes: form.ingressoObservacoes?.trim(),
         ingressos: form.ingressos || [],
-        descricao: (form.descricao?.trim() || gerarResumoPacote(form)),
+        descricao: form.descricao?.trim() || gerarResumoPacote(form),
         logAnalise: logAnaliseIA.join("\n"),
         documentos: form.documentos,
       },
-    ]);
-    setForm(pacoteVazio);
-    setValorInput("");
-    setHospedagemValorInput("");
-        setEditandoId(null);
-    setFormMinimizado(true);
-    setTrechoIdaMinimizado(false);
-    setTrechoVoltaMinimizado(false);
-    setPoliticaCancelamentoMinimizado(true);
-    setComodidadesMinimizado(true);
-    setErro("");
-  }
+    ];
+
+    onPacotesChange(pacotesAtualizados);
+    limparFormularioAposSalvar();
+    await persistirPacotesAtualizados(pacotesAtualizados);
+    }
 
   function editarPacote(pacote: Pacote) {
     // Se já está editando este pacote, cancela a edição e volta ao estado inicial
@@ -5103,9 +5115,9 @@ export default function PacotesForm({ pacotes, onPacotesChange }: PacotesFormPro
                 {erro && <p className="mt-3 text-xs text-red-500">{erro}</p>}
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Button type="button" onClick={salvarPacote} className="gap-2">
+                  <Button type="button" onClick={() => void salvarPacote()} className="gap-2" disabled={salvandoNoBackend}>
                     <Plus className="h-4 w-4" />
-                    {editandoId !== null ? "Salvar voucher" : "Adicionar voucher"}
+                    {salvandoNoBackend ? "Salvando..." : editandoId !== null ? "Salvar voucher" : "Adicionar voucher"}
                   </Button>
                 </div>
               </>

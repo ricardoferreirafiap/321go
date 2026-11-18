@@ -1149,16 +1149,26 @@ export default function Roteiros() {
     );
   }
 
-  async function salvar(sairAposSalvar = true) {
-    if (!form.cliente.trim()) return null;
+  async function salvar(sairAposSalvar = true, pacotesSobrescritos?: OrcamentoPayload["pacotes"]) {
+    if (!form.cliente.trim()) {
+      setErro("Informe o cliente antes de salvar o voucher.");
+      return null;
+    }
     setSalvando(true);
     setErro(null);
 
+    const pacotesParaSalvar = pacotesSobrescritos && pacotesSobrescritos.length > 0
+      ? pacotesSobrescritos
+      : pacotes;
+
+    // O backend (ValidationPipe com forbidNonWhitelisted) rejeita campos extras como "id" no body.
+    const { id: _ignoredId, ...formSemId } = form as Orcamento & { id?: number };
+
     // Montar dados do orçamento com seções
     const orcComSecoes = {
-      ...form,
+      ...formSemId,
       destino: obterDestinoPrincipalOrcamento(undefined, true),
-      pacotes: pacotes.length > 0 ? pacotes : undefined,
+      pacotes: pacotesParaSalvar.length > 0 ? pacotesParaSalvar : undefined,
       voos: voos.length > 0 ? voos : undefined,
       hospedagem: hospedagem.length > 0 ? hospedagem : undefined,
       roteiro: roteiro.trim() ? roteiro : undefined,
@@ -1173,8 +1183,10 @@ export default function Roteiros() {
 
     try {
       if (editando) {
-        await atualizarOrcamento(editando.id, orcComSecoes);
-        await carregarOrcamentos();
+        const atualizado = await atualizarOrcamento(editando.id, orcComSecoes);
+        setEditando(atualizado);
+        setLista((prev) => prev.map((item) => (item.id === atualizado.id ? atualizado : item)));
+        void carregarOrcamentos();
         setHouveAlteracoes(false);
         if (sairAposSalvar) voltar();
         return editando.id;
@@ -1182,14 +1194,19 @@ export default function Roteiros() {
 
       const criado = await criarOrcamento(orcComSecoes);
 
-      // Cria automaticamente eventos na agenda para cada data de voo/checkin/checkout
-      await criarEventosDeOrcamento(
+      // Eventos são disparados em segundo plano para não bloquear o fluxo de salvar.
+      void criarEventosDeOrcamento(
         { ...orcComSecoes, numero: criado.numero },
-        pacotes,
+        pacotesParaSalvar,
         voos
-      );
+      ).catch(() => undefined);
 
-      await carregarOrcamentos();
+      setLista((prev) => [criado, ...prev.filter((item) => item.id !== criado.id)]);
+      void carregarOrcamentos();
+      // Ao criar sem sair, o formulário passa a editar o registro recém-criado.
+      if (!sairAposSalvar) {
+        setEditando(criado);
+      }
       setHouveAlteracoes(false);
       if (sairAposSalvar) voltar();
       return criado.id;
@@ -1198,6 +1215,13 @@ export default function Roteiros() {
       return null;
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function salvarPacotesDaSecao(pacotesAtualizados: OrcamentoPayload["pacotes"]) {
+    const idSalvo = await salvar(false, pacotesAtualizados);
+    if (!idSalvo) {
+      throw new Error("Não foi possível salvar o voucher no servidor. Verifique os campos obrigatórios.");
     }
   }
 
@@ -1210,13 +1234,17 @@ export default function Roteiros() {
   }
 
   async function handleSalvarSemSair() {
-    fecharModalSalvar();
-    await salvar(false);
+    const idSalvo = await salvar(false);
+    if (idSalvo) {
+      fecharModalSalvar();
+    }
   }
 
   async function handleSalvarESair() {
-    fecharModalSalvar();
-    await salvar(true);
+    const idSalvo = await salvar(true);
+    if (idSalvo) {
+      fecharModalSalvar();
+    }
   }
 
   // Remove dados pesados (base64 de PDFs/imagens e URLs de localhost) antes de salvar
@@ -1866,7 +1894,13 @@ export default function Roteiros() {
                       <div className="mt-3">
                         {section === 'Pacotes' && (
                             <div className="space-y-6">
-                              <PacotesForm pacotes={pacotes} onPacotesChange={setPacotes} hospedagens={hospedagem} onHospedagensChange={setHospedagem} />
+                              <PacotesForm
+                                pacotes={pacotes}
+                                onPacotesChange={setPacotes}
+                                onSalvarPacotes={salvarPacotesDaSecao}
+                                hospedagens={hospedagem}
+                                onHospedagensChange={setHospedagem}
+                              />
                             </div>
                         )}
 
