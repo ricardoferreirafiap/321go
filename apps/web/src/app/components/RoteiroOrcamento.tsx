@@ -1258,6 +1258,13 @@ export default function RoteiroOrcamento() {
   });
   const dataViagemPrincipal = dataCheckinPrincipal || dataCheckoutPrincipal || orc.voos?.[0]?.data || pacoteComVoo?.dataIda || dataPacoteFallback || dataDescricaoFallback || null;
   console.log('[RoteiroOrcamento] dataViagemPrincipal final:', dataViagemPrincipal);
+  const statusViagemNormalizado = String((orc as any)?.statusViagem || (orc as any)?.voucherStatus || orc.status || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+  const viagemFinalizada = /^finalizad[oa]$/.test(statusViagemNormalizado);
+  const exibirConteudoRoteiro = !viagemFinalizada;
   const listaPassageiros = Array.isArray(orc.passageiros)
     ? orc.passageiros.map((nome) => String(nome || "").trim()).filter(Boolean)
     : [];
@@ -1459,8 +1466,13 @@ export default function RoteiroOrcamento() {
         ) : (
           <p className="text-sm text-white/70">Data da viagem ainda não definida.</p>
         )}
+        {viagemFinalizada && (
+          <p className="mt-3 text-sm text-white/90">Agradecemos a preferencia e estamos a disposicao para a proxima viagem.</p>
+        )}
       </Card>
 
+      {exibirConteudoRoteiro ? (
+        <>
       {itensRoteiro.length > 0 && (
         <nav aria-label="Itens do roteiro" className="mb-6 print:hidden">
           <div className="flex flex-wrap items-start justify-center gap-4 px-1 pt-2 pb-3">
@@ -2588,6 +2600,8 @@ export default function RoteiroOrcamento() {
           <Share2 className="w-4 h-4 mr-2" /> WhatsApp
         </Button>
       </div>
+        </>
+      ) : null}
 
       <footer className="mt-10 border-t border-gray-200 pt-6">
         {nomeAgente && (
