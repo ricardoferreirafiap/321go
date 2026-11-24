@@ -52,7 +52,12 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEmail)(),
-    (0, class_transformer_1.Transform)(({ value }) => (typeof value === 'string' ? value.trim() : value)),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (typeof value !== 'string')
+            return value;
+        const normalized = value.trim();
+        return normalized === '' ? undefined : normalized;
+    }),
     __metadata("design:type", String)
 ], CreateClienteDto.prototype, "email", void 0);
 __decorate([
@@ -122,6 +127,12 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsDateString)(),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (typeof value !== 'string')
+            return value;
+        const normalized = value.trim();
+        return normalized === '' ? undefined : normalized;
+    }),
     __metadata("design:type", String)
 ], CreateClienteDto.prototype, "dataNascimento", void 0);
 __decorate([

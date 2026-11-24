@@ -27,7 +27,11 @@ export class CreateClienteDto {
 
   @IsOptional()
   @IsEmail()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => {
+    if (typeof value !== 'string') return value;
+    const normalized = value.trim();
+    return normalized === '' ? undefined : normalized;
+  })
   email?: string | null;
 
   @IsOptional()
@@ -85,6 +89,11 @@ export class CreateClienteDto {
 
   @IsOptional()
   @IsDateString()
+  @Transform(({ value }) => {
+    if (typeof value !== 'string') return value;
+    const normalized = value.trim();
+    return normalized === '' ? undefined : normalized;
+  })
   dataNascimento?: string | null;
 
   @IsOptional()
@@ -92,4 +101,3 @@ export class CreateClienteDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   documentoNome?: string | null;
 }
-
