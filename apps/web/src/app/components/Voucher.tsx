@@ -385,6 +385,85 @@ function fmtData(d: string) {
   return `${day}/${m}/${y}`;
 }
 
+function extrairDataIso(valor: unknown) {
+  if (typeof valor !== "string") return "";
+  const texto = valor.trim();
+  if (!texto) return "";
+
+  const matchIso = texto.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (matchIso) return matchIso[1];
+
+  const matchBr = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (matchBr) return `${matchBr[3]}-${matchBr[2]}-${matchBr[1]}`;
+
+  return "";
+}
+
+function obterDestinoResumoOrcamento(orc: Orcamento) {
+  const voos = Array.isArray(orc.voos) ? orc.voos : [];
+  const hospedagens = Array.isArray(orc.hospedagem) ? orc.hospedagem : [];
+  const pacotes = Array.isArray(orc.pacotes) ? orc.pacotes : [];
+
+  const destinoVoo = voos.find((voo: any) => typeof voo?.destino === "string" && voo.destino.trim())?.destino
+    || pacotes.find((pacote: any) => typeof pacote?.destinoIda === "string" && pacote.destinoIda.trim())?.destinoIda
+    || pacotes.find((pacote: any) => typeof pacote?.destinoVolta === "string" && pacote.destinoVolta.trim())?.destinoVolta
+    || "";
+  if (destinoVoo) return String(destinoVoo).trim();
+
+  const destinoHospedagem = hospedagens.find((item: any) => typeof item?.destino === "string" && item.destino.trim())?.destino
+    || hospedagens.find((item: any) => typeof item?.local === "string" && item.local.trim())?.local
+    || hospedagens.find((item: any) => typeof item?.cidade === "string" && item.cidade.trim())?.cidade
+    || pacotes.find((pacote: any) => typeof pacote?.hospedagemDestino === "string" && pacote.hospedagemDestino.trim())?.hospedagemDestino
+    || pacotes.find((pacote: any) => typeof pacote?.hospedagemLocal === "string" && pacote.hospedagemLocal.trim())?.hospedagemLocal
+    || pacotes.find((pacote: any) => typeof pacote?.hospedagemNome === "string" && pacote.hospedagemNome.trim())?.hospedagemNome
+    || "";
+  if (destinoHospedagem) return String(destinoHospedagem).trim();
+
+  return String(orc.destino || "").trim();
+}
+
+function obterPeriodoResumoOrcamento(orc: Orcamento): { ida: string; volta: string } | null {
+  const voos = Array.isArray(orc.voos) ? orc.voos : [];
+  const pacotes = Array.isArray(orc.pacotes) ? orc.pacotes : [];
+  const hospedagens = Array.isArray(orc.hospedagem) ? orc.hospedagem : [];
+
+  const vooIda = extrairDataIso(
+    voos.find((voo: any) => String(voo?.tipoTrecho || "").toUpperCase() === "IDA")?.data
+    || voos.find((voo: any) => voo?.data)?.data
+    || pacotes.find((pacote: any) => pacote?.dataIda)?.dataIda
+  );
+  const vooVolta = extrairDataIso(
+    voos.find((voo: any) => String(voo?.tipoTrecho || "").toUpperCase() === "VOLTA")?.data
+    || pacotes.find((pacote: any) => pacote?.dataVolta)?.dataVolta
+  );
+
+  const todasDatasVoo = [
+    ...voos.map((voo: any) => extrairDataIso(voo?.data)),
+    ...pacotes.flatMap((pacote: any) => [extrairDataIso(pacote?.dataIda), extrairDataIso(pacote?.dataVolta)]),
+  ].filter(Boolean).sort();
+
+  const idaVooFinal = vooIda || todasDatasVoo[0] || "";
+  const voltaVooFinal = vooVolta || (todasDatasVoo.length > 1 ? todasDatasVoo[todasDatasVoo.length - 1] : "");
+  if (idaVooFinal || voltaVooFinal) {
+    return { ida: idaVooFinal, volta: voltaVooFinal };
+  }
+
+  const checkinHospedagem = extrairDataIso(
+    hospedagens.find((item: any) => item?.checkin)?.checkin
+    || pacotes.find((pacote: any) => pacote?.hospedagemCheckin)?.hospedagemCheckin
+  );
+  const checkoutHospedagem = extrairDataIso(
+    hospedagens.find((item: any) => item?.checkout)?.checkout
+    || pacotes.find((pacote: any) => pacote?.hospedagemCheckout)?.hospedagemCheckout
+  );
+
+  if (checkinHospedagem || checkoutHospedagem) {
+    return { ida: checkinHospedagem, volta: checkoutHospedagem };
+  }
+
+  return null;
+}
+
 function resumirItemSecao(item: any) {
   if (!item || typeof item !== "object") return "Detalhes disponíveis";
 
@@ -2294,6 +2373,8 @@ export default function Roteiros() {
             const expandido = expandidos.has(orc.id);
             const vencido = orc.dataValidade && new Date(orc.dataValidade) < new Date() && orc.status !== "Aprovado" && orc.status !== "Cancelado" && orc.status !== "Rejeitado";
             const temLancamento = lancamentosFinanceiros.some((l) => l.orcamentoId === orc.id);
+            const destinoResumo = obterDestinoResumoOrcamento(orc);
+            const periodoResumo = obterPeriodoResumoOrcamento(orc);
             return (
                 <Card key={orc.id} className="overflow-hidden">
                   {/* Linha principal */}
@@ -2309,25 +2390,18 @@ export default function Roteiros() {
                       </div>
 
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        {orc.destino && <span className="flex items-center gap-1 text-xs text-gray-500"><MapPin className="w-3 h-3" />{orc.destino}</span>}
+                        {destinoResumo && <span className="flex items-center gap-1 text-xs text-gray-500"><MapPin className="w-3 h-3" />{destinoResumo}</span>}
                       </div>
 
                       {orc.statusViagem && (() => { const cfgV = statusViagemConfig[orc.statusViagem] || { bg: "bg-slate-100", cor: "text-slate-600" }; return <Badge className={`${cfgV.bg} ${cfgV.cor} hover:${cfgV.bg} text-xs flex-shrink-0`}>{orc.statusViagem}</Badge>; })()}
 
-                      {/* Datas de check-in e check-out dos pacotes ao lado do status */}
-                      {orc.pacotes && orc.pacotes.length > 0 && orc.pacotes.some((p: any) => p.hospedagemCheckin || p.hospedagemCheckout) && (
+                      {/* Período principal prioriza voo e usa hospedagem como fallback */}
+                      {periodoResumo && (
                         <div className="flex items-center gap-1 flex-shrink-0 text-xs text-gray-600">
                           <Calendar className="w-3 h-3" />
-                          {orc.pacotes.map((pacote: any, idx: number) => {
-                            if (pacote.hospedagemCheckin || pacote.hospedagemCheckout) {
-                              return (
-                                <span key={idx} className="text-xs">
-                                  {pacote.hospedagemCheckin ? fmtData(pacote.hospedagemCheckin) : "—"} à {pacote.hospedagemCheckout ? fmtData(pacote.hospedagemCheckout) : "—"}
-                                </span>
-                              );
-                            }
-                            return null;
-                          })}
+                          <span className="text-xs">
+                            {periodoResumo.ida ? fmtData(periodoResumo.ida) : "—"} à {periodoResumo.volta ? fmtData(periodoResumo.volta) : "—"}
+                          </span>
                         </div>
                       )}
 
