@@ -1700,7 +1700,7 @@ export default function Roteiros() {
               <Button
                 type="button"
                 onClick={houveAlteracoes ? abrirModalSalvar : voltar}
-                disabled={salvando || (houveAlteracoes && !form.cliente.trim())}
+                disabled={salvando}
                 className={houveAlteracoes ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-gray-600 hover:bg-gray-700 text-white"}
               >
                 {houveAlteracoes ? (

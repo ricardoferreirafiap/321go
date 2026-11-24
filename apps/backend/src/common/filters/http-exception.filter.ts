@@ -32,6 +32,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
       path: req.originalUrl,
       method: req.method,
       timestamp: new Date().toISOString(),
+      code:
+        typeof message === 'object' && message && 'code' in (message as Record<string, unknown>)
+          ? (message as Record<string, unknown>).code
+          : undefined,
       error: typeof message === 'string' ? message : (message as any)?.message || message,
     };
 

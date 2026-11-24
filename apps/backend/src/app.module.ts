@@ -12,6 +12,7 @@ import { ProdutosModule } from './produtos/produtos.module';
 import { TarefasModule } from './tarefas/tarefas.module';
 import { OrcamentosModule } from './orcamentos/orcamentos.module';
 import { CountsModule } from './counts/counts.module';
+import { AiModule } from './ai/ai.module';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 
 const envFilePath = [
@@ -38,6 +39,7 @@ const envFilePath = [
     TarefasModule,
     OrcamentosModule,
     CountsModule,
+    AiModule,
   ],
 })
 export class AppModule implements NestModule {

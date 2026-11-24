@@ -54,6 +54,7 @@ const produtos_module_1 = require("./produtos/produtos.module");
 const tarefas_module_1 = require("./tarefas/tarefas.module");
 const orcamentos_module_1 = require("./orcamentos/orcamentos.module");
 const counts_module_1 = require("./counts/counts.module");
+const ai_module_1 = require("./ai/ai.module");
 const request_logging_middleware_1 = require("./common/middleware/request-logging.middleware");
 const envFilePath = [
     path.resolve(__dirname, '../../../.env'),
@@ -85,6 +86,7 @@ exports.AppModule = AppModule = __decorate([
             tarefas_module_1.TarefasModule,
             orcamentos_module_1.OrcamentosModule,
             counts_module_1.CountsModule,
+            ai_module_1.AiModule,
         ],
     })
 ], AppModule);

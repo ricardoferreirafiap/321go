@@ -25,6 +25,9 @@ let HttpExceptionFilter = class HttpExceptionFilter {
             path: req.originalUrl,
             method: req.method,
             timestamp: new Date().toISOString(),
+            code: typeof message === 'object' && message && 'code' in message
+                ? message.code
+                : undefined,
             error: typeof message === 'string' ? message : message?.message || message,
         };
         this.logger.error(`[${req.method}] ${req.originalUrl} - ${status} - ${JSON.stringify(responseBody)}`, exception instanceof Error ? exception.stack : undefined);

@@ -2080,6 +2080,30 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
   const [novaUrlOperador, setNovaUrlOperador] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  function persistirEdicaoSilenciosa(pacotesAtualizados: Pacote[] | null) {
+    if (!pacotesAtualizados) {
+      return;
+    }
+
+    void persistirPacotesAtualizados(pacotesAtualizados, '');
+  }
+
+  function sincronizarFormularioEmPacote(novoForm: Omit<Pacote, "id">): Pacote[] {
+    if (editandoId !== null) {
+      const pacotesAtualizados = pacotes.map((item) =>
+        item.id === editandoId ? { ...item, ...novoForm } : item,
+      );
+      onPacotesChange(pacotesAtualizados);
+      return pacotesAtualizados;
+    }
+
+    const novoId = Date.now();
+    const pacotesAtualizados = [...pacotes, { id: novoId, ...novoForm }];
+    onPacotesChange(pacotesAtualizados);
+    setEditandoId(novoId);
+    return pacotesAtualizados;
+  }
+
   function adicionarUrlOperador() {
     const url = novaUrlOperador.trim();
     if (!url) return;
@@ -2090,7 +2114,9 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
       return;
     }
     
-    setForm({ ...form, urlOperador: [...urlsAtuais, url] });
+    const proximoForm = { ...form, urlOperador: [...urlsAtuais, url] };
+    setForm(proximoForm);
+    persistirEdicaoSilenciosa(propagarAoPai(proximoForm));
     setNovaUrlOperador("");
     setErro("");
   }
@@ -2263,7 +2289,9 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
   function removerUrlOperador(index: number) {
     const urlsAtuais = form.urlOperador || [];
     const novasUrls = urlsAtuais.filter((_, i) => i !== index);
-    setForm({ ...form, urlOperador: novasUrls });
+    const proximoForm = { ...form, urlOperador: novasUrls };
+    setForm(proximoForm);
+    persistirEdicaoSilenciosa(propagarAoPai(proximoForm));
   }
 
   const operadores = useMemo(() => {
@@ -2295,14 +2323,25 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
   const [confirmAnaliseOpen, setConfirmAnaliseOpen] = useState(false);
 
 
-    async function persistirPacotesAtualizados(pacotesAtualizados: Pacote[]) {
+    async function persistirPacotesAtualizados(
+      pacotesAtualizados: Pacote[],
+      mensagemSucesso = "Voucher salvo com sucesso.",
+    ) {
     if (!onSalvarPacotes) return;
     setSalvandoNoBackend(true);
     try {
       await onSalvarPacotes(pacotesAtualizados);
-      toast.success("Voucher salvo com sucesso.");
+      if (mensagemSucesso) {
+        toast.success(mensagemSucesso);
+      }
     } catch (error) {
-      setErro(error instanceof Error ? error.message : "Erro ao salvar voucher no servidor.");
+      const mensagemErro = error instanceof Error ? error.message : "Erro ao salvar voucher no servidor.";
+      setErro(mensagemErro);
+      if (/cliente/i.test(mensagemErro)) {
+        toast.error("Preencha o cliente no orçamento para concluir o salvamento do voucher.");
+      } else {
+        toast.error("Nao foi possivel salvar o voucher. Verifique os campos obrigatorios.");
+      }
     } finally {
       setSalvandoNoBackend(false);
     }
@@ -2676,39 +2715,34 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
         )
     );
 
-    setForm((f) => ({ ...f, documentos: [...f.documentos, ...docs] }));
+    const documentosAtuais = form.documentos || [];
+    const proximoForm = { ...form, documentos: [...documentosAtuais, ...docs] };
+    setForm(proximoForm);
+    const pacotesAtualizados = propagarAoPai(proximoForm) ?? sincronizarFormularioEmPacote(proximoForm);
+    persistirEdicaoSilenciosa(pacotesAtualizados);
     e.target.value = "";
   }
 
   function removerDocumento(idDocumento: number) {
-    setForm((f) => ({
-      ...f,
-      documentos: (f.documentos || []).filter((doc) => doc.id !== idDocumento),
-    }))
+    const documentosAtualizados = (form.documentos || []).filter((doc) => doc.id !== idDocumento);
+    const proximoForm = {
+      ...form,
+      documentos: documentosAtualizados,
+    };
+    setForm(proximoForm);
+    persistirEdicaoSilenciosa(propagarAoPai(proximoForm));
   }
 
   function atualizarExibicaoDocumento(idDocumento: number, exibirNoRoteiro: boolean) {
-    setForm((f) => ({
-      ...f,
-      documentos: (f.documentos || []).map((doc) =>
-        doc.id === idDocumento ? { ...doc, exibirNoRoteiro } : doc
-      ),
-    }));
-
-    if (editandoId !== null) {
-      onPacotesChange(
-        pacotes.map((item) =>
-          item.id === editandoId
-            ? {
-                ...item,
-                documentos: (item.documentos || []).map((doc) =>
-                  doc.id === idDocumento ? { ...doc, exibirNoRoteiro } : doc
-                ),
-              }
-            : item
-        )
-      );
-    }
+    const documentosAtualizados = (form.documentos || []).map((doc) =>
+      doc.id === idDocumento ? { ...doc, exibirNoRoteiro } : doc
+    );
+    const proximoForm = {
+      ...form,
+      documentos: documentosAtualizados,
+    };
+    setForm(proximoForm);
+    persistirEdicaoSilenciosa(propagarAoPai(proximoForm));
   }
 
   // Função auxiliar interna: mescla todos os documentos e retorna dados unificados
@@ -2720,14 +2754,16 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
   }
 
   // Propaga o pacote editado ao estado pai para atualizar o Resumo em tempo real
-  function propagarAoPai(novoForm: Omit<Pacote, "id">) {
-    if (editandoId !== null) {
-      onPacotesChange(
-        pacotes.map((item) =>
-          item.id === editandoId ? { ...item, ...novoForm } : item
-        )
-      );
+  function propagarAoPai(novoForm: Omit<Pacote, "id">): Pacote[] | null {
+    if (editandoId === null) {
+      return null;
     }
+
+    const pacotesAtualizados = pacotes.map((item) =>
+      item.id === editandoId ? { ...item, ...novoForm } : item
+    );
+    onPacotesChange(pacotesAtualizados);
+    return pacotesAtualizados;
   }
 
   function atualizarDetalhesVoo() {
@@ -2922,6 +2958,8 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
       setLogAnaliseIA([...logEntries]);
     };
 
+    const novasAnalises: Documento[] = [];
+
     // Analisar URLs do operador se estiverem preenchidas
     for (const url of form.urlOperador || []) {
       if (!url?.trim()) continue;
@@ -2999,10 +3037,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
               arquivo: url,
               analise: `**Relatório da Análise da URL**\n\nErro: Todos os provedores de IA falharam.\n\nDetalhes:\n- Groq: Limite de taxa excedido\n- OpenAI: Chave de API inválida\n- Gemini: Créditos esgotados\n\nPor favor, verifique as configurações das APIs e tente novamente.`,
             };
-            setForm((f) => ({
-              ...f,
-              documentos: [...(f.documentos || []), erroDocumento],
-            }));
+            novasAnalises.push(erroDocumento);
             
             setVouchersMinimizado(false);
           }
@@ -3030,10 +3065,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
               arquivo: url,
               analise: `**Relatório da Análise da URL**\n\nErro: Falha ao analisar com ${provedorCapitalizado}.\n\nDetalhes: ${error instanceof Error ? error.message : 'Erro desconhecido'}\n\nPor favor, verifique as configurações da API e tente novamente.`,
             };
-            setForm((f) => ({
-              ...f,
-              documentos: [...(f.documentos || []), erroDocumento],
-            }));
+            novasAnalises.push(erroDocumento);
             
             setVouchersMinimizado(false);
           }
@@ -3070,11 +3102,10 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
             tipo: "text/url",
             arquivo: url,
             analise: relatorioCompleto,
+            dadosIA: dadosIACompletos,
+            exibirNoRoteiro: true,
           };
-          setForm((f) => ({
-            ...f,
-            documentos: [...(f.documentos || []), novoDocumento],
-          }));
+          novasAnalises.push(novoDocumento);
 
           // Expandir seção de vouchers para mostrar o relatório da URL
           setVouchersMinimizado(false);
@@ -3097,8 +3128,11 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
         adicionarLog("OCR indisponível; tentando identificação por IA e comparação visual.");
       }
 
-      const novasAnalises: Documento[] = [];
       for (const doc of form.documentos || []) {
+        if (doc.tipo === "text/url") {
+          novasAnalises.push(doc);
+          continue;
+        }
         if (typeof docId === 'number' && doc.id !== docId) continue;
         let contextoArquivo = "Nome do arquivo: " + doc.nome + "\n\n";
         let temConteudoPdf = false;
@@ -3333,7 +3367,15 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
         }
       }
 
-      const dadosUnificados = obterDadosMescladosDeTodos(novasAnalises);
+      const currentDocs = form.documentos || [];
+      const substituidos = currentDocs.map((docAtual) => {
+        const docAtualizado = novasAnalises.find((novoDoc) => novoDoc.id === docAtual.id);
+        return docAtualizado || docAtual;
+      });
+      const novosExternos = novasAnalises.filter((novoDoc) => !currentDocs.some((docAtual) => docAtual.id === novoDoc.id));
+      const documentosComAnaliseAtualizada = [...substituidos, ...novosExternos];
+
+      const dadosUnificados = obterDadosMescladosDeTodos(documentosComAnaliseAtualizada);
 
       // Preencher campos automaticamente após a análise
       let novoFormCalculado = { ...form };
@@ -3371,21 +3413,17 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
         setValorInput(formatarMoeda(novoFormCalculado.valor));
       }
 
-      // Preservar documentos do tipo URL que foram adicionados durante a análise de URLs
-      // Mescla novas analises com os documentos existentes, preservando os não analisados
-      const currentDocs = form.documentos || [];
-      // Substitui documentos existentes pelos analisados
-      const substituidos = currentDocs.map(d => {
-        const encontrado = novasAnalises.find(n => n.id === d.id);
-        return encontrado || d;
-      });
-      // Adiciona novos documentos que não existiam (ex: URLs produzidas pela IA)
-      const novosExternos = novasAnalises.filter(n => !currentDocs.some(cd => cd.id === n.id));
-      const documentosFinal = [...substituidos, ...novosExternos];
-      const formFinal = { ...novoFormCalculado, documentos: documentosFinal };
+      const formFinal = { ...novoFormCalculado, documentos: documentosComAnaliseAtualizada };
 
       setForm(() => formFinal);
-      propagarAoPai(formFinal);
+      const pacotesAtualizados = propagarAoPai(formFinal) ?? sincronizarFormularioEmPacote(formFinal);
+
+      if (pacotesAtualizados) {
+        await persistirPacotesAtualizados(
+          pacotesAtualizados,
+          "Analise IA aplicada e salva no voucher.",
+        );
+      }
 
       adicionarLog("Campos preenchidos automaticamente com os dados extraídos.");
     } catch (error) {
@@ -3678,7 +3716,20 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
                     )}
                   </div>
                 </div>
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
+                  {(form.documentos || []).length > 0 && (
+                    <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        onClick={() => void salvarPacote()}
+                        disabled={salvandoNoBackend}
+                        className="gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      {salvandoNoBackend ? "Salvando..." : "Salvar voucher"}
+                    </Button>
+                  )}
                   <Button
                       type="button"
                       variant="outline"
@@ -5117,7 +5168,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Button type="button" onClick={() => void salvarPacote()} className="gap-2" disabled={salvandoNoBackend}>
                     <Plus className="h-4 w-4" />
-                    {salvandoNoBackend ? "Salvando..." : editandoId !== null ? "Salvar voucher" : "Adicionar voucher"}
+                    {salvandoNoBackend ? "Salvando..." : editandoId !== null || (form.documentos || []).length > 0 ? "Salvar voucher" : "Adicionar voucher"}
                   </Button>
                 </div>
               </>
