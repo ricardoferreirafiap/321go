@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router";
 import {
   Search, Plus, Edit2, X, Check, FileText, ChevronDown, ChevronUp,
-  User, Calendar, DollarSign, MapPin, Sparkles, Link2, Star
+  User, Calendar, MapPin, Sparkles, Star
 } from "lucide-react"; // Adicionado Sparkles
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
@@ -19,14 +19,12 @@ import { type Voo } from "./VoosForm";
 import { listarClientes, type Cliente } from "../data/clientesApi";
 import { listarFuncionarios, type Funcionario } from "../data/funcionariosApi";
 import { listarFornecedores, type Fornecedor } from "../data/fornecedoresApi";
-import { listarProdutos, type Produto } from "../data/produtosApi";
 import {
   atualizarOrcamento,
   buscarOrcamentoPorId,
   criarOrcamento,
   listarOrcamentos,
   type ItemOrc,
-  type DocumentoVenda,
   type Orcamento,
   type OrcamentoPayload,
   type StatusOrc,
@@ -134,36 +132,16 @@ function sincronizarComissaoComValor(
 
 // ────────────────────────────────────────────────────────────────────────────
 
-const itemVazio = (): ItemOrc => ({
-  id: Date.now(),
-  descricao: "",
-  quantidade: 1,
-  unidade: "un",
-  valorUnitario: 0,
-  desconto: 0,
-  link: "",
-  urlOperador: [],
-  documentos: [],
-});
-
-
-const statusConfig: Record<StatusOrc, { bg: string; cor: string }> = {
-  Rascunho:  { bg: "bg-gray-100",   cor: "text-gray-600" },
-  Enviado:   { bg: "bg-blue-100",   cor: "text-blue-700" },
-  Aprovado:  { bg: "bg-green-100",  cor: "text-green-700" },
-  Rejeitado: { bg: "bg-red-100",    cor: "text-red-600" },
-  Cancelado: { bg: "bg-orange-100", cor: "text-orange-600" },
-};
-
-const defaultStatusConfig = { bg: "bg-gray-100", cor: "text-gray-600" };
+const STATUS_VIAGEM_NAO_INICIADA: StatusViagem = "Não Iniciada";
+const STATUS_VIAGEM_EM_ANDAMENTO: StatusViagem = "Em Andamento";
+const STATUS_VIAGEM_FINALIZADA: StatusViagem = "Finalizada";
 
 const statusViagemConfig: Record<StatusViagem, { bg: string; cor: string }> = {
-  "Não Iniciada": { bg: "bg-slate-100",  cor: "text-slate-600" },
-  "Em Andamento": { bg: "bg-sky-100",    cor: "text-sky-700" },
-  "Finalizada":   { bg: "bg-teal-100",   cor: "text-teal-700" },
+  [STATUS_VIAGEM_NAO_INICIADA]: { bg: "bg-slate-100",  cor: "text-slate-600" },
+  [STATUS_VIAGEM_EM_ANDAMENTO]: { bg: "bg-sky-100",    cor: "text-sky-700" },
+  [STATUS_VIAGEM_FINALIZADA]: { bg: "bg-teal-100",   cor: "text-teal-700" },
 };
 
-const allStatus: StatusOrc[] = ["Rascunho", "Enviado", "Aprovado", "Rejeitado", "Cancelado"];
 const secoesOrcamento = ["Pacotes", "Roteiro", "Day by Day", "Transporte", "Restaurante", "Experiências"] as const;
 type SecaoOrcamento = typeof secoesOrcamento[number];
 
@@ -371,10 +349,6 @@ function calcTotal(itens: ItemOrc[]) {
   return itens.reduce((acc, i) => acc + calcItem(i), 0);
 }
 
-function calcTotalOrcamento(orc: Orcamento) {
-  return calcTotal(montarLinhasDescricao(orc));
-}
-
 function moeda(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -551,17 +525,12 @@ function montarLinhasDescricao(orc: Orcamento): ItemOrc[] {
           || extrairNumeroPositivo(item?.noites, 0)
           || 1;
 
-      let valorUnitario = 0;
-      if (secao.titulo === "Pacotes") {
-        const valorPacote = extrairNumero(item?.valor, 0);
-        const valorHosp = extrairNumero(item?.hospedagemValor, 0);
-        valorUnitario = valorPacote + valorHosp;
-      } else {
-        valorUnitario = extrairNumeroPositivo(item?.valor, 0)
-            || extrairNumeroPositivo(item?.preco, 0)
-            || extrairNumeroPositivo(item?.valorUnitario, 0)
-            || 0;
-      }
+      const valorUnitario = secao.titulo === "Pacotes"
+          ? extrairNumero(item?.valor, 0) + extrairNumero(item?.hospedagemValor, 0)
+          : extrairNumeroPositivo(item?.valor, 0)
+              || extrairNumeroPositivo(item?.preco, 0)
+              || extrairNumeroPositivo(item?.valorUnitario, 0)
+              || 0;
 
       const unidade = typeof item?.unidade === "string" && item.unidade.trim()
           ? item.unidade
@@ -613,7 +582,7 @@ const orcVazio = (): OrcamentoPayload => {
   const validade = new Date(new Date().getTime() + 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
   return {
     numero: "", cliente: "", email: "", destino: "", agenteViagem: "", status: "Rascunho",
-    dataCriacao: hoje, dataValidade: validade, statusViagem: "Não Iniciada", itens: [],
+    dataCriacao: hoje, dataValidade: validade, statusViagem: STATUS_VIAGEM_NAO_INICIADA, itens: [],
   };
 };
 
@@ -621,7 +590,7 @@ export default function Roteiros() {
   const navigate = useNavigate();
   const location = useLocation();
   const [lista, setLista] = useState<Orcamento[]>([]);
-  const [lancamentosFinanceiros, setLancamentosFinanceiros] = useState<LancamentoFinanceiro[]>([]);
+  const [, setLancamentosFinanceiros] = useState<LancamentoFinanceiro[]>([]);
   const [tela, setTela] = useState<Tela>("lista");
   const [editando, setEditando] = useState<Orcamento | null>(null);
   const [form, setForm] = useState<OrcamentoPayload>(orcVazio());
@@ -642,35 +611,34 @@ export default function Roteiros() {
   const [funcionariosAtivos, setFuncionariosAtivos] = useState<Funcionario[]>([]);
   const [clientesAtivos, setClientesAtivos] = useState<Cliente[]>([]);
   const [fornecedoresAtivos, setFornecedoresAtivos] = useState<Fornecedor[]>([]);
-  const [produtosAtivos, setProdutosAtivos] = useState<Produto[]>([]);
   const [usuarioLogado, setUsuarioLogado] = useState<Funcionario | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [quitadoLancamento, setQuitadoLancamento] = useState(true);
-  const [formaPagamentoLancamento, setFormaPagamentoLancamento] = useState("");
-  const [parcelasLancamento, setParcelasLancamento] = useState("1");
-  const [dataLancamento, setDataLancamento] = useState(new Date().toISOString().slice(0, 10));
-  const [percentualComissaoLancamento, setPercentualComissaoLancamento] = useState("");
-  const [valorComissaoLancamento, setValorComissaoLancamento] = useState("");
+  const [, setQuitadoLancamento] = useState(true);
+  const [, setFormaPagamentoLancamento] = useState("");
+  const [, setParcelasLancamento] = useState("1");
+  const [, setDataLancamento] = useState(new Date().toISOString().slice(0, 10));
+  const [, setPercentualComissaoLancamento] = useState("");
+  const [, setValorComissaoLancamento] = useState("");
   const [popupAprovadoAberto, setPopupAprovadoAberto] = useState(false);
   const [modalSalvarAberto, setModalSalvarAberto] = useState(false);
 
   // Estados do modal de lançamento financeiro da tela de lista
   const [modalListaLancamentoAberto, setModalListaLancamentoAberto] = useState(false);
-  const [orcamentoListaModal, setOrcamentoListaModal] = useState<Orcamento | null>(null);
-  const [editandoIdLancamentoLista, setEditandoIdLancamentoLista] = useState<number | null>(null);
+  const [orcamentoListaModal] = useState<Orcamento | null>(null);
+  const [editandoIdLancamentoLista] = useState<number | null>(null);
   const [tipoLancamentoLista, setTipoLancamentoLista] = useState<"receita" | "despesa">("receita");
   const [descricaoLancamentoLista, setDescricaoLancamentoLista] = useState("");
   const [valorLancamentoLista, setValorLancamentoLista] = useState("");
   const [dataLancamentoLista, setDataLancamentoLista] = useState("");
   const [percentualComissaoLista, setPercentualComissaoLista] = useState("");
   const [valorComissaoLista, setValorComissaoLista] = useState("");
-  const [origemComissaoLista, setOrigemComissaoLista] = useState<OrigemComissao>(null);
+  const [, setOrigemComissaoLista] = useState<OrigemComissao>(null);
   const [orcamentoPagoLista, setOrcamentoPagoLista] = useState(false);
   const [formaPagamentoLista, setFormaPagamentoLista] = useState("");
   const [parcelasLista, setParcelasLista] = useState("1");
-  const [editandoOcultoLista, setEditandoOcultoLista] = useState(false);
+  const [editandoOcultoLista] = useState(false);
   const [salvandoLancamentoLista, setSalvandoLancamentoLista] = useState(false);
   const [erroLancamentoLista, setErroLancamentoLista] = useState<string | null>(null);
   const [dadosClienteMinimizados, setDadosClienteMinimizados] = useState(false);
@@ -680,11 +648,11 @@ export default function Roteiros() {
   const [promptPerfilViagemIA, setPromptPerfilViagemIA] = useState("");
   const [passageiroSelecionado, setPassageiroSelecionado] = useState("");
   const [secoesOrcamentoMinimizadas, setSecoesOrcamentoMinimizadas] = useState(false);
-  const [vendasMinimizadas, setVendasMinimizadas] = useState(true);
+  const [, setVendasMinimizadas] = useState(true);
 
-  const [resumoMinimizado, setResumoMinimizado] = useState(true);
+  const [, setResumoMinimizado] = useState(true);
   const [cardsResumoMinimizados, setCardsResumoMinimizados] = useState(false);
-  const [orcamentoResumoMinimizado, setOrcamentoResumoMinimizado] = useState(true);
+  const [, setOrcamentoResumoMinimizado] = useState(true);
   const [roteiroMinimizado, setRoteiroMinimizado] = useState(true);
   const [houveAlteracoes, setHouveAlteracoes] = useState(false);
 
@@ -699,54 +667,17 @@ export default function Roteiros() {
     }
   }, []);
   const formularioCarregadoRef = useRef(false);
-  const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automático" | "cloudflare" | "gemini" | "groq" | "openai" | "openrouter">("automático");
+  const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automatico" | "cloudflare" | "gemini" | "groq" | "openai" | "openrouter">("automatico");
   const [iaRoteiroExibida, setIaRoteiroExibida] = useState("Automático");
-  const [novaUrlOperadorItem, setNovaUrlOperadorItem] = useState("");
 
   const nomesProvedorIA: Record<typeof provedorRoteiroIA, string> = {
-    automático: "Automático",
+    automatico: "Automático",
     cloudflare: "Cloudflare",
     gemini: "Gemini",
     groq: "Groq",
     openai: "OpenAI",
     openrouter: "OpenRouter",
   };
-  
-  function adicionarUrlOperadorItem(itemId: number) {
-    const url = novaUrlOperadorItem.trim();
-    if (!url) return;
-
-    setForm((prev) => {
-      const itensAtualizados = prev.itens?.map(item => {
-        if (item.id === itemId) {
-          const urlsAtuais = item.urlOperador || [];
-          if (urlsAtuais.includes(url)) {
-            setErro("Esta URL já foi adicionada.");
-            return item;
-          }
-          return { ...item, urlOperador: [...urlsAtuais, url] };
-        }
-        return item;
-      }) || [];
-      return { ...prev, itens: itensAtualizados };
-    });
-    setNovaUrlOperadorItem("");
-    setErro("");
-  }
-
-  function removerUrlOperadorItem(itemId: number, urlIndex: number) {
-    setForm((prev) => {
-      const itensAtualizados = prev.itens?.map(item => {
-        if (item.id === itemId) {
-          const urlsAtuais = item.urlOperador || [];
-          const novasUrls = urlsAtuais.filter((_, i) => i !== urlIndex);
-          return { ...item, urlOperador: novasUrls };
-        }
-        return item;
-      }) || [];
-      return { ...prev, itens: itensAtualizados };
-    });
-  }
   
   function obterDestinoPrincipalOrcamento(orcBase?: Partial<Orcamento>, preferirEstadoFormulario = false) {
     const hospedagemFonte = hospedagem.length > 0 ? hospedagem : Array.isArray(orcBase?.hospedagem) ? orcBase.hospedagem : [];
@@ -774,21 +705,6 @@ export default function Roteiros() {
     if (destinoTransporte) return String(destinoTransporte).trim();
 
     return "";
-  }
-
-  function calcularTotalOrcamentoAtual() {
-    const totalVendas = form.itens.reduce((acc, item) => acc + calcItem(item), 0);
-    const totalPacotes = pacotes.reduce((acc, item) => {
-      const valorPacote = Number(item?.valor) || 0;
-      const valorHospedagem = Number(item?.hospedagemValor) || 0;
-      return acc + valorPacote + valorHospedagem;
-    }, 0);
-    const totalHospedagem = hospedagem.reduce((acc, item) => acc + (Number(item?.preco) || 0), 0);
-    const totalTransporte = transporte.reduce((acc, item) => acc + (Number(item?.valor) || 0), 0);
-    const totalRestaurante = restaurante.reduce((acc, item) => acc + (Number(item?.preco) || 0), 0);
-    const totalExperiencias = experiencias.reduce((acc, item) => acc + (Number(item?.preco) || 0), 0);
-
-    return totalVendas + totalPacotes + totalHospedagem + totalTransporte + totalRestaurante + totalExperiencias;
   }
 
   function abrirCadastroLancamentoFinanceiro() {
@@ -894,17 +810,6 @@ export default function Roteiros() {
     setValorLancamentoLista(aplicarMascaraMoeda(novoValor));
   }
 
-  async function onChangeStatusOrcamento(novoStatus: StatusOrc) {
-    const eraAprovado = form.status === "Aprovado";
-    setForm((prev) => ({ ...prev, status: novoStatus }));
-
-    if (novoStatus !== "Aprovado" || eraAprovado) {
-      return;
-    }
-
-    setPopupAprovadoAberto(true);
-  }
-
   function confirmarAprovadoQuitado() {
     setPopupAprovadoAberto(false);
 
@@ -941,19 +846,17 @@ export default function Roteiros() {
 
     async function carregarDadosCadastros() {
       try {
-        const [clientes, funcionarios, produtos, fornecedores] = await Promise.all([listarClientes(), listarFuncionarios(), listarProdutos(), listarFornecedores()]);
+        const [clientes, funcionarios, fornecedores] = await Promise.all([listarClientes(), listarFuncionarios(), listarFornecedores()]);
 
         if (mounted) {
           setClientesAtivos(clientes.filter((cliente) => cliente.status === "Ativo" && !!(cliente.nomeCompleto || cliente.nome)));
           setFuncionariosAtivos(funcionarios.filter((funcionario) => funcionario.status === "Ativo"));
-          setProdutosAtivos(produtos.filter((produto) => produto.status === "Ativo"));
           setFornecedoresAtivos(fornecedores.filter((fornecedor) => fornecedor.status === "Ativo"));
         }
       } catch {
         if (mounted) {
           setClientesAtivos([]);
           setFuncionariosAtivos([]);
-          setProdutosAtivos([]);
           setFornecedoresAtivos([]);
         }
       }
@@ -1401,77 +1304,6 @@ export default function Roteiros() {
     }
   }
 
-  // --- itens do form ---
-  function addItem() { setForm((f) => ({ ...f, itens: [...f.itens, itemVazio()] })); }
-  function removeItem(id: number) { setForm((f) => ({ ...f, itens: f.itens.filter((i) => i.id !== id) })); }
-  function updateItem(id: number, field: keyof ItemOrc, value: string | number) {
-    setForm((f) => ({ ...f, itens: f.itens.map((i) => i.id === id ? { ...i, [field]: value } : i) }));
-  }
-
-  function selecionarProdutoItem(id: number, nomeProduto: string) {
-    const nomeNormalizado = nomeProduto.trim().toLowerCase();
-    const produto = produtosAtivos.find((item) => item.nome.trim().toLowerCase() === nomeNormalizado);
-
-    setForm((f) => ({
-      ...f,
-      itens: f.itens.map((item) =>
-          item.id === id
-              ? {
-                ...item,
-                descricao: nomeProduto,
-                unidade: produto?.unidade || item.unidade,
-                valorUnitario: produto?.preco ?? item.valorUnitario,
-              }
-              : item
-      ),
-    }));
-  }
-
-  async function uploadDocumentosVenda(idItem: number, e: React.ChangeEvent<HTMLInputElement>) {
-    const arquivos = Array.from(e.target.files ?? []);
-    if (arquivos.length === 0) return;
-
-    const docs = await Promise.all(
-        arquivos.map(
-            (arquivo) =>
-                new Promise<DocumentoVenda>((resolve, reject) => {
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    resolve({
-                      id: Date.now() + Math.floor(Math.random() * 10000),
-                      nome: arquivo.name,
-                      tipo: arquivo.type,
-                      arquivo: String(reader.result || ""),
-                    });
-                  };
-                  reader.onerror = () => reject(new Error("Falha ao carregar documento."));
-                  reader.readAsDataURL(arquivo);
-                })
-        )
-    );
-
-    setForm((f) => ({
-      ...f,
-      itens: f.itens.map((item) =>
-          item.id === idItem
-              ? { ...item, documentos: [...(item.documentos || []), ...docs] }
-              : item
-      ),
-    }));
-    e.target.value = "";
-  }
-
-  function removerDocumentoVenda(idItem: number, idDocumento: number) {
-    setForm((f) => ({
-      ...f,
-      itens: f.itens.map((item) =>
-          item.id === idItem
-              ? { ...item, documentos: (item.documentos || []).filter((doc) => doc.id !== idDocumento) }
-              : item
-      ),
-    }));
-  }
-
   // --- Geração de Roteiro com IA (Simulação) ---
   async function gerarRoteiroComIA() {
     setGerandoRoteiro(true);
@@ -1693,7 +1525,7 @@ export default function Roteiros() {
         return data.reply;
       };
 
-      if (provedorRoteiroIA === "automático" as typeof provedorRoteiroIA) {
+      if (provedorRoteiroIA === "automatico") {
         const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
         for (const provedor of provedores) {
           try {
@@ -1710,13 +1542,12 @@ export default function Roteiros() {
         }
         if (!respostaFinal) {
           const erroDetalhado = errosProvedores.join("\n\n");
-          throw new Error(`Todos os provedores de IA falharam:\n\n${erroDetalhado}`);
+          setRoteiro(`Ocorreu um erro ao tentar gerar o roteiro com a IA.\n\nTodos os provedores de IA falharam:\n\n${erroDetalhado}`);
+          return;
         }
       } else {
-        if (provedorRoteiroIA !== "automático") {
-          respostaFinal = await tentarComProvedor(provedorRoteiroIA as Exclude<typeof provedorRoteiroIA, "automático">);
-          setIaRoteiroExibida(nomesProvedorIA[provedorRoteiroIA]);
-        }
+        respostaFinal = await tentarComProvedor(provedorRoteiroIA as Exclude<typeof provedorRoteiroIA, "automatico">);
+        setIaRoteiroExibida(nomesProvedorIA[provedorRoteiroIA]);
       }
 
       const roteiroGerado = removerSecaoEvidenciasDosLugares(respostaFinal);
@@ -1740,32 +1571,6 @@ export default function Roteiros() {
 
   // ============ TELA FORMULÁRIO ============
   if (tela === "form") {
-    const itensVendaComDescricao = form.itens.filter((item) => item.descricao.trim());
-    const totalPacotesResumo = pacotes.reduce((acc, item) => {
-      const valorPacote = Number(item?.valor) || 0;
-      const valorHospedagem = Number(item?.hospedagemValor) || 0;
-      return acc + valorPacote + valorHospedagem;
-    }, 0);
-    const totalHospedagemResumo = hospedagem.reduce((acc, item) => acc + (Number(item?.preco) || 0), 0);
-    const totalTransporteResumo = transporte.reduce((acc, item) => acc + (Number(item?.valor) || 0), 0);
-    const totalRestauranteResumo = restaurante.reduce((acc, item) => acc + (Number(item?.preco) || 0), 0);
-    const totalExperienciasResumo = experiencias.reduce((acc, item) => acc + (Number(item?.preco) || 0), 0);
-    const totalVendasResumo = itensVendaComDescricao.reduce((acc, item) => acc + calcItem(item), 0);
-    const totalResumo = totalVendasResumo
-        + totalPacotesResumo
-        + totalHospedagemResumo
-        + totalTransporteResumo
-        + totalRestauranteResumo
-        + totalExperienciasResumo;
-    const resumeSecoes = [
-      { nome: "Pacotes" as const, quantidade: pacotes.length, valor: moeda(totalPacotesResumo) },
-      { nome: "Voos" as const, quantidade: voos.length, valor: "—" },
-      { nome: "Hospedagem" as const, quantidade: hospedagem.length, valor: moeda(totalHospedagemResumo) },
-      { nome: "Day by Day" as const, quantidade: dayByDay.length, valor: "—" },
-      { nome: "Transporte" as const, quantidade: transporte.length, valor: moeda(totalTransporteResumo) },
-      { nome: "Restaurante" as const, quantidade: restaurante.length, valor: moeda(totalRestauranteResumo) },
-      { nome: "Experiências" as const, quantidade: experiencias.length, valor: moeda(totalExperienciasResumo) },
-    ].filter((secao) => secao.quantidade > 0) as { nome: SecaoOrcamento; quantidade: number; valor: string }[];
     return (
         <div className="px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
           <div className="flex items-center gap-3 mb-6 flex-wrap relative">
@@ -1918,9 +1723,9 @@ export default function Roteiros() {
                             className="mt-1 flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                         >
                           <option value="">Selecione...</option>
-                          <option value="Não Iniciada">Não Iniciada</option>
-                          <option value="Em Andamento">Em Andamento</option>
-                          <option value="Finalizada">Finalizada</option>
+                          <option value={STATUS_VIAGEM_NAO_INICIADA}>{STATUS_VIAGEM_NAO_INICIADA}</option>
+                          <option value={STATUS_VIAGEM_EM_ANDAMENTO}>{STATUS_VIAGEM_EM_ANDAMENTO}</option>
+                          <option value={STATUS_VIAGEM_FINALIZADA}>{STATUS_VIAGEM_FINALIZADA}</option>
                         </select>
                       </div>
                     </div>
@@ -2015,7 +1820,7 @@ export default function Roteiros() {
                                     className="px-3 py-1.5 text-sm border border-indigo-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
                                     disabled={gerandoRoteiro}
                                   >
-                                    <option value="automático">Automático</option>
+                                    <option value="automatico">Automático</option>
                                     <option value="cloudflare">Cloudflare</option>
                                     <option value="gemini">Gemini</option>
                                     <option value="groq">Groq</option>
@@ -2081,9 +1886,7 @@ export default function Roteiros() {
                   </Button>
                 </div>
 
-                {perfilViagemMinimizado ? (
-                    null
-                ) : (
+                {!perfilViagemMinimizado && (
                     <div className="space-y-5">
                       <div>
                         <Label htmlFor="prompt-perfil-viagem-ia">Prompt para ajudar a IA</Label>
@@ -2321,18 +2124,18 @@ export default function Roteiros() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
               <Card className="w-full p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md">
                 <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center"><Calendar className="w-4 h-4 text-slate-600" /></div>
-                <p className="text-xs text-gray-500 text-center">{lista.filter((o) => o.statusViagem === "Não Iniciada").length === 1 ? "Viagem Não Iniciada" : "Viagens Não Iniciadas"}</p>
-                <p className="text-base font-bold text-gray-900 text-center">{lista.filter((o) => o.statusViagem === "Não Iniciada").length}</p>
+                <p className="text-xs text-gray-500 text-center">{lista.filter((o) => o.statusViagem === STATUS_VIAGEM_NAO_INICIADA).length === 1 ? "Viagem Não Iniciada" : "Viagens Não Iniciadas"}</p>
+                <p className="text-base font-bold text-gray-900 text-center">{lista.filter((o) => o.statusViagem === STATUS_VIAGEM_NAO_INICIADA).length}</p>
               </Card>
               <Card className="w-full p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md">
                 <div className="w-9 h-9 rounded-lg bg-sky-100 flex items-center justify-center"><Calendar className="w-4 h-4 text-sky-600" /></div>
-                <p className="text-xs text-gray-500 text-center">{lista.filter((o) => o.statusViagem === "Em Andamento").length === 1 ? "Viagem Em Andamento" : "Viagens Em Andamento"}</p>
-                <p className="text-base font-bold text-gray-900 text-center">{lista.filter((o) => o.statusViagem === "Em Andamento").length}</p>
+                <p className="text-xs text-gray-500 text-center">{lista.filter((o) => o.statusViagem === STATUS_VIAGEM_EM_ANDAMENTO).length === 1 ? "Viagem Em Andamento" : "Viagens Em Andamento"}</p>
+                <p className="text-base font-bold text-gray-900 text-center">{lista.filter((o) => o.statusViagem === STATUS_VIAGEM_EM_ANDAMENTO).length}</p>
               </Card>
               <Card className="w-full p-3 sm:p-4 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all hover:shadow-md">
                 <div className="w-9 h-9 rounded-lg bg-teal-100 flex items-center justify-center"><Calendar className="w-4 h-4 text-teal-600" /></div>
-                <p className="text-xs text-gray-500 text-center">{lista.filter((o) => o.statusViagem === "Finalizada").length === 1 ? "Viagem Finalizada" : "Viagens Finalizadas"}</p>
-                <p className="text-base font-bold text-gray-900 text-center">{lista.filter((o) => o.statusViagem === "Finalizada").length}</p>
+                <p className="text-xs text-gray-500 text-center">{lista.filter((o) => o.statusViagem === STATUS_VIAGEM_FINALIZADA).length === 1 ? "Viagem Finalizada" : "Viagens Finalizadas"}</p>
+                <p className="text-base font-bold text-gray-900 text-center">{lista.filter((o) => o.statusViagem === STATUS_VIAGEM_FINALIZADA).length}</p>
               </Card>
             </div>
           )}
@@ -2366,13 +2169,9 @@ export default function Roteiros() {
               </Card>
           )}
           {filtrados.map((orc) => {
-            const total = calcTotalOrcamento(orc);
             const linhasDescricao = montarLinhasDescricao(orc);
             const totalDescricao = calcTotal(linhasDescricao);
-            const cfg = statusConfig[orc.status] || defaultStatusConfig;
             const expandido = expandidos.has(orc.id);
-            const vencido = orc.dataValidade && new Date(orc.dataValidade) < new Date() && orc.status !== "Aprovado" && orc.status !== "Cancelado" && orc.status !== "Rejeitado";
-            const temLancamento = lancamentosFinanceiros.some((l) => l.orcamentoId === orc.id);
             const destinoResumo = obterDestinoResumoOrcamento(orc);
             const periodoResumo = obterPeriodoResumoOrcamento(orc);
             return (
