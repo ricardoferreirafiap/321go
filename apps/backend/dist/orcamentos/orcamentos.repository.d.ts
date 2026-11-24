@@ -10,6 +10,8 @@ export declare class OrcamentosRepository {
     findAll(): Prisma.PrismaPromise<{
         cliente: string;
         id: bigint;
+        formaPagamento: string | null;
+        parcelas: number | null;
         criadoEm: Date;
         atualizadoEm: Date;
         email: string | null;
@@ -32,12 +34,16 @@ export declare class OrcamentosRepository {
         experiencias: Prisma.JsonValue;
         seguro: Prisma.JsonValue;
         publicToken: string | null;
+        perfilViagem: Prisma.JsonValue;
+        passageiros: Prisma.JsonValue;
         promptRoteiroIa: string | null;
         promptPerfilIa: string | null;
     }[]>;
     findOne(id: number): Prisma.Prisma__OrcamentoClient<{
         cliente: string;
         id: bigint;
+        formaPagamento: string | null;
+        parcelas: number | null;
         criadoEm: Date;
         atualizadoEm: Date;
         email: string | null;
@@ -60,12 +66,16 @@ export declare class OrcamentosRepository {
         experiencias: Prisma.JsonValue;
         seguro: Prisma.JsonValue;
         publicToken: string | null;
+        perfilViagem: Prisma.JsonValue;
+        passageiros: Prisma.JsonValue;
         promptRoteiroIa: string | null;
         promptPerfilIa: string | null;
     }, null, import("@prisma/client/runtime/client").DefaultArgs, Prisma.PrismaClientOptions>;
     findByNumero(numero: string): Prisma.Prisma__OrcamentoClient<{
         cliente: string;
         id: bigint;
+        formaPagamento: string | null;
+        parcelas: number | null;
         criadoEm: Date;
         atualizadoEm: Date;
         email: string | null;
@@ -88,12 +98,16 @@ export declare class OrcamentosRepository {
         experiencias: Prisma.JsonValue;
         seguro: Prisma.JsonValue;
         publicToken: string | null;
+        perfilViagem: Prisma.JsonValue;
+        passageiros: Prisma.JsonValue;
         promptRoteiroIa: string | null;
         promptPerfilIa: string | null;
     }, null, import("@prisma/client/runtime/client").DefaultArgs, Prisma.PrismaClientOptions>;
     findByPublicToken(publicToken: string): Prisma.Prisma__OrcamentoClient<{
         cliente: string;
         id: bigint;
+        formaPagamento: string | null;
+        parcelas: number | null;
         criadoEm: Date;
         atualizadoEm: Date;
         email: string | null;
@@ -116,12 +130,16 @@ export declare class OrcamentosRepository {
         experiencias: Prisma.JsonValue;
         seguro: Prisma.JsonValue;
         publicToken: string | null;
+        perfilViagem: Prisma.JsonValue;
+        passageiros: Prisma.JsonValue;
         promptRoteiroIa: string | null;
         promptPerfilIa: string | null;
     }, null, import("@prisma/client/runtime/client").DefaultArgs, Prisma.PrismaClientOptions>;
     create(dto: CreateOrcamentoDto): Prisma.Prisma__OrcamentoClient<{
         cliente: string;
         id: bigint;
+        formaPagamento: string | null;
+        parcelas: number | null;
         criadoEm: Date;
         atualizadoEm: Date;
         email: string | null;
@@ -144,12 +162,16 @@ export declare class OrcamentosRepository {
         experiencias: Prisma.JsonValue;
         seguro: Prisma.JsonValue;
         publicToken: string | null;
+        perfilViagem: Prisma.JsonValue;
+        passageiros: Prisma.JsonValue;
         promptRoteiroIa: string | null;
         promptPerfilIa: string | null;
     }, never, import("@prisma/client/runtime/client").DefaultArgs, Prisma.PrismaClientOptions>;
     update(id: number, dto: UpdateOrcamentoDto): Prisma.Prisma__OrcamentoClient<{
         cliente: string;
         id: bigint;
+        formaPagamento: string | null;
+        parcelas: number | null;
         criadoEm: Date;
         atualizadoEm: Date;
         email: string | null;
@@ -172,12 +194,16 @@ export declare class OrcamentosRepository {
         experiencias: Prisma.JsonValue;
         seguro: Prisma.JsonValue;
         publicToken: string | null;
+        perfilViagem: Prisma.JsonValue;
+        passageiros: Prisma.JsonValue;
         promptRoteiroIa: string | null;
         promptPerfilIa: string | null;
     }, never, import("@prisma/client/runtime/client").DefaultArgs, Prisma.PrismaClientOptions>;
     remove(id: number): Promise<{
         cliente: string;
         id: bigint;
+        formaPagamento: string | null;
+        parcelas: number | null;
         criadoEm: Date;
         atualizadoEm: Date;
         email: string | null;
@@ -200,6 +226,8 @@ export declare class OrcamentosRepository {
         experiencias: Prisma.JsonValue;
         seguro: Prisma.JsonValue;
         publicToken: string | null;
+        perfilViagem: Prisma.JsonValue;
+        passageiros: Prisma.JsonValue;
         promptRoteiroIa: string | null;
         promptPerfilIa: string | null;
     }>;

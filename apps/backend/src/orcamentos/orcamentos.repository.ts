@@ -68,6 +68,10 @@ export class OrcamentosRepository {
         experiencias: this.toJsonCreateValue(dto.experiencias),
         seguro: this.toJsonCreateValue(dto.seguro),
         promptPerfilIa: dto.promptPerfilViagemIA ?? null,
+        perfilViagem: this.toJsonCreateValue(dto.perfilViagem),
+        passageiros: this.toJsonCreateValue(dto.passageiros),
+        formaPagamento: dto.formaPagamento ?? null,
+        parcelas: dto.parcelas ?? null,
         publicToken: dto.publicToken ?? null,
       },
     });
@@ -99,6 +103,10 @@ export class OrcamentosRepository {
         experiencias: this.toJsonUpdateValue(dto.experiencias),
         seguro: this.toJsonUpdateValue(dto.seguro),
         promptPerfilIa: dto.promptPerfilViagemIA ?? undefined,
+        perfilViagem: this.toJsonUpdateValue(dto.perfilViagem),
+        passageiros: this.toJsonUpdateValue(dto.passageiros),
+        formaPagamento: dto.formaPagamento ?? undefined,
+        parcelas: dto.parcelas ?? undefined,
         publicToken: dto.publicToken ?? undefined,
       },
     });

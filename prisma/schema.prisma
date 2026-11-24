@@ -31,6 +31,10 @@ model Orcamento {
   experiencias    Json         @default("[]")
   seguro          Json         @default("[]")
   promptPerfilIa  String?      @map("prompt_perfil_ia")
+  perfilViagem    Json         @map("perfil_viagem") @default("[]")
+  passageiros     Json         @default("[]")
+  formaPagamento  String?      @map("forma_pagamento") @db.VarChar(30)
+  parcelas        Int?
   publicToken     String?      @unique @map("public_token") @db.VarChar(36)
   criadoEm        DateTime     @default(now()) @map("criado_em") @db.Timestamptz(6)
   atualizadoEm    DateTime     @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)

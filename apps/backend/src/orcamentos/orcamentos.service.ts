@@ -67,12 +67,12 @@ export class OrcamentosService {
       publicToken: item.publicToken ?? undefined,
       cliente: item.cliente ?? '',
       email: item.email ?? '',
-      perfilViagem: [],
+      perfilViagem: Array.isArray(item.perfilViagem) ? item.perfilViagem : [],
       promptPerfilViagemIA: item.promptPerfilIa ?? '',
       promptRoteiroIA: item.promptRoteiroIa ?? '',
-      passageiros: [],
-      formaPagamento: '',
-      parcelas: null,
+      passageiros: Array.isArray(item.passageiros) ? item.passageiros : [],
+      formaPagamento: item.formaPagamento ?? '',
+      parcelas: item.parcelas ?? null,
       destino: item.destino ?? '',
       agenteViagem: item.agenteViagem ?? '',
       status: item.status ?? 'Rascunho',
@@ -146,6 +146,7 @@ export class OrcamentosService {
       roteiro: dto.roteiro?.trim() || undefined,
       promptPerfilViagemIA: dto.promptPerfilViagemIA?.trim() || undefined,
       promptRoteiroIA: dto.promptRoteiroIA?.trim() || undefined,
+      formaPagamento: dto.formaPagamento?.trim() || undefined,
       // Production DB currently enforces public_token as NOT NULL.
       publicToken: dto.publicToken?.trim() || randomUUID(),
     };
@@ -180,6 +181,7 @@ export class OrcamentosService {
       roteiro: dto.roteiro?.trim() || undefined,
       promptPerfilViagemIA: dto.promptPerfilViagemIA?.trim() || undefined,
       promptRoteiroIA: dto.promptRoteiroIA?.trim() || undefined,
+      formaPagamento: dto.formaPagamento?.trim() || undefined,
       publicToken: dto.publicToken?.trim() || undefined,
     };
 
