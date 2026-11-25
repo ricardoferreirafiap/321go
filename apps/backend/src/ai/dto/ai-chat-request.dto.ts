@@ -10,7 +10,7 @@ export class AiChatRequestDto {
   messages: AiChatMessageDto[];
 
   @IsOptional()
-  @IsIn(['openai', 'groq', 'gemini', 'openrouter', 'cloudflare'])
-  provedor?: 'openai' | 'groq' | 'gemini' | 'openrouter' | 'cloudflare';
+  @IsIn(['openai', 'groq', 'gemini', 'openrouter', 'cloudflare', 'wonderful'])
+  provedor?: 'openai' | 'groq' | 'gemini' | 'openrouter' | 'cloudflare' | 'wonderful';
 }
 

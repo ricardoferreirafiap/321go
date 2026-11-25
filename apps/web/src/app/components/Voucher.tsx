@@ -39,6 +39,7 @@ import {
 import { enviarMensagemIA } from "../data/aiChatApi";
 import { criarEvento } from "../data/eventosApi";
 import { prepararRoteiroSemAnexos, salvarRoteiroNoCache } from "../data/roteiroCache";
+import { formatarRespostaRoteiroParaCampo } from "../data/roteiroFormatter";
 
 // ─── Utilitários de comissão (espelhados de Financeiro.tsx) ─────────────────
 
@@ -667,8 +668,8 @@ export default function Roteiros() {
     }
   }, []);
   const formularioCarregadoRef = useRef(false);
-  const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automatico" | "cloudflare" | "gemini" | "groq" | "openai" | "openrouter">("automatico");
-  const [iaRoteiroExibida, setIaRoteiroExibida] = useState("Automático");
+  const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automatico" | "cloudflare" | "gemini" | "groq" | "openai" | "openrouter" | "wonderful">("wonderful");
+  const [iaRoteiroExibida, setIaRoteiroExibida] = useState("Wonderful");
 
   const nomesProvedorIA: Record<typeof provedorRoteiroIA, string> = {
     automatico: "Automático",
@@ -677,6 +678,7 @@ export default function Roteiros() {
     groq: "Groq",
     openai: "OpenAI",
     openrouter: "OpenRouter",
+    wonderful: "Wonderful",
   };
   
   function obterDestinoPrincipalOrcamento(orcBase?: Partial<Orcamento>, preferirEstadoFormulario = false) {
@@ -1308,23 +1310,6 @@ export default function Roteiros() {
   async function gerarRoteiroComIA() {
     setGerandoRoteiro(true);
 
-    const removerSecaoEvidenciasDosLugares = (texto: string): string => {
-      const linhas = String(texto || "").split(/\r?\n/);
-      const indiceSecao = linhas.findIndex((linha) => {
-        const normalizada = String(linha || "")
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .toLowerCase();
-        return /(?:^|\s)(?:\d+[).]\s*)?evidencias\s+dos\s+lugares\b/.test(normalizada);
-      });
-
-      if (indiceSecao === -1) {
-        return texto;
-      }
-
-      return linhas.slice(0, indiceSecao).join("\n").replace(/\n{3,}/g, "\n\n").trimEnd();
-    };
-
     const destinoPrincipal = obterDestinoPrincipalOrcamento(undefined, true);
 
     // Coleta dados de voo, hospedagem e perfil da viagem para enriquecer o contexto da IA.
@@ -1342,6 +1327,14 @@ export default function Roteiros() {
     const destinosDosVoos = voos
         .map((voo) => String(voo?.destino || "").trim())
         .filter(Boolean);
+
+    const destinosDosPacotes = Array.from(
+      new Set(
+        pacotes
+          .map((pacote: any) => String(pacote?.destinoIda || pacote?.destino || "").trim())
+          .filter(Boolean),
+      ),
+    );
 
     const hospedagemResumo = pacotes
         .map((item, index) => {
@@ -1469,6 +1462,10 @@ export default function Roteiros() {
         ? destinosDosVoos.join(", ")
         : (destinoPrincipal || "Destino não informado");
 
+    const destinosPacotesTexto = destinosDosPacotes.length > 0
+      ? destinosDosPacotes.join(", ")
+      : "Nenhum destino de pacote informado";
+
     // Combina ambos os prompts: primeiro a personalização do roteiro, depois o perfil da viagem
     const diretrizesAdicionais = [promptRoteiroLimpo, promptPerfilViagemLimpo]
         .filter(Boolean)
@@ -1478,6 +1475,7 @@ export default function Roteiros() {
 
   Contexto obrigatório para usar na sugestão:
   - Destino principal: ${destinoPrincipal || "não informado"}
+  - Destino(s) priorizados dos pacotes (usar como referência principal quando houver): ${destinosPacotesTexto}
   - Destino(s) dos voos: ${destinosTexto}
   - Voos informados:
   ${voosResumo.length > 0 ? voosResumo.join("\n") : "Nenhum voo informado"}
@@ -1517,7 +1515,7 @@ export default function Roteiros() {
       let respostaFinal = "";
       const errosProvedores: string[] = [];
 
-      const tentarComProvedor = async (provedor: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
+      const tentarComProvedor = async (provedor: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful") => {
         const data = await enviarMensagemIA(
             [{ role: "user", content: prompt }],
             provedor
@@ -1526,7 +1524,7 @@ export default function Roteiros() {
       };
 
       if (provedorRoteiroIA === "automatico") {
-        const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
+        const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful")[] = ["wonderful", "groq", "gemini", "openrouter", "cloudflare", "openai"];
         for (const provedor of provedores) {
           try {
             respostaFinal = await tentarComProvedor(provedor);
@@ -1550,10 +1548,26 @@ export default function Roteiros() {
         setIaRoteiroExibida(nomesProvedorIA[provedorRoteiroIA]);
       }
 
-      const roteiroGerado = removerSecaoEvidenciasDosLugares(respostaFinal);
-      // Remover tags HTML do roteiro
-      const roteiroSemHTML = roteiroGerado.replace(/<[^>]*>/g, '');
-      setRoteiro(roteiroSemHTML);
+      const destinosPacotes = Array.from(
+        new Set(
+          pacotes
+            .map((pacote: any) => String(pacote?.destinoIda || pacote?.destino || '').trim())
+            .filter(Boolean),
+        ),
+      );
+
+      const destinosFallback = Array.from(
+        new Set([
+          String(destinoPrincipal || '').trim(),
+          ...destinosPacotes,
+        ].filter(Boolean)),
+      );
+
+      setRoteiro(
+        formatarRespostaRoteiroParaCampo(respostaFinal, {
+          destinosFallback,
+        }),
+      );
       
       // Salvar o prompt no banco de dados
       setPromptRoteiroIA(prompt);
@@ -1826,6 +1840,7 @@ export default function Roteiros() {
                                     <option value="groq">Groq</option>
                                     <option value="openai">OpenAI</option>
                                     <option value="openrouter">OpenRouter</option>
+                                    <option value="wonderful">Wonderful</option>
                                   </select>
                                   <Button
                                       type="button"

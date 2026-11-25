@@ -29,12 +29,19 @@ export class AiService {
   }
 
   private resolveProvider(provider?: AiProvider): AiProvider {
-    const value = provider || (process.env.AI_PROVIDER as AiProvider | undefined) || 'openai';
-    if (value === 'openai' || value === 'groq' || value === 'gemini' || value === 'openrouter' || value === 'cloudflare') {
+    const value = provider || (process.env.AI_PROVIDER as AiProvider | undefined) || 'wonderful';
+    if (
+      value === 'openai' ||
+      value === 'groq' ||
+      value === 'gemini' ||
+      value === 'openrouter' ||
+      value === 'cloudflare' ||
+      value === 'wonderful'
+    ) {
       return value;
     }
 
-    return 'openai';
+    return 'wonderful';
   }
 
   private normalizeMessages(input: Array<{ role: 'user' | 'assistant'; content: unknown }>) {

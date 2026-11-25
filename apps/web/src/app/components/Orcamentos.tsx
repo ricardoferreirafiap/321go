@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router";
 import {
-  Search, Plus, Edit2, X, Check, FileText, ChevronDown, ChevronUp, Upload,
-  User, Calendar, DollarSign, Send, Eye, Copy, MapPin, Link2, Star
+  Search, Plus, Edit2, X, Check, FileText, ChevronDown, ChevronUp,
+  User, Calendar, DollarSign, MapPin, Link2, Star
 } from "lucide-react";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
@@ -28,7 +28,6 @@ import {
   type Orcamento,
   type OrcamentoPayload,
   type StatusOrc,
-  type StatusViagem,
 } from "../data/orcamentosApi";
 import {
   criarLancamentoFinanceiro,
@@ -36,7 +35,6 @@ import {
   listarLancamentosFinanceiros,
   type LancamentoFinanceiro,
 } from "../data/financeiroApi";
-import { buscarOpcoesDestino } from "../data/placePhotoApi";
 import { criarEvento } from "../data/eventosApi";
 
 // ─── Utilitários de comissão (espelhados de Financeiro.tsx) ─────────────────
@@ -153,12 +151,6 @@ const statusConfig: Record<StatusOrc, { bg: string; cor: string }> = {
 };
 
 const defaultStatusConfig = { bg: "bg-gray-100", cor: "text-gray-600" };
-
-const statusViagemConfig: Record<StatusViagem, { bg: string; cor: string }> = {
-  "Não Iniciada": { bg: "bg-slate-100",  cor: "text-slate-600" },
-  "Em Andamento": { bg: "bg-sky-100",    cor: "text-sky-700" },
-  "Finalizada":   { bg: "bg-teal-100",   cor: "text-teal-700" },
-};
 
 const allStatus: StatusOrc[] = ["Rascunho", "Enviado", "Aprovado", "Rejeitado", "Cancelado"];
 const secoesOrcamento = ["Pacotes", "Transporte", "Restaurante", "Experiências", "Vendas"] as const;
@@ -354,10 +346,6 @@ const todasCategoriasMinimizadas: Record<string, boolean> = Object.fromEntries(
   categoriasPerfilViagem.map((c) => [c.titulo, true])
 );
 
-function chavePerfilViagem(tituloCategoria: string, opcao: string) {
-  return `${tituloCategoria}::${opcao}`;
-}
-
 function calcItem(item: ItemOrc) {
   return item.valorUnitario;
 }
@@ -421,16 +409,6 @@ function extrairNumero(valor: unknown, padrao = 0) {
   return Number.isFinite(n) ? n : padrao;
 }
 
-function parseMoeda(valorTexto: string): number {
-  const limpo = valorTexto
-      .replace(/\s/g, "")
-      .replace(/R\$/gi, "")
-      .replace(/\./g, "")
-      .replace(/,/g, ".");
-  const numero = parseFloat(limpo);
-  return Number.isFinite(numero) ? numero : 0;
-}
-
 function montarLinhasDescricao(orc: Orcamento): ItemOrc[] {
   let proximoId = 1;
   const criarLinha = (
@@ -477,7 +455,7 @@ function montarLinhasDescricao(orc: Orcamento): ItemOrc[] {
           || extrairNumeroPositivo(item?.noites, 0)
           || 1;
 
-      let valorUnitario = 0;
+      let valorUnitario: number;
       if (secao.titulo === "Pacotes") {
         const valorPacote = extrairNumero(item?.valor, 0);
         const valorHosp = extrairNumero(item?.hospedagemValor, 0);
@@ -561,7 +539,6 @@ export default function Orcamentos() {
   const [roteiro, setRoteiro] = useState<string>("");
   const [dayByDay, setDayByDay] = useState<any[]>([]);
   const [transporte, setTransporte] = useState<any[]>([]);
-  const [gerandoRoteiro, setGerandoRoteiro] = useState(false); // Estado de loading para a IA
   const [promptRoteiroIA, setPromptRoteiroIA] = useState("");
   const [restaurante, setRestaurante] = useState<any[]>([]);
   const [experiencias, setExperiencias] = useState<any[]>([]);
@@ -572,16 +549,6 @@ export default function Orcamentos() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [modalFinanceiroAberto, setModalFinanceiroAberto] = useState(false);
-  const [salvandoLancamento, setSalvandoLancamento] = useState(false);
-  const [erroLancamento, setErroLancamento] = useState<string | null>(null);
-  const [quitadoLancamento, setQuitadoLancamento] = useState(true);
-  const [formaPagamentoLancamento, setFormaPagamentoLancamento] = useState("");
-  const [parcelasLancamento, setParcelasLancamento] = useState("1");
-  const [dataLancamento, setDataLancamento] = useState(new Date().toISOString().slice(0, 10));
-  const [percentualComissaoLancamento, setPercentualComissaoLancamento] = useState("");
-  const [valorComissaoLancamento, setValorComissaoLancamento] = useState("");
-  const [origemComissaoLancamento, setOrigemComissaoLancamento] = useState<OrigemComissao>(null);
   const [popupAprovadoAberto, setPopupAprovadoAberto] = useState(false);
   const [modalSalvarAberto, setModalSalvarAberto] = useState(false);
 
@@ -599,7 +566,7 @@ export default function Orcamentos() {
   const [dataLancamentoLista, setDataLancamentoLista] = useState("");
   const [percentualComissaoLista, setPercentualComissaoLista] = useState("");
   const [valorComissaoLista, setValorComissaoLista] = useState("");
-  const [origemComissaoLista, setOrigemComissaoLista] = useState<OrigemComissao>(null);
+  const [, setOrigemComissaoLista] = useState<OrigemComissao>(null);
   const [orcamentoPagoLista, setOrcamentoPagoLista] = useState(false);
   const [formaPagamentoLista, setFormaPagamentoLista] = useState("");
   const [parcelasLista, setParcelasLista] = useState("1");
@@ -607,32 +574,21 @@ export default function Orcamentos() {
   const [salvandoLancamentoLista, setSalvandoLancamentoLista] = useState(false);
   const [erroLancamentoLista, setErroLancamentoLista] = useState<string | null>(null);
   const [dadosClienteMinimizados, setDadosClienteMinimizados] = useState(false);
-  const [perfilViagemMinimizado, setPerfilViagemMinimizado] = useState(true);
-  const [categoriasPerfilMinimizadas, setCategoriasPerfilMinimizadas] = useState<Record<string, boolean>>(() => ({ ...todasCategoriasMinimizadas }));
+  const [, setPerfilViagemMinimizado] = useState(true);
+  const [, setCategoriasPerfilMinimizadas] = useState<Record<string, boolean>>(() => ({ ...todasCategoriasMinimizadas }));
   const [perfilViagemSelecionado, setPerfilViagemSelecionado] = useState<string[]>([]);
   const [promptPerfilViagemIA, setPromptPerfilViagemIA] = useState("");
-  const [passageiroSelecionado, setPassageiroSelecionado] = useState("");
+  const [, setPassageiroSelecionado] = useState("");
   const [secoesOrcamentoMinimizadas, setSecoesOrcamentoMinimizadas] = useState(false);
   const [vendasMinimizadas, setVendasMinimizadas] = useState(false);
 
   const [resumoMinimizado, setResumoMinimizado] = useState(false);
   const [cardsResumoMinimizados, setCardsResumoMinimizados] = useState(false);
   const [orcamentoResumoMinimizado, setOrcamentoResumoMinimizado] = useState(true);
-  const [roteiroMinimizado, setRoteiroMinimizado] = useState(true);
+  const [, setRoteiroMinimizado] = useState(true);
   const [houveAlteracoes, setHouveAlteracoes] = useState(false);
   const formularioCarregadoRef = useRef(false);
-  const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automático" | "cloudflare" | "gemini" | "groq" | "openai" | "openrouter">("automático");
-  const [iaRoteiroExibida, setIaRoteiroExibida] = useState("Automático");
   const [novaUrlOperadorItem, setNovaUrlOperadorItem] = useState("");
-
-  const nomesProvedorIA: Record<typeof provedorRoteiroIA, string> = {
-    automático: "Automático",
-    cloudflare: "Cloudflare",
-    gemini: "Gemini",
-    groq: "Groq",
-    openai: "OpenAI",
-    openrouter: "OpenRouter",
-  };
   
   function adicionarUrlOperadorItem(itemId: number) {
     const url = novaUrlOperadorItem.trim();
@@ -696,33 +652,6 @@ export default function Orcamentos() {
     if (destinoTransporte) return String(destinoTransporte).trim();
 
     return "";
-  }
-
-  function calcularTotalOrcamentoAtual() {
-    const totalVendas = form.itens.reduce((acc, item) => acc + calcItem(item), 0);
-    const totalPacotes = pacotes.reduce((acc, item) => {
-      const valorPacote = Number(item?.valor) || 0;
-      const valorHospedagem = Number(item?.hospedagemValor) || 0;
-      return acc + valorPacote + valorHospedagem;
-    }, 0);
-    const totalHospedagem = hospedagem.reduce((acc, item) => acc + (Number(item?.preco) || 0), 0);
-    const totalTransporte = transporte.reduce((acc, item) => acc + (Number(item?.valor) || 0), 0);
-    const totalRestaurante = restaurante.reduce((acc, item) => acc + (Number(item?.preco) || 0), 0);
-    const totalExperiencias = experiencias.reduce((acc, item) => acc + (Number(item?.preco) || 0), 0);
-
-    return totalVendas + totalPacotes + totalHospedagem + totalTransporte + totalRestaurante + totalExperiencias;
-  }
-
-  function abrirCadastroLancamentoFinanceiro() {
-    setErroLancamento(null);
-    setQuitadoLancamento(true);
-    setFormaPagamentoLancamento("");
-    setParcelasLancamento("1");
-    setDataLancamento(form.dataCriacao || new Date().toISOString().slice(0, 10));
-    setPercentualComissaoLancamento("");
-    setValorComissaoLancamento("");
-    setOrigemComissaoLancamento(null);
-    setModalFinanceiroAberto(true);
   }
 
   function abrirLancamentoDaLista(orc: Orcamento) {
@@ -875,23 +804,6 @@ export default function Orcamentos() {
     setValorLancamentoLista(aplicarMascaraMoeda(novoValor));
   }
 
-  function onChangePercentualComissaoLancamento(novoPercentual: string) {
-    setOrigemComissaoLancamento("percentual");
-    setPercentualComissaoLancamento(novoPercentual);
-    const valorBase = formatarMoedaInput(calcularTotalOrcamentoAtual());
-    const sincronizado = sincronizarComissaoComValor(valorBase, "percentual", novoPercentual, valorComissaoLancamento);
-    setValorComissaoLancamento(sincronizado.valorComissao);
-  }
-
-  function onChangeValorComissaoLancamento(novoValorComissao: string) {
-    const valorFormatado = aplicarMascaraMoeda(novoValorComissao);
-    setOrigemComissaoLancamento("valor");
-    setValorComissaoLancamento(valorFormatado);
-    const valorBase = formatarMoedaInput(calcularTotalOrcamentoAtual());
-    const sincronizado = sincronizarComissaoComValor(valorBase, "valor", percentualComissaoLancamento, valorFormatado);
-    setPercentualComissaoLancamento(sincronizado.percentualComissao);
-  }
-
   async function onChangeStatusOrcamento(novoStatus: StatusOrc) {
     const eraAprovado = form.status === "Aprovado";
     setForm((prev) => ({ ...prev, status: novoStatus }));
@@ -911,64 +823,11 @@ export default function Orcamentos() {
       return;
     }
 
-    abrirCadastroLancamentoFinanceiro();
+    abrirLancamentoDaLista(editando);
   }
 
   function confirmarAprovadoSemQuitacao() {
     setPopupAprovadoAberto(false);
-  }
-
-  async function salvarLancamentoVinculado() {
-    if (!editando?.id) {
-      setErroLancamento("Orçamento inválido para vincular lançamento financeiro.");
-      return;
-    }
-
-    const valorTotal = calcularTotalOrcamentoAtual();
-    const parcelas = Number(parcelasLancamento);
-
-    if (!dataLancamento) {
-      setErroLancamento("Informe a data do lançamento.");
-      return;
-    }
-
-    if (quitadoLancamento && !formaPagamentoLancamento.trim()) {
-      setErroLancamento("Selecione a forma de pagamento.");
-      return;
-    }
-
-    if (quitadoLancamento && (!Number.isInteger(parcelas) || parcelas <= 0)) {
-      setErroLancamento("Informe a quantidade de parcelas válida.");
-      return;
-    }
-
-    setSalvandoLancamento(true);
-    setErroLancamento(null);
-
-    try {
-      const percentualComissaoNum = parseNumeroInput(percentualComissaoLancamento);
-      const valorComissaoNum = parseMoedaInput(valorComissaoLancamento);
-
-      await criarLancamentoFinanceiro({
-        tipo: "receita",
-        descricao: `Receita do orçamento #${form.numero} - ${form.cliente}`,
-        valor: Math.abs(valorTotal),
-        comissaoPercentual: percentualComissaoNum ?? null,
-        comissaoValor: valorComissaoNum ?? null,
-        data: dataLancamento,
-        oculto: false,
-        orcamentoPago: quitadoLancamento,
-        formaPagamento: quitadoLancamento ? formaPagamentoLancamento.trim() : "",
-        parcelas: quitadoLancamento ? parcelas : null,
-        orcamentoId: editando.id,
-      });
-
-      setModalFinanceiroAberto(false);
-    } catch (error) {
-      setErroLancamento(error instanceof Error ? error.message : "Erro ao salvar lançamento financeiro.");
-    } finally {
-      setSalvandoLancamento(false);
-    }
   }
 
   async function carregarOrcamentos() {
@@ -1173,42 +1032,6 @@ export default function Orcamentos() {
     setTela("form");
   }
 
-  function adicionarPassageiro(nomePassageiro: string) {
-    const nome = nomePassageiro.trim();
-    if (!nome) {
-      return;
-    }
-
-    setForm((prev) => {
-      const atuais = Array.isArray(prev.passageiros) ? prev.passageiros : [];
-      if (atuais.includes(nome)) {
-        return prev;
-      }
-
-      return { ...prev, passageiros: [...atuais, nome] };
-    });
-  }
-
-  function removerPassageiro(nomePassageiro: string) {
-    setForm((prev) => ({
-      ...prev,
-      passageiros: (prev.passageiros || []).filter((nome) => nome !== nomePassageiro),
-    }));
-  }
-
-  function toggleOpcaoPerfilViagem(chave: string) {
-    setPerfilViagemSelecionado((prev) => (
-        prev.includes(chave) ? prev.filter((item) => item !== chave) : [...prev, chave]
-    ));
-  }
-
-  function toggleCategoriaPerfilViagem(titulo: string) {
-    setCategoriasPerfilMinimizadas((prev) => ({
-      ...prev,
-      [titulo]: !prev[titulo],
-    }));
-  }
-
   function voltar() { setTela("lista"); setEditando(null); }
 
   async function criarEventosDeOrcamento(
@@ -1395,57 +1218,6 @@ export default function Orcamentos() {
     return obj;
   }
 
-  async function gerarRoteiro(orc: Orcamento | null = null) {
-    const orcParaAbrir = orc || (editando ? editando : null);
-    if (!orcParaAbrir) return;
-
-    const usandoEstadoFormulario = !orc && Boolean(editando);
-
-    // Montar dados do orçamento com seções atualizadas
-    const orcComSecoes = {
-      ...orcParaAbrir,
-      destino: obterDestinoPrincipalOrcamento(orcParaAbrir, usandoEstadoFormulario),
-      pacotes: usandoEstadoFormulario ? pacotes : orcParaAbrir.pacotes,
-      voos: usandoEstadoFormulario ? voos : orcParaAbrir.voos,
-      hospedagem: usandoEstadoFormulario ? hospedagem : orcParaAbrir.hospedagem,
-      roteiro: usandoEstadoFormulario ? roteiro : orcParaAbrir.roteiro,
-      promptRoteiroIA: usandoEstadoFormulario ? promptRoteiroIA : (orcParaAbrir.promptRoteiroIA || ""),
-      dayByDay: usandoEstadoFormulario ? dayByDay : orcParaAbrir.dayByDay,
-      transporte: usandoEstadoFormulario ? transporte : orcParaAbrir.transporte,
-      restaurante: usandoEstadoFormulario ? restaurante : orcParaAbrir.restaurante,
-      experiencias: usandoEstadoFormulario ? experiencias : orcParaAbrir.experiencias,
-      perfilViagem: usandoEstadoFormulario ? perfilViagemSelecionado : orcParaAbrir.perfilViagem,
-      promptPerfilViagemIA: usandoEstadoFormulario ? promptPerfilViagemIA : (orcParaAbrir.promptPerfilViagemIA || ""),
-    };
-
-    const roteiroPath = `/financeiro/orcamentos/roteiro/${orcComSecoes.numero}`;
-    const novaAba = window.open("", "_blank");
-    const orcPersistivel = prepararRoteiroSemAnexos(
-      sanitizarParaStorage(orcComSecoes) as Orcamento,
-    );
-
-    await salvarRoteiroNoCache(orcComSecoes as Orcamento);
-
-    // Store in localStorage to access from new tab
-    try {
-      const orcJson = JSON.stringify(orcPersistivel);
-      localStorage.setItem(`orc_${orcComSecoes.numero}`, orcJson);
-      // Se houver publicToken, grava também com ele para que o fallback funcione
-      if (orcComSecoes.publicToken) {
-        localStorage.setItem(`orc_${orcComSecoes.publicToken}`, orcJson);
-      }
-    } catch {
-      // QuotaExceededError: localStorage cheio — segue sem cache local,
-      // a página do roteiro vai carregar direto da API
-    }
-
-    if (novaAba) {
-      novaAba.location.href = roteiroPath;
-    } else {
-      navigate(roteiroPath);
-    }
-  }
-
   function abrirResumo(orc: Orcamento | null = null) {
     const orcParaAbrir = orc || (editando ? { id: editando.id, ...form } : null);
     if (!orcParaAbrir) return;
@@ -1519,30 +1291,30 @@ export default function Orcamentos() {
     if (arquivos.length === 0) return;
 
     const docs = await Promise.all(
-        arquivos.map(
-            (arquivo) =>
-                new Promise<DocumentoVenda>((resolve, reject) => {
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    resolve({
-                      id: Date.now() + Math.floor(Math.random() * 10000),
-                      nome: arquivo.name,
-                      tipo: arquivo.type,
-                      arquivo: String(reader.result || ""),
-                    });
-                  };
-                  reader.onerror = () => reject(new Error("Falha ao carregar documento."));
-                  reader.readAsDataURL(arquivo);
-                })
-        )
+      arquivos.map(
+        (arquivo) =>
+          new Promise<DocumentoVenda>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              resolve({
+                id: Date.now() + Math.floor(Math.random() * 10000),
+                nome: arquivo.name,
+                tipo: arquivo.type,
+                arquivo: String(reader.result || ""),
+              });
+            };
+            reader.onerror = () => reject(new Error("Falha ao carregar documento."));
+            reader.readAsDataURL(arquivo);
+          }),
+      ),
     );
 
     setForm((f) => ({
       ...f,
       itens: f.itens.map((item) =>
-          item.id === idItem
-              ? { ...item, documentos: [...(item.documentos || []), ...docs] }
-              : item
+        item.id === idItem
+          ? { ...item, documentos: [...(item.documentos || []), ...docs] }
+          : item,
       ),
     }));
     e.target.value = "";
@@ -1552,277 +1324,11 @@ export default function Orcamentos() {
     setForm((f) => ({
       ...f,
       itens: f.itens.map((item) =>
-          item.id === idItem
-              ? { ...item, documentos: (item.documentos || []).filter((doc) => doc.id !== idDocumento) }
-              : item
+        item.id === idItem
+          ? { ...item, documentos: (item.documentos || []).filter((doc) => doc.id !== idDocumento) }
+          : item,
       ),
     }));
-  }
-
-  // --- Geração de Roteiro com IA (Simulação) ---
-  async function gerarRoteiroComIA() {
-    setGerandoRoteiro(true);
-
-    const removerSecaoEvidenciasDosLugares = (texto: string): string => {
-      const linhas = String(texto || "").split(/\r?\n/);
-      const indiceSecao = linhas.findIndex((linha) => {
-        const normalizada = String(linha || "")
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .toLowerCase();
-        return /(?:^|\s)(?:\d+[).]\s*)?evidencias\s+dos\s+lugares\b/.test(normalizada);
-      });
-
-      if (indiceSecao === -1) {
-        return texto;
-      }
-
-      return linhas.slice(0, indiceSecao).join("\n").replace(/\n{3,}/g, "\n\n").trimEnd();
-    };
-
-    const destinoPrincipal = obterDestinoPrincipalOrcamento(undefined, true);
-
-    // Coleta dados de voo, hospedagem e perfil da viagem para enriquecer o contexto da IA.
-    const voosResumo = voos
-        .map((voo, index) => {
-          const origem = String(voo?.origem || "").trim();
-          const destino = String(voo?.destino || "").trim();
-          const data = String(voo?.data || "").trim();
-          if (!origem && !destino && !data) return "";
-
-          return `${index + 1}) ${origem || "Origem não informada"} -> ${destino || "Destino não informado"}${data ? ` em ${fmtData(data)}` : ""}`;
-        })
-        .filter(Boolean);
-
-    const destinosDosVoos = voos
-        .map((voo) => String(voo?.destino || "").trim())
-        .filter(Boolean);
-
-    const hospedagemResumo = hospedagem
-        .map((item, index) => {
-          const nome = String(item?.nome || item?.nomeHotel || "").trim();
-          const local = String(item?.local || item?.cidade || item?.destino || "").trim();
-          const checkin = String(item?.checkin || "").trim();
-          const checkout = String(item?.checkout || "").trim();
-
-          if (!nome && !local && !checkin && !checkout) return "";
-
-          const periodo = checkin || checkout
-              ? ` (${checkin ? fmtData(checkin) : "data não informada"} a ${checkout ? fmtData(checkout) : "data não informada"})`
-              : "";
-
-          return `${index + 1}) ${nome || "Hospedagem sem nome"}${local ? ` - ${local}` : ""}${periodo}`;
-        })
-        .filter(Boolean);
-
-    // Coleta os detalhes de Voo, Hospedagem, Traslado e Ingresso informados nas telas de Pacotes.
-    const pacotesVooResumo = pacotes
-        .map((pacote: any, index: number) => {
-          const partes: string[] = [];
-          if (pacote?.operador) partes.push(`Operador: ${pacote.operador}`);
-          if (pacote?.ciaAerea) partes.push(`Cia aérea: ${pacote.ciaAerea}`);
-          if (pacote?.reserva) partes.push(`Reserva: ${pacote.reserva}`);
-
-          const origemIda = String(pacote?.origemIda || pacote?.origem || "").trim();
-          const destinoIda = String(pacote?.destinoIda || pacote?.destino || "").trim();
-          if (origemIda || destinoIda || pacote?.dataIda) {
-            partes.push(
-                `Ida: ${origemIda || "origem não informada"} -> ${destinoIda || "destino não informado"}` +
-                `${pacote?.dataIda ? ` em ${fmtData(pacote.dataIda)}` : ""}${pacote?.duracaoIda ? ` (${pacote.duracaoIda})` : ""}`
-            );
-          }
-
-          const origemVolta = String(pacote?.origemVolta || "").trim();
-          const destinoVolta = String(pacote?.destinoVolta || "").trim();
-          if (origemVolta || destinoVolta || pacote?.dataVolta) {
-            partes.push(
-                `Volta: ${origemVolta || "origem não informada"} -> ${destinoVolta || "destino não informado"}` +
-                `${pacote?.dataVolta ? ` em ${fmtData(pacote.dataVolta)}` : ""}${pacote?.duracaoVolta ? ` (${pacote.duracaoVolta})` : ""}`
-            );
-          }
-
-          if (pacote?.passageiros) partes.push(`Passageiros: ${pacote.passageiros}`);
-          if (pacote?.politicaAlteracoesCancelamentos) partes.push(`Política de alterações/cancelamentos: ${pacote.politicaAlteracoesCancelamentos}`);
-
-          if (partes.length === 0) return "";
-          return `${index + 1}) ${partes.join(" | ")}`;
-        })
-        .filter(Boolean);
-
-    const pacotesHospedagemResumo = pacotes
-        .map((pacote: any, index: number) => {
-          const partes: string[] = [];
-          if (pacote?.hospedagemNome) partes.push(`Hotel: ${pacote.hospedagemNome}`);
-          if (pacote?.hospedagemEndereco) partes.push(`Endereço: ${pacote.hospedagemEndereco}`);
-          if (pacote?.hospedagemCheckin || pacote?.hospedagemCheckout) {
-            partes.push(`Check-in/Check-out: ${pacote?.hospedagemCheckin || "não informado"} a ${pacote?.hospedagemCheckout || "não informado"}`);
-          }
-          if (pacote?.hospedagemNoites) partes.push(`Noites: ${pacote.hospedagemNoites}`);
-          if (pacote?.hospedagemTipoQuarto) partes.push(`Tipo de quarto: ${pacote.hospedagemTipoQuarto}`);
-          if (pacote?.hospedagemRegime) partes.push(`Regime: ${pacote.hospedagemRegime}`);
-          if (pacote?.hospedagemComodidades) partes.push(`Comodidades: ${pacote.hospedagemComodidades}`);
-          if (pacote?.hospedagemPoliticasCondicoesInformacoesEspeciais) {
-            partes.push(`Políticas/informações especiais: ${pacote.hospedagemPoliticasCondicoesInformacoesEspeciais}`);
-          }
-
-          if (partes.length === 0) return "";
-          return `${index + 1}) ${partes.join(" | ")}`;
-        })
-        .filter(Boolean);
-
-    const pacotesTrasladoResumo = pacotes
-        .map((pacote: any, index: number) => {
-          const partes: string[] = [];
-          if (pacote?.trasladoTipo) partes.push(`Tipo: ${pacote.trasladoTipo}`);
-          if (pacote?.trasladoLocalPartida || pacote?.trasladoLocalChegada) {
-            partes.push(`Trajeto: ${pacote?.trasladoLocalPartida || "local de partida não informado"} -> ${pacote?.trasladoLocalChegada || "local de chegada não informado"}`);
-          }
-          if (pacote?.trasladoData || pacote?.trasladoHorario) {
-            partes.push(`Data/Horário: ${[pacote?.trasladoData ? fmtData(pacote.trasladoData) : "", pacote?.trasladoHorario].filter(Boolean).join(" ")}`);
-          }
-          if (pacote?.trasladoVeiculoEmpresa) partes.push(`Veículo/Empresa: ${pacote.trasladoVeiculoEmpresa}`);
-          if (pacote?.trasladoObservacoes) partes.push(`Observações: ${pacote.trasladoObservacoes}`);
-
-          if (partes.length === 0) return "";
-          return `${index + 1}) ${partes.join(" | ")}`;
-        })
-        .filter(Boolean);
-
-    const pacotesIngressoResumo = pacotes
-        .map((pacote: any, index: number) => {
-          const partes: string[] = [];
-          if (pacote?.ingressoNomeAtracao) partes.push(`Atração/Ingresso: ${pacote.ingressoNomeAtracao}`);
-          if (pacote?.ingressoData || pacote?.ingressoHorario) {
-            partes.push(`Data/Horário: ${[pacote?.ingressoData ? fmtData(pacote.ingressoData) : "", pacote?.ingressoHorario].filter(Boolean).join(" ")}`);
-          }
-          if (pacote?.ingressoQuantidade) partes.push(`Quantidade: ${pacote.ingressoQuantidade}`);
-          if (pacote?.ingressoObservacoes) partes.push(`Observações: ${pacote.ingressoObservacoes}`);
-
-          if (partes.length === 0) return "";
-          return `${index + 1}) ${partes.join(" | ")}`;
-        })
-        .filter(Boolean);
-
-    const perfilViagemResumo = perfilViagemSelecionado
-        .map((item) => {
-          const partes = String(item || "").split("::");
-          if (partes.length === 2) {
-            return `${partes[0]}: ${partes[1]}`;
-          }
-          return String(item || "").trim();
-        })
-        .filter(Boolean);
-
-    const passageirosResumo = (form.passageiros || [])
-        .map((nome) => String(nome || "").trim())
-        .filter(Boolean);
-
-    const promptPerfilViagemLimpo = promptPerfilViagemIA.trim();
-    const promptRoteiroLimpo = promptRoteiroIA.trim();
-
-    const destinosTexto = destinosDosVoos.length > 0
-        ? destinosDosVoos.join(", ")
-        : (destinoPrincipal || "Destino não informado");
-
-    // Combina ambos os prompts: primeiro a personalização do roteiro, depois o perfil da viagem
-    const diretrizesAdicionais = [promptRoteiroLimpo, promptPerfilViagemLimpo]
-        .filter(Boolean)
-        .join("\n- ");
-
-    const prompt = `Crie uma sugestão de roteiro de viagem para ${form.cliente || "cliente"}.
-
-  Contexto obrigatório para usar na sugestão:
-  - Destino principal: ${destinoPrincipal || "não informado"}
-  - Destino(s) dos voos: ${destinosTexto}
-  - Voos informados:
-  ${voosResumo.length > 0 ? voosResumo.join("\n") : "Nenhum voo informado"}
-  - Hospedagem informada:
-  ${hospedagemResumo.length > 0 ? hospedagemResumo.join("\n") : "Nenhuma hospedagem informada"}
-  - Detalhes do Voo (Pacotes):
-  ${pacotesVooResumo.length > 0 ? pacotesVooResumo.join("\n") : "Nenhum detalhe de voo informado nos pacotes"}
-  - Detalhes da Hospedagem (Pacotes):
-  ${pacotesHospedagemResumo.length > 0 ? pacotesHospedagemResumo.join("\n") : "Nenhum detalhe de hospedagem informado nos pacotes"}
-  - Detalhes do Traslado (Pacotes):
-  ${pacotesTrasladoResumo.length > 0 ? pacotesTrasladoResumo.join("\n") : "Nenhum detalhe de traslado informado nos pacotes"}
-  - Detalhes do Ingresso (Pacotes):
-  ${pacotesIngressoResumo.length > 0 ? pacotesIngressoResumo.join("\n") : "Nenhum detalhe de ingresso informado nos pacotes"}
-  - Passageiros:
-  ${passageirosResumo.length > 0 ? passageirosResumo.join(", ") : "Nenhum passageiro adicional informado"}
-  - Perfil da viagem selecionado:
-  ${perfilViagemResumo.length > 0 ? perfilViagemResumo.join("\n") : "Nenhum perfil selecionado"}
-  - Diretrizes adicionais para personalizar o roteiro:
-  ${diretrizesAdicionais || "Nenhuma diretriz adicional informada"}
-
-  Formato obrigatório da resposta:
-  1) Título elegante do roteiro.
-  2) Resumo inspirador em 1 parágrafo.
-  3) Bloco "Dia a dia sugerido" com subtítulos por dia (ex: "Dia 1 - ...") e atividades em bullets.
-  4) Bloco "Destaques imperdíveis" com 5 a 8 itens.
-  5) Bloco "Dicas práticas" (transporte, horários, segurança e clima).
-
-  INSTRUÇÕES CRÍTICAS:
-  - Escreva APENAS em português do Brasil. ZERO palavras em inglês.
-  - Traduza todos os termos para português: check-in → entrada no hotel, check-out → saída do hotel, tour → passeio, guide → guia, booking → reserva, ticket → ingresso, airport → aeroporto, flight → voo, restaurant → restaurante, museum → museu, beach → praia, park → parque, city → cidade, street → rua, taxi → táxi, bus → ônibus, subway → metrô, train → trem, breakfast → café da manhã, lunch → almoço, dinner → jantar, weather → clima, temperature → temperatura, sunny → ensolarado, rainy → chuvoso, cold → frio, hot → quente, morning → manhã, afternoon → tarde, evening → noite, today → hoje, tomorrow → amanhã, week → semana, month → mês, year → ano, hour → hora, minute → minuto, price → preço, expensive → caro, cheap → barato, free → gratuito, paid → pago, open → aberto, closed → fechado, available → disponível, famous → famoso, beautiful → bonito, amazing → incrível, wonderful → maravilhoso, excellent → excelente, great → ótimo, good → bom, bad → ruim, important → importante, necessary → necessário, optional → opcional, mandatory → obrigatório, include → incluir, exclude → excluir, visit → visitar, see → ver, enjoy → aproveitar, discover → descobrir, explore → explorar, learn → aprender, know → saber, understand → entender.
-  - Escreva com tom profissional, bonito e claro para apresentar ao cliente final brasileiro.
-  - Deixe os subtítulos de cada dia bem claros e organizados para fácil leitura.
-  - Nao utilize Markdown e nao use simbolos de formatacao como **, __, # ou listas com asterisco.
-  - A sugestão deve respeitar explicitamente os dados de voo, hospedagem, traslado, ingressos, passageiros e perfil da viagem fornecidos acima.`;
-
-    try {
-      let respostaFinal = "";
-      const errosProvedores: string[] = [];
-
-      const tentarComProvedor = async (provedor: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
-        const data = await enviarMensagemIA(
-            [{ role: "user", content: prompt }],
-            provedor
-        );
-        return data.reply;
-      };
-
-      if (provedorRoteiroIA === "automático" as typeof provedorRoteiroIA) {
-        const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
-        for (const provedor of provedores) {
-          try {
-            respostaFinal = await tentarComProvedor(provedor);
-            if (respostaFinal) {
-              setIaRoteiroExibida(nomesProvedorIA[provedor]);
-              break;
-            }
-          } catch (error) {
-            const erroMsg = error instanceof Error ? error.message : JSON.stringify(error);
-            errosProvedores.push(`${provedor.toUpperCase()}: ${erroMsg}`);
-            console.warn(`Falha no provedor ${provedor}, tentando próximo...`, error);
-          }
-        }
-        if (!respostaFinal) {
-          const erroDetalhado = errosProvedores.join("\n\n");
-          throw new Error(`Todos os provedores de IA falharam:\n\n${erroDetalhado}`);
-        }
-      } else {
-        if (provedorRoteiroIA !== "automático") {
-          respostaFinal = await tentarComProvedor(provedorRoteiroIA as Exclude<typeof provedorRoteiroIA, "automático">);
-          setIaRoteiroExibida(nomesProvedorIA[provedorRoteiroIA]);
-        }
-      }
-
-      const roteiroGerado = removerSecaoEvidenciasDosLugares(respostaFinal);
-      // Remover tags HTML do roteiro
-      const roteiroSemHTML = roteiroGerado.replace(/<[^>]*>/g, '');
-      setRoteiro(roteiroSemHTML);
-      
-      // Salvar o prompt no banco de dados
-      setPromptRoteiroIA(prompt);
-    } catch (error) {
-      console.error("Falha ao gerar roteiro com IA:", error);
-      // Exibe mensagem de erro detalhada com todos os provedores que falharam
-      const detalhesErro = error instanceof Error ? error.message : JSON.stringify(error);
-      setRoteiro(
-          `Ocorreu um erro ao tentar gerar o roteiro com a IA.\n\n${detalhesErro}`
-      );
-    } finally {
-      setGerandoRoteiro(false);
-    }
   }
 
   // ============ TELA FORMULÁRIO ============

@@ -35,11 +35,16 @@ let AiService = class AiService {
         }
     }
     resolveProvider(provider) {
-        const value = provider || process.env.AI_PROVIDER || 'openai';
-        if (value === 'openai' || value === 'groq' || value === 'gemini' || value === 'openrouter' || value === 'cloudflare') {
+        const value = provider || process.env.AI_PROVIDER || 'wonderful';
+        if (value === 'openai' ||
+            value === 'groq' ||
+            value === 'gemini' ||
+            value === 'openrouter' ||
+            value === 'cloudflare' ||
+            value === 'wonderful') {
             return value;
         }
-        return 'openai';
+        return 'wonderful';
     }
     normalizeMessages(input) {
         const normalized = input.map((message, index) => {

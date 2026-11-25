@@ -245,8 +245,8 @@ export default function ExperienciasForm({
   const [documentos, setDocumentos] = useState<DocExperiencia[]>([]);
   const [analisandoIA, setAnalisandoIA] = useState(false);
   const [provedorIA, setProvedorIA] = useState<
-    "automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare"
-  >("automático");
+    "automatico" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful"
+  >("automatico");
   const [logAnalise, setLogAnalise] = useState<string[]>([]);
   const [vouchersMinimizado, setVouchersMinimizado] = useState(true);
   const [relatoriosExpandidos, setRelatoriosExpandidos] = useState<Set<number>>(new Set<number>());
@@ -291,11 +291,11 @@ export default function ExperienciasForm({
     setLogAnalise([...logEntries]);
     const addLog = (msg: string) => { logEntries.push(msg); setLogAnalise([...logEntries]); };
 
-    const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] =
-      ["groq", "openai", "gemini", "openrouter", "cloudflare"];
+    const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful")[] =
+      ["groq", "openai", "gemini", "openrouter", "cloudflare", "wonderful"];
     const cap: Record<string, string> = {
       openai: "OpenAI", groq: "Groq", gemini: "Gemini",
-      openrouter: "OpenRouter", cloudflare: "Cloudflare",
+      openrouter: "OpenRouter", cloudflare: "Cloudflare", wonderful: "Wonderful",
     };
 
     const novasAnalises = await Promise.all(
@@ -354,17 +354,21 @@ Regras:
 - Não invente dados que não estão no documento.
 ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a análise no nome do arquivo." : ""}`;
 
-        const tentar = (p?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") =>
+        const tentar = (p?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful") =>
           enviarMensagemIA([{ role: "user", content: prompt }], p);
 
         try {
-          let data: any; let provedorUsado = "";
-          if (provedorIA === "automático") {
+          let data: any;
+          let provedorUsado: string | undefined;
+          if (provedorIA === "automatico") {
             for (const p of provedores) {
               try { addLog(`Analisando "${doc.nome}" com ${cap[p]}...`); data = await tentar(p); provedorUsado = cap[p]; if (data) break; }
               catch { addLog(`Falha no ${cap[p]}, tentando próximo...`); }
             }
-            if (!data) throw new Error("Todos os provedores falharam.");
+            if (!data) {
+              addLog(`Falha ao analisar "${doc.nome}".`);
+              return { ...doc, analise: "Falha na análise com IA. Tente novamente." };
+            }
           } else {
             provedorUsado = cap[provedorIA] || provedorIA;
             addLog(`Analisando "${doc.nome}" com ${provedorUsado}...`);
@@ -454,8 +458,8 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
 
   // ─── busca com IA fallback ────────────────────────────────────────────────
   const buscarExperienciaComIA = async (local: string): Promise<any[]> => {
-    const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] =
-      ["groq", "openai", "gemini", "openrouter", "cloudflare"];
+    const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful")[] =
+      ["groq", "openai", "gemini", "openrouter", "cloudflare", "wonderful"];
     const prompt = `Liste 5 experiências turísticas ou atrações em "${local}". Responda SOMENTE com array JSON, sem texto extra. Formato: {"nome":"","local":"","endereco":"","classificacao":0,"totalAvaliacoes":0,"descricao":"","priceLevel":"$$"}`;
     for (const p of provedores) {
       try {
@@ -796,17 +800,18 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
               <select value={provedorIA}
                 onChange={(e) => {
                   const v = e.target.value;
-                  if (["automático","openai","groq","gemini","openrouter","cloudflare"].includes(v))
+                  if (["automatico","openai","groq","gemini","openrouter","cloudflare","wonderful"].includes(v))
                     setProvedorIA(v as typeof provedorIA);
                 }}
                 disabled={analisandoIA}
                 className="h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring">
-                <option value="automático">Automático</option>
+                <option value="automatico">Automático</option>
                 <option value="groq">Groq</option>
                 <option value="openai">OpenAI</option>
                 <option value="gemini">Gemini</option>
                 <option value="openrouter">OpenRouter</option>
                 <option value="cloudflare">Cloudflare</option>
+                <option value="wonderful">Wonderful</option>
               </select>
 
               {hasRelatorio && (
@@ -872,7 +877,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
           </div>
           <div className="mt-3 pt-3 border-t border-blue-200">
             <Button variant="ghost" size="sm"
-              onClick={() => { setMostrarManual(true); setResultados([]); setManualMinimizado(false); }}
+              onClick={abrirFormManual}
               className="text-xs text-indigo-600 w-full">
               Não encontrou o ideal? <strong className="ml-1">Adicionar manualmente</strong>
             </Button>
@@ -885,7 +890,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
         <Card className="p-6 text-center">
           <Sparkles className="w-10 h-10 mx-auto mb-2 text-gray-300" />
           <p className="text-sm text-gray-500 mb-3">Nenhuma experiência encontrada para "{busca}".</p>
-          <Button onClick={() => { setMostrarManual(true); setManualMinimizado(false); }} className="gap-2">
+          <Button onClick={abrirFormManual} className="gap-2">
             <Plus className="w-4 h-4" /> Adicionar Manualmente
           </Button>
         </Card>

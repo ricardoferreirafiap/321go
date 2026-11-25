@@ -45,9 +45,38 @@ function mapAiError(code: string, fallback: string): string {
       return "O modelo configurado em OPENAI_MODEL nao existe ou nao esta disponivel para sua conta.";
     case "OPENAI_TIMEOUT":
       return "A resposta da OpenAI demorou demais. Tente novamente.";
+    case "WONDERFUL_KEY_MISSING":
+      return "A chave da Wonderful esta ausente no backend. Verifique WONDERFUL_API_KEY.";
+    case "WONDERFUL_CONFIG_MISSING":
+      return "Configuracao da Wonderful incompleta no backend. Verifique WEBHOOK_URL, WEBHOOK_SECRET, BASE_URL, API_KEY e WORKSPACE_ID.";
+    case "WONDERFUL_REQUEST_FAILED":
+      return sanitizeProviderFallbackMessage(fallback);
+    case "WONDERFUL_MISSING_INFORMATION":
+      return sanitizeProviderFallbackMessage(fallback);
+    case "WONDERFUL_TIMEOUT":
+      return "A Wonderful demorou para concluir o roteiro. Tente novamente em alguns instantes.";
+    case "AI_PROVIDER_UNAVAILABLE":
+      return "Nao foi possivel conectar ao provedor de IA. Tente novamente em instantes.";
     default:
-      return fallback;
+      return sanitizeProviderFallbackMessage(fallback);
   }
+}
+
+function sanitizeProviderFallbackMessage(message: string): string {
+  const text = String(message || "").trim();
+  if (!text) {
+    return "Falha ao processar a resposta do provedor de IA.";
+  }
+
+  // Evita exibir paginas HTML completas de erro no frontend.
+  if (/<!doctype html>/i.test(text) || /<html[\s>]/i.test(text)) {
+    if (/bucket cannot be viewed|not authorized to view this bucket/i.test(text)) {
+      return "A URL configurada para o provedor Wonderful nao e uma API de chat valida (retornou pagina de bucket/Cloudflare). Ajuste WONDERFUL_BASE_URL para o endpoint oficial da API.";
+    }
+    return "O provedor de IA retornou uma resposta invalida em HTML. Verifique a URL base e as credenciais do provedor.";
+  }
+
+  return text;
 }
 
 const API_BASE_URL = API_CONFIG.apiBase;
@@ -100,7 +129,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 export function enviarMensagemIA(
   messages: AIChatApiMessage[],
-  provedor?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare"
+  provedor?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful"
 ) {
   return request<AIChatResponse>("/ai/chat", {
     method: "POST",
