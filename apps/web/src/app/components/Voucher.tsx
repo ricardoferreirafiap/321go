@@ -578,6 +578,77 @@ function gerarNumero(lista: Orcamento[]) {
 
 type Tela = "lista" | "form";
 
+type DiaAtividadeRoteiro = {
+  id: number;
+  hora: string;
+  descricao: string;
+  tipo: string;
+};
+
+type DiaRoteiro = {
+  id: number;
+  data: string;
+  titulo: string;
+  atividades: DiaAtividadeRoteiro[];
+};
+
+function extrairDayByDayDoRoteiro(texto: string): DiaRoteiro[] {
+  const linhas = String(texto || "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((linha) => String(linha || "").trim());
+
+  const dias: DiaRoteiro[] = [];
+  let diaAtual: DiaRoteiro | null = null;
+  const baseId = Date.now();
+
+  for (const linhaOriginal of linhas) {
+    if (!linhaOriginal) continue;
+
+    const semBullet = linhaOriginal.replace(/^[-*•]\s*/, "").trim();
+    if (!semBullet) continue;
+
+    if (/^(destaques\s+imperd[ií]veis|dicas\s+pr[aá]ticas)$/i.test(semBullet)) {
+      break;
+    }
+
+    const semIndice = semBullet.replace(/^\d+\s*[).:-]\s*/, "").trim();
+    const matchDia = semIndice.match(/^(dia\s*0*\d+)(?:\s*[-:–—]\s*(.+))?$/i);
+    if (matchDia) {
+      const cabecalhoDia = matchDia[1].replace(/\s+/g, " ").replace(/^dia/i, "Dia");
+      const complemento = String(matchDia[2] || "").trim();
+      const titulo = complemento ? `${cabecalhoDia} - ${complemento}` : cabecalhoDia;
+
+      diaAtual = {
+        id: baseId + dias.length,
+        data: "",
+        titulo,
+        atividades: [],
+      };
+      dias.push(diaAtual);
+      continue;
+    }
+
+    if (!diaAtual) {
+      continue;
+    }
+
+    const descricao = semBullet.replace(/^\d+[).:-]\s*/, "").trim();
+    if (!descricao) {
+      continue;
+    }
+
+    diaAtual.atividades.push({
+      id: baseId + dias.length * 100 + diaAtual.atividades.length,
+      hora: "",
+      descricao,
+      tipo: "",
+    });
+  }
+
+  return dias;
+}
+
 const orcVazio = (): OrcamentoPayload => {
   const hoje = new Date().toISOString().split("T")[0];
   const validade = new Date(new Date().getTime() + 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
@@ -990,7 +1061,12 @@ export default function Roteiros() {
     setHospedagem(completo.hospedagem || []);
     setRoteiro(completo.roteiro || "");
     setPromptRoteiroIA(typeof completo.promptRoteiroIA === "string" ? completo.promptRoteiroIA : "");
-    setDayByDay(completo.dayByDay || []);
+    const dayByDayExistente = Array.isArray(completo.dayByDay) ? completo.dayByDay : [];
+    if (dayByDayExistente.length > 0) {
+      setDayByDay(dayByDayExistente);
+    } else {
+      setDayByDay(extrairDayByDayDoRoteiro(completo.roteiro || ""));
+    }
     setTransporte(completo.transporte || []);
     setRestaurante(completo.restaurante || []);
     setExperiencias(completo.experiencias || []);
@@ -1563,11 +1639,15 @@ export default function Roteiros() {
         ].filter(Boolean)),
       );
 
-      setRoteiro(
-        formatarRespostaRoteiroParaCampo(respostaFinal, {
-          destinosFallback,
-        }),
-      );
+      const roteiroFormatado = formatarRespostaRoteiroParaCampo(respostaFinal, {
+        destinosFallback,
+      });
+      setRoteiro(roteiroFormatado);
+
+      const dayByDayGerado = extrairDayByDayDoRoteiro(roteiroFormatado);
+      if (dayByDayGerado.length > 0) {
+        setDayByDay(dayByDayGerado);
+      }
       
       // Salvar o prompt no banco de dados
       setPromptRoteiroIA(prompt);
@@ -1813,12 +1893,9 @@ export default function Roteiros() {
                                     placeholder="Ex.: Roteiro contemplativo com visitas a templos antigos, ritmo lento e muitas atividades de meditação."
                                     className="mt-1 min-h-40 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                                 />
-                                <p className="mt-1 text-xs text-gray-500">
-                                  Instruções específicas para personalizar a sugestão de roteiro gerada pela IA.
-                                </p>
                               </div>
                               <div className="flex justify-between items-center mb-2 gap-3">
-                                <Label htmlFor="roteiro-texto">Descrição do Roteiro</Label>
+                                <Label htmlFor="roteiro-texto">Roteiro</Label>
                                 <div className="flex items-center gap-2 flex-wrap justify-end">
                                   <div className="flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1.5">
                                     <span className="text-[10px] font-semibold uppercase tracking-wide text-indigo-600">IA</span>
@@ -1879,6 +1956,7 @@ export default function Roteiros() {
               </Card>
 
               {/* Perfil da viagem */}
+              {section === 'Pacotes' && (
               <Card className="p-3 sm:p-6">
                 <div className="mb-4 flex items-center justify-between gap-3 cursor-pointer select-none" onClick={() => { setPerfilViagemMinimizado((prev) => { if (prev) { setCategoriasPerfilMinimizadas({ ...todasCategoriasMinimizadas }); } return !prev; }); }}>
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2"><MapPin className="w-4 h-4 text-indigo-500" /> Perfil da Viagem</h3>
@@ -2016,6 +2094,7 @@ export default function Roteiros() {
                     </div>
                 )}
               </Card>
+              )}
 
               {/* Roteiro */}
               <Card className="p-3 sm:p-6">

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -248,7 +248,7 @@ export default function ExperienciasForm({
     "automatico" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful"
   >("automatico");
   const [logAnalise, setLogAnalise] = useState<string[]>([]);
-  const [vouchersMinimizado, setVouchersMinimizado] = useState(true);
+  const [vouchersMinimizado, setVouchersMinimizado] = useState(false);
   const [relatoriosExpandidos, setRelatoriosExpandidos] = useState<Set<number>>(new Set<number>());
   const [experienciaParaExcluir, setExperienciaParaExcluir] = useState<number | null>(null);
   const [buscaMinimizado, setBuscaMinimizado] = useState(true);
@@ -256,6 +256,10 @@ export default function ExperienciasForm({
   const [manualMinimizado, setManualMinimizado] = useState(true);
   const docFileInputRef = useRef<HTMLInputElement>(null);
   const [preenchidoComIA, setPreenchidoComIA] = useState(false);
+
+  useEffect(() => {
+    setVouchersMinimizado(documentos.length > 0);
+  }, [documentos.length]);
 
   // ─── upload documentos ────────────────────────────────────────────────────
   async function handleDocUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -610,7 +614,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
   function editarExperiencia(exp: Experiencia) {
     setEditandoId(exp.id);
     setBuscaMinimizado(true);
-    setVouchersMinimizado(false);
+    setVouchersMinimizado(documentos.length > 0);
     setMostrarManual(true);
     setManualMinimizado(false);
     setSelecionado(null);
@@ -677,9 +681,9 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
   const hasRelatorio = documentos.some((d) => d.analise && d.analise.trim());
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col space-y-4">
       {/* ── Busca ─────────────────────────────────────────────────────────── */}
-      <Card className="p-4">
+      <Card className="order-[-1] p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h4 className="font-semibold text-gray-900">
             <Sparkles className="w-4 h-4 inline-block mr-2 text-indigo-500" />
@@ -715,7 +719,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
       </Card>
 
       {/* ── Vouchers / IA ─────────────────────────────────────────────────── */}
-      <Card className="p-4">
+      <Card className="order-[-2] p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h4 className="flex items-center gap-2 font-semibold text-gray-900">
             <Package2 className="h-4 w-4 text-indigo-500" />
@@ -782,11 +786,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="flex items-center justify-center rounded-lg border border-dashed p-4 text-center text-xs text-gray-400 bg-white">
-                  Nenhum anexo adicionado.
-                </div>
-              )}
+              ) : null}
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -974,8 +974,8 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
                 <div onClick={() => fileInputRef.current?.click()}
                   className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
                   <Upload className="w-6 h-6 mx-auto mb-1 text-gray-400" />
-                  <p className="text-xs text-gray-500">Clique para fazer upload do voucher</p>
-                  <p className="text-xs text-gray-400 mt-0.5">PDF ou imagem</p>
+                  <p className="text-xs text-gray-500">Clique para anexar arquivos</p>
+                  <p className="text-xs text-gray-400 mt-0.5">PDF ou imagem (JPG, PNG)</p>
                 </div>
               )}
               <input ref={fileInputRef} type="file" onChange={handleFileUpload} className="hidden" />
@@ -1150,7 +1150,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
                   <div onClick={() => fileInputRef.current?.click()}
                     className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
                     <Upload className="w-6 h-6 mx-auto mb-1 text-gray-400" />
-                    <p className="text-xs text-gray-500">Clique para fazer upload do voucher</p>
+                    <p className="text-xs text-gray-500">Clique para anexar arquivos</p>
                     <p className="text-xs text-gray-400 mt-0.5">PDF ou imagem (JPG, PNG)</p>
                   </div>
                 )}

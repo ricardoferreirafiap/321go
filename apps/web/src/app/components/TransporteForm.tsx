@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -96,48 +96,17 @@ export default function TransporteForm({ transportes, onTransportesChange }: Tra
   const [formMinimizado, setFormMinimizado] = useState(true);
   const [vouchersMinimizado, setVouchersMinimizado] = useState(true);
   const [urlOperadorMinimizado, setUrlOperadorMinimizado] = useState(true);
-  const [logAnaliseMinimizado, setLogAnaliseMinimizado] = useState(true);
   const [relatorioMinimizado, setRelatorioMinimizado] = useState(true);
   const [analisandoIA, setAnalisandoIA] = useState(false);
-  const [logAnaliseIA, setLogAnaliseIA] = useState<string[]>([]);
+  const [, setLogAnaliseIA] = useState<string[]>([]);
   const [novaUrlOperador, setNovaUrlOperador] = useState("");
-  const [provedorIA, setProvedorIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
-  const [editandoId, setEditandoId] = useState<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [provedorIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
+  const [, setEditandoId] = useState<number | null>(null);
   const documentosInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const isPDF = file.type === "application/pdf";
-    const isImage = file.type.startsWith("image/");
-
-    if (!isPDF && !isImage) {
-      setErro("Apenas arquivos PDF ou imagem (JPG, PNG, etc.) são permitidos.");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      setForm({
-        ...form,
-        voucher: base64,
-        voucherTipo: isPDF ? "pdf" : "imagem",
-        voucherNome: file.name,
-      });
-      setErro("");
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const removerVoucher = () => {
-    setForm({ ...form, voucher: null, voucherTipo: null, voucherNome: "" });
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
+  useEffect(() => {
+    setVouchersMinimizado((form.documentos || []).length > 0);
+  }, [form.documentos?.length]);
 
   function adicionarUrlOperador() {
     const url = novaUrlOperador.trim();
@@ -475,14 +444,17 @@ Formato JSON esperado:
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Falha ao baixar página: ${response.status} ${response.statusText}`);
+          const mensagemErro = errorData.error || `Falha ao baixar página: ${response.status} ${response.statusText}`;
+          adicionarLog(`Falha ao baixar URL ${url}: ${mensagemErro}`);
+          continue;
         }
 
         const data = await response.json();
         const htmlContent = data.html;
         
         if (!htmlContent || typeof htmlContent !== 'string') {
-          throw new Error('Conteúdo HTML inválido ou vazio retornado pelo backend.');
+          adicionarLog(`Falha ao processar URL ${url}: Conteúdo HTML inválido ou vazio retornado pelo backend.`);
+          continue;
         }
         
         adicionarLog(`Conteúdo baixado com sucesso (${data.contentLength ?? htmlContent?.length ?? 0} caracteres de texto extraído, ${data.rawLength ?? '?'} bruto).`);
@@ -535,7 +507,7 @@ Formato JSON esperado:
               documentos: [...(f.documentos || []), erroDocumento] as Documento[],
             }));
             
-            setVouchersMinimizado(false);
+            setVouchersMinimizado(true);
           }
         } else {
           const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
@@ -565,7 +537,7 @@ Formato JSON esperado:
               documentos: [...(f.documentos || []), erroDocumento] as Documento[],
             }));
             
-            setVouchersMinimizado(false);
+            setVouchersMinimizado(true);
           }
         }
 
@@ -575,7 +547,7 @@ Formato JSON esperado:
 
           if (!respostaLimpa.startsWith('{') && !respostaLimpa.startsWith('[')) {
             adicionarLog(`Resposta não é JSON válido. Resposta: ${respostaLimpa.substring(0, 100)}...`);
-            throw new Error("A IA não retornou um JSON válido. Verifique os logs para mais detalhes.");
+            continue;
           }
 
           adicionarLog(`Parseando resposta JSON...`);
@@ -605,7 +577,7 @@ Formato JSON esperado:
             documentos: [...(f.documentos || []), novoDocumento] as Documento[],
           }));
 
-          setVouchersMinimizado(false);
+          setVouchersMinimizado(true);
         } else {
           adicionarLog(`Nenhum dado recebido da IA para a URL: ${url}`);
         }
@@ -613,7 +585,6 @@ Formato JSON esperado:
         const mensagemErro = error instanceof Error ? error.message : "Não foi possível analisar a URL.";
         adicionarLog(`Falha ao analisar URL ${url}: ${mensagemErro}`);
         console.error("Erro na análise da URL:", error);
-        continue;
       }
     }
 
@@ -699,7 +670,7 @@ Formato JSON esperado:
                 }
 
                 if (!data) {
-                  throw new Error("Todos os provedores de IA falharam.");
+                  return { ...doc, analise: "Falha na análise com IA: Todos os provedores de IA falharam." };
                 }
               } else {
                 const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
@@ -808,9 +779,6 @@ Formato JSON esperado:
       documentos: [],
       logAnalise: "",
     });
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
     if (documentosInputRef.current) {
       documentosInputRef.current.value = "";
     }
@@ -824,7 +792,7 @@ Formato JSON esperado:
   };
 
   const editarTransporte = (transp: Transporte) => {
-    setVouchersMinimizado(false);
+    setVouchersMinimizado((transp.documentos || []).length > 0);
     setFormMinimizado(true);
     setEditandoId(transp.id);
     const logTransporte = (transp.logAnalise || "")
@@ -874,18 +842,18 @@ Formato JSON esperado:
   return (
     <div className="space-y-4">
       {/* Seção de Vouchers */}
-      <Card className="p-3 bg-gray-50">
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <h5 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+      <Card className="p-4 bg-gray-50">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h4 className="flex items-center gap-2 font-semibold text-gray-900">
             <Package2 className="h-4 w-4 text-indigo-500" />
-            Vouchers
-          </h5>
+            Vouchers / Ingressos
+          </h4>
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={() => setVouchersMinimizado((prev) => !prev)}
-            className="gap-2 text-gray-600 hover:text-gray-900 h-6"
+            className="gap-2 text-gray-600 hover:text-gray-900"
           >
             {vouchersMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
           </Button>
@@ -897,11 +865,11 @@ Formato JSON esperado:
             <div className="space-y-3 mb-3">
               <div
                 onClick={() => documentosInputRef.current?.click()}
-                className="border-2 border-dashed border-gray-300 rounded-lg p-3 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors bg-white"
+                className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors bg-white"
               >
-                <Upload className="w-5 h-5 mx-auto mb-1 text-gray-400" />
-                <p className="text-xs text-gray-500">Clique para anexar documentos</p>
-                <p className="text-xs text-gray-400 mt-0.5">PDF, ZIP, JPG, etc.</p>
+                <Upload className="w-6 h-6 mx-auto mb-1 text-gray-400" />
+                <p className="text-xs text-gray-500">Clique para anexar arquivos</p>
+                <p className="text-xs text-gray-400 mt-0.5">PDF, ZIP, JPG, PNG, etc.</p>
               </div>
               <input
                 ref={documentosInputRef}
@@ -1028,7 +996,7 @@ Formato JSON esperado:
                 </div>
                 {!relatorioMinimizado && (
                   <div className="p-2 pt-0 max-h-60 overflow-y-auto">
-                    {(form.documentos || []).filter(doc => doc.analise).map((doc, index) => (
+                    {(form.documentos || []).filter(doc => doc.analise).map((doc) => (
                       <div key={doc.id} className="mb-3 last:mb-0">
                         <div className="font-medium text-green-900 mb-1">{doc.nome}</div>
                         <div className="whitespace-pre-wrap text-green-800">{doc.analise}</div>
@@ -1205,7 +1173,7 @@ Formato JSON esperado:
             Transportes Adicionados ({transportes.length})
           </h4>
           <div className="space-y-3">
-            {transportes.map((transp, idx) => (
+            {transportes.map((transp) => (
               <div
                 key={transp.id}
                 className="flex items-start justify-between p-3 bg-gray-50 rounded-lg"

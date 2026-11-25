@@ -192,7 +192,8 @@ Regras: campos não encontrados = "". dataInicio/dataFim = YYYY-MM-DD. valor/lim
               }
             }
             if (!data) {
-              throw new Error(`Todos os provedores falharam. Último erro: ${ultimoErro}`);
+              console.error(`Todos os provedores falharam. Último erro: ${ultimoErro}`);
+              return { ...doc, analise: "erro", expandido: true };
             }
             const limpo = data.reply.replace(/^```json\s*/i,"").replace(/^```\s*/i,"").replace(/```\s*$/i,"").trim();
             const j: CamposSeguro = JSON.parse(limpo);
@@ -237,14 +238,6 @@ Regras: campos não encontrados = "". dataInicio/dataFim = YYYY-MM-DD. valor/lim
     setEditandoSeguroId(seg.id);
     setFormEdicaoSeguro({ ...camposVazio, ...seg });
     setInfoEditMinimizado(false);
-  }
-
-  function salvarEdicaoSeguro() {
-    if (!formEdicaoSeguro.tipo || !formEdicaoSeguro.seguradora) return;
-    onSegurosChange(seguros.map((s) =>
-      s.id === editandoSeguroId ? { ...s, ...formEdicaoSeguro } : s
-    ));
-    setEditandoSeguroId(null);
   }
 
   // ── helpers UI ───────────────────────────────────────────────────────────
@@ -396,12 +389,12 @@ Regras: campos não encontrados = "". dataInicio/dataFim = YYYY-MM-DD. valor/lim
               className="mb-3 border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors bg-white">
               <Upload className="w-6 h-6 mx-auto mb-1 text-gray-400" />
               <p className="text-xs text-gray-500">Clique para anexar arquivos</p>
-              <p className="text-xs text-gray-400 mt-0.5">PDF, JPG, PNG, etc.</p>
+              <p className="text-xs text-gray-400 mt-0.5">PDF, ZIP, JPG, PNG, etc.</p>
             </div>
             <input ref={docFileInputRef} type="file" multiple onChange={handleDocUpload} className="hidden" />
 
             {documentos.length === 0 ? (
-              <div className="flex items-center justify-center rounded-lg border border-dashed p-4 text-xs text-gray-400 bg-white mb-3">
+              <div className="flex items-center justify-center rounded-lg border border-dashed p-4 text-center text-xs text-gray-400 bg-white mb-3">
                 Nenhum anexo adicionado.
               </div>
             ) : (

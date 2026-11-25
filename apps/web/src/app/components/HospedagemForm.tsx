@@ -15,8 +15,6 @@ import {
   Pencil,
   Building2,
   Star,
-  ChevronDown,
-  ChevronUp,
   Globe,
   Sparkles,
 } from "lucide-react";
@@ -990,7 +988,7 @@ export default function HospedagemForm({
                 >
                   <Upload className="w-6 h-6 mx-auto mb-1 text-gray-400" />
                   <p className="text-xs text-gray-500">
-                    Clique para fazer upload do voucher
+                    Clique para anexar arquivos
                   </p>
                   <p className="text-xs text-gray-400 mt-0.5">
                     PDF ou imagem (JPG, PNG)
@@ -1346,7 +1344,7 @@ export default function HospedagemForm({
                 >
                   <Upload className="w-6 h-6 mx-auto mb-1 text-gray-400" />
                   <p className="text-xs text-gray-500">
-                    Clique para fazer upload do voucher
+                    Clique para anexar arquivos
                   </p>
                   <p className="text-xs text-gray-400 mt-0.5">
                     PDF ou imagem (JPG, PNG)
@@ -1398,7 +1396,7 @@ export default function HospedagemForm({
             Hospedagens Adicionadas ({hospedagens.length})
           </h4>
           <div className="space-y-2">
-            {hospedagens.map((hosp, idx) => (
+            {hospedagens.map((hosp) => (
               <div
                 key={hosp.id}
                 className="flex items-start justify-between p-3 bg-gray-50 rounded-lg"

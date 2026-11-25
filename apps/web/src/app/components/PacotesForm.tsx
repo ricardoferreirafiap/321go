@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { ChevronDown, ChevronUp, Pencil, Plus, Trash2, Link2, Package2, Image, Upload, FileText, X, Sparkles, ExternalLink } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -1831,11 +1831,6 @@ function ehDocumentoVoo(nome: string): boolean {
   return normalizado.includes("voo") || normalizado.includes("flight") || normalizado.includes("passagem") || normalizado.includes("bilhete");
 }
 
-function ehDocumentoHotel(nome: string): boolean {
-  const normalizado = nome.toLowerCase();
-  return normalizado.includes("hotel") || normalizado.includes("hospedagem") || normalizado.includes("voucher") || normalizado.includes("reserva");
-}
-
 function mapearDetalhesVoo<T extends Pick<
     Pacote,
     | "operador"
@@ -2051,9 +2046,8 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
   const [hospedagemMinimizado, setHospedagemMinimizado] = useState(true);
   const [trasladoMinimizado, setTrasladoMinimizado] = useState(true);
   const [ingressoMinimizado, setIngressoMinimizado] = useState(true);
-  const [logAnaliseMinimizado] = useState(true);
   const [resumoMinimizado, setResumoMinimizado] = useState(true);
-  const [vouchersMinimizado, setVouchersMinimizado] = useState(false);
+  const [vouchersMinimizado, setVouchersMinimizado] = useState(pacotes.length > 0);
   const [comodidadesMinimizado, setComodidadesMinimizado] = useState(true);
   const [politicaCancelamentoMinimizado, setPoliticaCancelamentoMinimizado] = useState(true);
   const [seguroMinimizado, setSeguroMinimizado] = useState(true);
@@ -2079,6 +2073,10 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
   const [provedorIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
   const [novaUrlOperador, setNovaUrlOperador] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setVouchersMinimizado(pacotes.length > 0);
+  }, [pacotes.length]);
 
   function persistirEdicaoSilenciosa(pacotesAtualizados: Pacote[] | null) {
     if (!pacotesAtualizados) {
@@ -2352,7 +2350,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
     setValorInput("");
     setHospedagemValorInput("");
     setEditandoId(null);
-    setFormMinimizado(true);
+    setFormMinimizado(false);
     setTrechoIdaMinimizado(false);
     setTrechoVoltaMinimizado(false);
     setPoliticaCancelamentoMinimizado(true);
@@ -2551,7 +2549,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
     if (editandoId === pacote.id) {
       setEditandoId(null);
       setForm(pacoteVazio);
-      setVouchersMinimizado(false);
+      setVouchersMinimizado(true);
       setFormMinimizado(true);
       setTrechoIdaMinimizado(false);
       setTrechoVoltaMinimizado(false);
@@ -2567,7 +2565,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
     }
 
     setVouchersMinimizado(false);
-    setFormMinimizado(true);
+    setFormMinimizado(false);
     setTrechoIdaMinimizado(false);
     setTrechoVoltaMinimizado(false);
     setHospedagemMinimizado(true);
@@ -3447,7 +3445,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
         {/* Lista de Pacotes Adicionados */}
         <div className="space-y-3">
           {pacotes.map((pacote, index) => (
-              <Card key={pacote.id} className="p-4">
+              <Card key={pacote.id} className={`p-4 ${editandoId === pacote.id ? "border-blue-300 bg-blue-50/50" : ""}`}>
                 <div className="mb-2 flex items-start justify-between gap-2">
                   <div>
                     <p className="text-sm font-bold uppercase tracking-wider text-indigo-600">Voucher {index + 1}</p>
@@ -3524,7 +3522,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
                     <button
                         type="button"
                         onClick={() => editarPacote(pacote)}
-                        className="rounded p-1.5 text-blue-600 hover:bg-blue-50"
+                        className={`rounded p-1.5 transition-colors ${editandoId === pacote.id ? "bg-blue-100 text-blue-700" : "text-blue-600 hover:bg-blue-50"}`}
                         title="Editar pacote"
                     >
                       <Pencil className="h-4 w-4" />

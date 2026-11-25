@@ -18,8 +18,9 @@ import {
   Image,
   Upload,
   X,
-  Building2,
-  Lightbulb,
+  Package2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { buscarRestaurantesDestino } from "../data/destinationsApi";
 
@@ -108,6 +109,7 @@ export default function RestauranteForm({
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formManualRef = useRef<HTMLDivElement>(null);
+  const [vouchersMinimizado, setVouchersMinimizado] = useState(false);
 
   const buscarRestaurante = async () => {
     if (!busca.trim()) {
@@ -166,6 +168,7 @@ export default function RestauranteForm({
         tipo: isPDF ? "pdf" : "imagem",
         nome: file.name,
       });
+      setVouchersMinimizado(true);
       setErro("");
     };
     reader.readAsDataURL(file);
@@ -173,6 +176,7 @@ export default function RestauranteForm({
 
   const removerVoucher = () => {
     setVoucher(null);
+    setVouchersMinimizado(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -180,6 +184,7 @@ export default function RestauranteForm({
 
   const abrirDetalhes = (rest: any) => {
     setSelecionado(rest);
+    setVouchersMinimizado(false);
     setErro("");
   };
 
@@ -310,6 +315,7 @@ export default function RestauranteForm({
     setSelecionado(null);
     setErro("");
     setBuscou(false);
+    setVouchersMinimizado(false);
 
     setFormManual({
       nome: rest.nome,
@@ -329,6 +335,15 @@ export default function RestauranteForm({
       qtdPessoas: rest.qtdPessoas,
       preco: rest.preco,
     });
+    setVoucher(
+      rest.voucher
+        ? {
+            base64: rest.voucher,
+            tipo: rest.voucherTipo || "pdf",
+            nome: rest.voucherNome || "Voucher",
+          }
+        : null,
+    );
   };
 
   const abrirFormManual = () => {
@@ -337,12 +352,86 @@ export default function RestauranteForm({
     setSelecionado(null);
     setErro("");
     setBuscou(false);
+    setVouchersMinimizado(false);
     // Scroll para o formulário manual
     setTimeout(() => formManualRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
   }
 
   return (
     <div className="space-y-4">
+      {/* Vouchers / Ingressos */}
+      <Card className="p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h4 className="flex items-center gap-2 font-semibold text-gray-900">
+            <Package2 className="h-4 w-4 text-indigo-500" />
+            Vouchers / Ingressos
+          </h4>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setVouchersMinimizado((prev) => !prev)}
+            className="gap-2 text-gray-600 hover:text-gray-900"
+          >
+            {vouchersMinimizado ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          </Button>
+        </div>
+
+        {!vouchersMinimizado && (
+          <div className="space-y-3 mb-4">
+            {voucher ? (
+              <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                {voucher.tipo === "pdf" ? (
+                  <FileText className="w-8 h-8 text-red-500 flex-shrink-0" />
+                ) : (
+                  <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0">
+                    <img
+                      src={voucher.base64}
+                      alt="Voucher"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {voucher.nome}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {voucher.tipo === "pdf" ? "Documento PDF" : "Imagem"}
+                  </p>
+                </div>
+                <button
+                  onClick={removerVoucher}
+                  className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
+              >
+                <Upload className="w-6 h-6 mx-auto mb-1 text-gray-400" />
+                <p className="text-xs text-gray-500">
+                  Clique para anexar arquivos
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  PDF, ZIP, JPG, PNG, etc.
+                </p>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,image/*"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+          </div>
+        )}
+      </Card>
+
       {/* Busca */}
       <Card className="p-4">
         <h4 className="font-semibold text-gray-900 mb-4">
@@ -575,62 +664,6 @@ export default function RestauranteForm({
             </div>
           </div>
 
-          {/* Voucher */}
-          <div className="mb-3">
-            <Label className="text-xs">Voucher / Reserva (PDF ou Imagem)</Label>
-            <div className="mt-1">
-              {voucher ? (
-                <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  {voucher.tipo === "pdf" ? (
-                    <FileText className="w-8 h-8 text-red-500 flex-shrink-0" />
-                  ) : (
-                    <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0">
-                      <img
-                        src={voucher.base64}
-                        alt="Voucher"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {voucher.nome}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {voucher.tipo === "pdf" ? "Documento PDF" : "Imagem"}
-                    </p>
-                  </div>
-                  <button
-                    onClick={removerVoucher}
-                    className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
-                >
-                  <Upload className="w-6 h-6 mx-auto mb-1 text-gray-400" />
-                  <p className="text-xs text-gray-500">
-                    Clique para fazer upload do voucher
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    PDF ou imagem (JPG, PNG)
-                  </p>
-                </div>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,image/*"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </div>
-          </div>
-
           {erro && selecionado && (
             <p className="text-xs text-red-500 mb-3">{erro}</p>
           )}
@@ -836,62 +869,6 @@ export default function RestauranteForm({
             </div>
           </div>
 
-          {/* Voucher */}
-          <div className="mb-3">
-            <Label className="text-xs">Voucher / Reserva (PDF ou Imagem)</Label>
-            <div className="mt-1">
-              {voucher ? (
-                <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  {voucher.tipo === "pdf" ? (
-                    <FileText className="w-8 h-8 text-red-500 flex-shrink-0" />
-                  ) : (
-                    <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0">
-                      <img
-                        src={voucher.base64}
-                        alt="Voucher"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {voucher.nome}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {voucher.tipo === "pdf" ? "Documento PDF" : "Imagem"}
-                    </p>
-                  </div>
-                  <button
-                    onClick={removerVoucher}
-                    className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
-                >
-                  <Upload className="w-6 h-6 mx-auto mb-1 text-gray-400" />
-                  <p className="text-xs text-gray-500">
-                    Clique para fazer upload do voucher
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    PDF ou imagem (JPG, PNG)
-                  </p>
-                </div>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,image/*"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </div>
-          </div>
-
           {erro && mostrarManual && (
             <p className="text-xs text-red-500 mb-3">{erro}</p>
           )}
@@ -926,7 +903,7 @@ export default function RestauranteForm({
             Restaurantes Adicionados ({restaurantes.length})
           </h4>
           <div className="space-y-2">
-            {restaurantes.map((rest, idx) => (
+            {restaurantes.map((rest) => (
               <div
                 key={rest.id}
                 className="flex items-start justify-between p-3 bg-gray-50 rounded-lg"
