@@ -11,13 +11,15 @@ const common_1 = require("@nestjs/common");
 const ai_controller_1 = require("./ai.controller");
 const ai_repository_1 = require("./ai.repository");
 const ai_service_1 = require("./ai.service");
+const place_restaurants_controller_1 = require("./place-restaurants.controller");
+const place_restaurants_service_1 = require("./place-restaurants.service");
 let AiModule = class AiModule {
 };
 exports.AiModule = AiModule;
 exports.AiModule = AiModule = __decorate([
     (0, common_1.Module)({
-        controllers: [ai_controller_1.AiController],
-        providers: [ai_repository_1.AiRepository, ai_service_1.AiService],
+        controllers: [ai_controller_1.AiController, place_restaurants_controller_1.PlaceRestaurantsController],
+        providers: [ai_repository_1.AiRepository, ai_service_1.AiService, place_restaurants_service_1.PlaceRestaurantsService],
     })
 ], AiModule);
 //# sourceMappingURL=ai.module.js.map

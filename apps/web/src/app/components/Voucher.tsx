@@ -756,11 +756,18 @@ export default function Roteiros() {
     const hospedagemFonte = hospedagem.length > 0 ? hospedagem : Array.isArray(orcBase?.hospedagem) ? orcBase.hospedagem : [];
     const transporteFonte = transporte.length > 0 ? transporte : Array.isArray(orcBase?.transporte) ? orcBase.transporte : [];
     const voosFonte = voos.length > 0 ? voos : Array.isArray(orcBase?.voos) ? orcBase.voos : [];
+    const pacotesFonte = pacotes.length > 0 ? pacotes : Array.isArray(orcBase?.pacotes) ? orcBase.pacotes : [];
     const hospedagemFinal = preferirEstadoFormulario ? hospedagem : hospedagemFonte;
     const transporteFinal = preferirEstadoFormulario ? transporte : transporteFonte;
     const voosFinal = preferirEstadoFormulario ? voos : voosFonte;
+    const pacotesFinal = preferirEstadoFormulario ? pacotes : pacotesFonte;
 
-    const destinoVoo = voosFinal.find((item) => typeof item?.destino === "string" && item.destino.trim())?.destino || "";
+    const destinoVoo =
+      voosFinal.find((item) => typeof item?.destino === "string" && item.destino.trim())?.destino
+      || pacotesFinal.find((item) => typeof item?.destinoIda === "string" && item.destinoIda.trim())?.destinoIda
+      || pacotesFinal.find((item) => typeof item?.destino === "string" && item.destino.trim())?.destino
+      || pacotesFinal.find((item) => typeof item?.destinoVolta === "string" && item.destinoVolta.trim())?.destinoVolta
+      || "";
     if (destinoVoo) return String(destinoVoo).trim();
 
     const destinoExplcito = String(orcBase?.destino || form.destino || "").trim();
@@ -770,6 +777,9 @@ export default function Roteiros() {
         hospedagemFinal.find((item) => typeof item?.destino === "string" && item.destino.trim())?.destino
         || hospedagemFinal.find((item) => typeof item?.local === "string" && item.local.trim())?.local
         || hospedagemFinal.find((item) => typeof item?.cidade === "string" && item.cidade.trim())?.cidade
+        || pacotesFinal.find((item) => typeof item?.hospedagemDestino === "string" && item.hospedagemDestino.trim())?.hospedagemDestino
+        || pacotesFinal.find((item) => typeof item?.hospedagemLocal === "string" && item.hospedagemLocal.trim())?.hospedagemLocal
+        || pacotesFinal.find((item) => typeof item?.hospedagemNome === "string" && item.hospedagemNome.trim())?.hospedagemNome
         || "";
 
     if (destinoHospedagem) return String(destinoHospedagem).trim();
@@ -1944,7 +1954,11 @@ export default function Roteiros() {
                         )}
 
                         {section === 'Restaurante' && (
-                            <RestauranteForm restaurantes={restaurante} onRestaurantesChange={setRestaurante} />
+                            <RestauranteForm
+                              restaurantes={restaurante}
+                              onRestaurantesChange={setRestaurante}
+                              destinoInicialBusca={obterDestinoPrincipalOrcamento(undefined, true)}
+                            />
                         )}
 
                         {section === 'Experiências' && (

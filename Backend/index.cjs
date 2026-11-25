@@ -120,6 +120,8 @@ const AIService = {
         const provider = provedor || process.env.AI_PROVIDER || 'openai';
         
         switch (provider) {
+            case 'wonderful':
+                return WonderfulService.generate(messages);
             case 'openai':
                 return OpenAIService.generate(messages);
             case 'groq':
@@ -139,6 +141,220 @@ const AIService = {
         }
     }
 };
+
+const WonderfulService = {
+    async generate(messages) {
+        const webhookUrl = String(process.env.WONDERFUL_WEBHOOK_URL || '').trim();
+        const webhookSecret = String(process.env.WONDERFUL_WEBHOOK_SECRET || '').trim();
+        const baseUrl = String(process.env.WONDERFUL_BASE_URL || '').trim().replace(/\/+$/g, '');
+        const apiKey = String(process.env.WONDERFUL_API_KEY || '').trim();
+        const workspaceId = String(process.env.WONDERFUL_WORKSPACE_ID || '').trim();
+
+        if (!webhookUrl || !webhookSecret || !baseUrl || !apiKey || !workspaceId) {
+            throw new Error('Configuracao da Wonderful incompleta.');
+        }
+
+        const userMessages = Array.isArray(messages)
+            ? messages.filter((message) => message?.role === 'user').map((message) => String(message?.content || '').trim()).filter(Boolean)
+            : [];
+        const source = userMessages[userMessages.length - 1] || String(messages?.[messages?.length - 1]?.content || '').trim();
+
+        const restaurantContext = extractRestaurantSearchContext(source);
+
+        const payload = {
+            perfil: {
+                estilo: buildWonderfulStyle(restaurantContext),
+                orcamento: restaurantContext.orcamento,
+                viajantes: 'casal',
+            },
+            destino: restaurantContext.destino || 'nao informado',
+            dias: 1,
+            preferencias: {
+                tipoCozinha: restaurantContext.tipoCozinha || 'nao informado',
+                faixaPreco: restaurantContext.faixaPreco || 'nao informada',
+                referenciaRestaurante: restaurantContext.referenciaRestaurante || 'nao informada',
+                modoBusca: restaurantContext.modoBusca,
+                consultaOriginal: restaurantContext.consultaOriginal,
+            },
+        };
+
+        const createResponse = await axios.post(
+            webhookUrl,
+            { payload },
+            {
+                timeout: 20000,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Webhook-Secret': webhookSecret,
+                },
+            }
+        );
+
+        const taskId = String(createResponse?.data?.data?.id || '').trim();
+        if (!taskId) {
+            throw new Error('Wonderful nao retornou o id da tarefa.');
+        }
+
+        const taskUrl = `${baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}`;
+        const pollIntervalMs = Number(process.env.WONDERFUL_POLL_INTERVAL_MS || 2000);
+        const maxAttempts = Math.max(1, Number(process.env.WONDERFUL_MAX_ATTEMPTS || 15));
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            if (attempt > 0) {
+                await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+            }
+
+            const taskResponse = await axios.get(taskUrl, {
+                timeout: 20000,
+                headers: {
+                    'x-api-key': apiKey,
+                    'x-workspace-id': workspaceId,
+                },
+            });
+
+            const task = taskResponse?.data?.data?.task || {};
+            const status = String(task?.status || '').toLowerCase();
+
+            if (status === 'completed') {
+                const summary = task?.resolution_summary;
+                if (typeof summary === 'string' && summary.trim()) {
+                    return summary.trim();
+                }
+                if (summary && typeof summary === 'object') {
+                    const serialized = JSON.stringify(summary);
+                    if (serialized && serialized !== '{}') {
+                        return serialized;
+                    }
+                }
+                throw new Error('Tarefa concluida sem resolution_summary.');
+            }
+
+            if (status === 'missing_information') {
+                throw new Error('Wonderful solicitou mais informacoes para concluir a tarefa.');
+            }
+
+            if (status === 'failed' || status === 'cancelled' || status === 'error') {
+                throw new Error('A tarefa da Wonderful falhou.');
+            }
+        }
+
+        throw new Error('Tempo limite ao aguardar resposta da Wonderful.');
+    },
+};
+
+function extractRestaurantSearchContext(source) {
+    const text = String(source || '').trim();
+    const query = extractSearchQueryFromPrompt(text);
+    const normalized = normalizeTextForComparison(query);
+    const explicitCuisine = extractPromptFilterValue(text, 'COZINHA');
+    const explicitPriceRange = extractPromptFilterValue(text, 'FAIXA_PRECO');
+
+    const cuisineMatchers = [
+        { value: 'japonesa', patterns: [/\bjapone[sz]\b/, /\bsushi\b/, /\bizakaya\b/] },
+        { value: 'italiana', patterns: [/\bitalian[ao]\b/, /\bpasta\b/, /\btrattoria\b/, /\bcantina\b/] },
+        { value: 'francesa', patterns: [/\bfrances[ao]\b/, /\bbistro\b/, /\bbistro\b/] },
+        { value: 'churrascaria', patterns: [/\bchurrascaria\b/, /\bsteak\b/] },
+        { value: 'pizzaria', patterns: [/\bpizzaria\b/, /\bpizza\b/] },
+        { value: 'vegana', patterns: [/\bvegana?\b/, /\bplant based\b/] },
+        { value: 'vegetariana', patterns: [/\bvegetarian[ao]\b/] },
+        { value: 'brasileira', patterns: [/\bbrasileir[ao]\b/] },
+        { value: 'mexicana', patterns: [/\bmexican[ao]\b/, /\btaco\b/] },
+        { value: 'arabe', patterns: [/\barabe\b/, /\blibanes\b/] },
+    ];
+
+    let tipoCozinha = explicitCuisine;
+    for (const matcher of cuisineMatchers) {
+        if (!tipoCozinha && matcher.patterns.some((pattern) => pattern.test(normalized))) {
+            tipoCozinha = matcher.value;
+            break;
+        }
+    }
+
+    let orcamento = 'intermediario';
+    let faixaPreco = '$$';
+    if (explicitPriceRange === '$') {
+        orcamento = 'economico';
+        faixaPreco = '$';
+    } else if (explicitPriceRange === '$$$') {
+        orcamento = 'luxo';
+        faixaPreco = '$$$';
+    } else if (explicitPriceRange === '$$') {
+        orcamento = 'intermediario';
+        faixaPreco = '$$';
+    } else if (/\b(barato|economico|em conta|acessivel)\b/.test(normalized)) {
+        orcamento = 'economico';
+        faixaPreco = '$';
+    } else if (/\b(caro|luxo|premium|sofisticado|alto padrao|fine dining)\b/.test(normalized)) {
+        orcamento = 'luxo';
+        faixaPreco = '$$$';
+    }
+
+    const namedRestaurantMatch = query.match(/"([^"]+)"/) || query.match(/'([^']+)'/);
+    const directRestaurantMatch = query.match(/\b(?:restaurante|bistro|bistrô|cantina|churrascaria|pizzaria|bar)\s+([a-zA-ZÀ-ÿ0-9 .&'\-]{3,})/i);
+    const referenciaRestaurante = String(namedRestaurantMatch?.[1] || directRestaurantMatch?.[1] || '').trim();
+
+    const locationHintMatch = query.match(/\b(?:em|no|na)\s+([a-zA-ZÀ-ÿ0-9 .,'\-]{2,})$/i);
+    const destinoFromLocationHint = String(locationHintMatch?.[1] || '').trim();
+    const destino = (destinoFromLocationHint || query).replace(/["']/g, '').trim();
+
+    let modoBusca = 'local-cidade';
+    if (referenciaRestaurante) {
+        modoBusca = 'nome-restaurante';
+    } else if (/[,-]/.test(query) || /\b(cidade|bairro|regiao|zona|centro)\b/i.test(query)) {
+        modoBusca = 'local-cidade';
+    }
+
+    return {
+        consultaOriginal: query,
+        destino,
+        tipoCozinha,
+        orcamento,
+        faixaPreco,
+        referenciaRestaurante,
+        modoBusca,
+    };
+}
+
+function extractSearchQueryFromPrompt(source) {
+    const normalizedSource = String(source || '').trim();
+    if (!normalizedSource) {
+        return '';
+    }
+
+    const prefixed = normalizedSource.match(/BUSCA_RESTAURANTE\s*:\s*([^\n\r]+)/i);
+    if (prefixed?.[1]) {
+        return String(prefixed[1]).trim();
+    }
+
+    const quoted = normalizedSource.match(/pesquisa\s+"([^"]+)"/i) || normalizedSource.match(/em\s+"([^"]+)"/i);
+    if (quoted?.[1]) {
+        return String(quoted[1]).trim();
+    }
+
+    return normalizedSource;
+}
+
+function extractPromptFilterValue(source, key) {
+    const normalizedSource = String(source || '').trim();
+    if (!normalizedSource || !key) {
+        return '';
+    }
+
+    const escapedKey = String(key).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const matcher = new RegExp(`${escapedKey}\\s*:\\s*([^\\n\\r]+)`, 'i');
+    const match = normalizedSource.match(matcher);
+    return String(match?.[1] || '').trim();
+}
+
+function buildWonderfulStyle(context) {
+    const base = 'roteiro gastronomico';
+    const tags = [];
+    if (context?.modoBusca) tags.push(context.modoBusca);
+    if (context?.tipoCozinha) tags.push(context.tipoCozinha);
+    if (context?.referenciaRestaurante) tags.push(`referencia: ${context.referenciaRestaurante}`);
+
+    return tags.length > 0 ? `${base} (${tags.join(' | ')})` : base;
+}
 
 function normalizeDatabaseConnectionString(connectionString) {
     if (!connectionString) {
@@ -983,19 +1199,28 @@ function normalizeTextForComparison(value) {
 // GROQ AI fallback helpers — geram sugestões quando Google Places falha
 // ---------------------------------------------------------------------------
 
-async function generateAiFallbackOptions(place, tipo) {
+async function generateAiFallbackOptions(place, tipo, providers, context = {}) {
     const prompts = {
         lodging: `Liste 5 opções de hospedagem (hotéis, pousadas ou resorts) em "${place}". Responda SOMENTE com um array JSON válido, sem texto extra. Formato de cada item: {"nome": "string", "local": "string", "endereco": "string", "classificacao": number (1-5), "totalAvaliacoes": number, "tiposQuarto": ["string"], "amenidades": ["string"], "precoBase": number, "linkOperadora": ""}`,
-        restaurant: `Liste 5 opções de restaurantes em "${place}". Responda SOMENTE com um array JSON válido, sem texto extra. Formato de cada item: {"nome": "string", "local": "string", "endereco": "string", "classificacao": number (1-5), "totalAvaliacoes": number, "telefone": "", "website": "", "priceLevel": "$$"}`,
+        restaurant: `Liste 5 opções de restaurantes relacionados à pesquisa "${place}". A pesquisa pode ser por local, cidade ou nome do restaurante. Responda SOMENTE com um array JSON válido, sem texto extra. Formato de cada item: {"nome": "string", "local": "string", "endereco": "string", "classificacao": number (1-5), "totalAvaliacoes": number, "telefone": "", "website": "", "priceLevel": "$$"}`,
         experience: `Liste 5 experiências turísticas ou atrações em "${place}". Responda SOMENTE com um array JSON válido, sem texto extra. Formato de cada item: {"nome": "string", "local": "string", "endereco": "string", "classificacao": number (1-5), "totalAvaliacoes": number, "descricao": "string", "priceLevel": "$$"}`,
     };
 
-    const provedores = ['groq', 'openai', 'gemini', 'openrouter', 'cloudflare'];
+    const provedores = Array.isArray(providers) && providers.length > 0
+        ? providers
+        : ['groq', 'openai', 'gemini', 'openrouter', 'cloudflare'];
     let raw = null;
 
     for (const provedor of provedores) {
         try {
-            raw = await AIService.generate([{ role: 'user', content: prompts[tipo] }], provedor);
+            const promptContent = provedor === 'wonderful' && tipo === 'restaurant'
+                ? [
+                    `BUSCA_RESTAURANTE: ${place}`,
+                    context.tipoCozinha ? `COZINHA: ${context.tipoCozinha}` : '',
+                    context.faixaPreco ? `FAIXA_PRECO: ${context.faixaPreco}` : '',
+                ].filter(Boolean).join('\n')
+                : prompts[tipo];
+            raw = await AIService.generate([{ role: 'user', content: promptContent }], provedor);
             if (raw) break;
         } catch (_) {
             // tenta o próximo provedor
@@ -1004,13 +1229,189 @@ async function generateAiFallbackOptions(place, tipo) {
 
     if (!raw) return null;
 
+    const parsed = parseAiFallbackJson(raw);
+    if (!parsed) {
+        return null;
+    }
+
+    if (tipo === 'restaurant') {
+        return await normalizeRestaurantAiOptions(parsed, place, context?.apiKey);
+    }
+
+    return Array.isArray(parsed) ? parsed : null;
+}
+
+function parseAiFallbackJson(raw) {
+    const parseCandidate = (candidate) => {
+        try {
+            return JSON.parse(candidate);
+        } catch (_) {
+            return null;
+        }
+    };
+
+    const normalizeParsed = (value) => {
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (!trimmed) {
+                return null;
+            }
+            const nested = parseCandidate(trimmed);
+            return nested ?? value;
+        }
+        return value;
+    };
+
     try {
-        const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
-        const parsed = JSON.parse(cleaned);
-        return Array.isArray(parsed) ? parsed : null;
+        const cleaned = String(raw || '')
+            .replace(/^```json\s*/i, '')
+            .replace(/^```\s*/i, '')
+            .replace(/```\s*$/i, '')
+            .trim();
+        if (!cleaned) {
+            return null;
+        }
+
+        const direct = normalizeParsed(parseCandidate(cleaned));
+        if (direct) {
+            return direct;
+        }
+
+        const firstObject = cleaned.indexOf('{');
+        const lastObject = cleaned.lastIndexOf('}');
+        if (firstObject >= 0 && lastObject > firstObject) {
+            const parsedObject = normalizeParsed(parseCandidate(cleaned.slice(firstObject, lastObject + 1)));
+            if (parsedObject) {
+                return parsedObject;
+            }
+        }
+
+        const firstArray = cleaned.indexOf('[');
+        const lastArray = cleaned.lastIndexOf(']');
+        if (firstArray >= 0 && lastArray > firstArray) {
+            return normalizeParsed(parseCandidate(cleaned.slice(firstArray, lastArray + 1)));
+        }
+
+        return null;
     } catch (_) {
         return null;
     }
+}
+
+function buildGoogleMapsSearchUrl(name, reference) {
+    const query = [String(name || '').trim(), String(reference || '').trim()].filter(Boolean).join(' ').trim();
+    if (!query) {
+        return '';
+    }
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+function buildRestaurantOptionsFromStructuredResponse(parsed, place) {
+    if (!parsed || typeof parsed !== 'object') {
+        return [];
+    }
+
+    const restaurantsRaw = Array.isArray(parsed.restaurants) ? parsed.restaurants : [];
+    const attractionsRaw = Array.isArray(parsed.attractions) ? parsed.attractions : [];
+
+    const fromAttractions = restaurantsRaw.length === 0
+        ? attractionsRaw.filter((item) => {
+            const type = String(item?.type || '').toLowerCase();
+            const name = String(item?.name || item?.nome || '').trim();
+            return name && (type.includes('restaurante') || type.includes('restaurant'));
+        })
+        : [];
+
+    const source = restaurantsRaw.length > 0 ? restaurantsRaw : fromAttractions;
+
+    return source.map((item) => {
+        const name = String(item?.name || item?.nome || '').trim();
+        const neighborhood = String(item?.neighborhood || item?.bairro || item?.local || '').trim();
+        const address = String(item?.address || item?.endereco || '').trim();
+        const priceLevel = String(item?.price_range || item?.priceLevel || '$$').trim() || '$$';
+
+        return {
+            nome: name || String(place || '').trim(),
+            local: neighborhood || String(place || '').trim(),
+            endereco: address,
+            classificacao: Number(item?.rating || item?.classificacao || 0),
+            totalAvaliacoes: Number(item?.reviews || item?.totalAvaliacoes || 0),
+            telefone: String(item?.phone || item?.telefone || '').trim(),
+            website: String(item?.website || '').trim(),
+            priceLevel,
+            urlMaps:
+                String(item?.urlMaps || item?.googleMapsUrl || item?.maps_url || '').trim() ||
+                buildGoogleMapsSearchUrl(name, address || neighborhood || place),
+            real: item?.real === true || item?.is_real === true || item?.real_place === true,
+        };
+    });
+}
+
+async function normalizeRestaurantAiOptions(parsed, place, apiKey) {
+    const baseItems = Array.isArray(parsed)
+        ? parsed.map((item) => ({
+            nome: String(item?.nome || item?.name || place || '').trim(),
+            local: String(item?.local || item?.neighborhood || place || '').trim(),
+            endereco: String(item?.endereco || item?.address || '').trim(),
+            classificacao: Number(item?.classificacao || item?.rating || 0),
+            totalAvaliacoes: Number(item?.totalAvaliacoes || item?.reviews || 0),
+            telefone: String(item?.telefone || item?.phone || '').trim(),
+            website: String(item?.website || '').trim(),
+            priceLevel: String(item?.priceLevel || item?.price_range || '$$').trim() || '$$',
+            urlMaps:
+                String(item?.urlMaps || item?.googleMapsUrl || item?.maps_url || '').trim() ||
+                buildGoogleMapsSearchUrl(item?.nome || item?.name || place, item?.endereco || item?.address || item?.local || item?.neighborhood || place),
+            real: item?.real === true || item?.is_real === true || item?.real_place === true,
+        }))
+        : buildRestaurantOptionsFromStructuredResponse(parsed, place);
+
+    if (baseItems.length === 0) {
+        return null;
+    }
+
+    const normalized = [];
+    const canLookupGoogleMaps = !!apiKey;
+
+    for (const item of baseItems.slice(0, 10)) {
+        let endereco = String(item?.endereco || '').trim();
+        let local = String(item?.local || '').trim();
+        let telefone = String(item?.telefone || '').trim();
+        let website = String(item?.website || '').trim();
+        let urlMaps = String(item?.urlMaps || '').trim();
+        let classificacao = Number(item?.classificacao || 0);
+        let totalAvaliacoes = Number(item?.totalAvaliacoes || 0);
+
+        const shouldEnrichFromMaps = canLookupGoogleMaps && (item?.real === true || !endereco);
+        if (shouldEnrichFromMaps) {
+            const query = `${String(item?.nome || '').trim()} ${local || place}`.trim();
+            const places = await searchPlacesByType(query, apiKey, ['restaurant']);
+            const best = Array.isArray(places) && places.length > 0 ? places[0] : null;
+
+            if (best) {
+                endereco = String(best?.formattedAddress || endereco || '').trim();
+                local = String((best?.formattedAddress || local || place).split(',')[0] || local || place).trim();
+                telefone = String(best?.internationalPhoneNumber || telefone || '').trim();
+                website = String(best?.websiteUri || website || '').trim();
+                urlMaps = String(best?.googleMapsUri || urlMaps || '').trim();
+                classificacao = Number(best?.rating || classificacao || 0);
+                totalAvaliacoes = Number(best?.userRatingCount || totalAvaliacoes || 0);
+            }
+        }
+
+        normalized.push({
+            nome: String(item?.nome || place || '').trim() || String(place || '').trim(),
+            local: local || String(place || '').trim(),
+            endereco: endereco || `${local || String(place || '').trim()}, Brasil`,
+            classificacao,
+            totalAvaliacoes,
+            telefone,
+            website,
+            priceLevel: String(item?.priceLevel || '$$').trim() || '$$',
+            urlMaps: urlMaps || buildGoogleMapsSearchUrl(item?.nome || place, endereco || local || place),
+        });
+    }
+
+    return normalized;
 }
 
 // ---------------------------------------------------------------------------
@@ -1030,7 +1431,7 @@ async function searchPlacesByType(textQuery, apiKey, _includedTypes) {
                     'Content-Type': 'application/json',
                     'X-Goog-Api-Key': apiKey,
                     'X-Goog-FieldMask':
-                        'places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.priceLevel,places.internationalPhoneNumber,places.websiteUri,places.regularOpeningHours',
+                        'places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.priceLevel,places.internationalPhoneNumber,places.websiteUri,places.googleMapsUri,places.regularOpeningHours',
                 },
             }
         );
@@ -1086,12 +1487,71 @@ async function searchLodgingOptions(place) {
     throw new Error('Sem resultados para hospedagem.');
 }
 
-async function searchRestaurantOptions(place) {
+async function searchRestaurantOptions(place, filters = {}) {
     const apiKey = getGoogleMapsApiKey();
     const candidates = buildPlaceSearchCandidates(place);
+    const cuisine = String(filters?.tipoCozinha || '').trim();
+    const priceRange = String(filters?.faixaPreco || '').trim();
+
+    // Restaurante usa IA como fonte principal (Wonderful primeiro).
+    const aiWonderfulOptions = await generateAiFallbackOptions(place, 'restaurant', ['wonderful'], {
+        tipoCozinha: cuisine,
+        faixaPreco: priceRange,
+        apiKey,
+    });
+    if (aiWonderfulOptions && aiWonderfulOptions.length > 0) {
+        return aiWonderfulOptions.map((item, idx) => ({
+            placeId: idx + 1,
+            nome: String(item?.nome || place),
+            local: String(item?.local || place),
+            endereco: String(item?.endereco || place),
+            classificacao: Number(item?.classificacao || 4.0),
+            totalAvaliacoes: Number(item?.totalAvaliacoes || 0),
+            telefone: String(item?.telefone || ''),
+            website: String(item?.website || ''),
+            priceLevel: String(item?.priceLevel || '$$'),
+            urlMaps:
+                String(item?.urlMaps || '').trim() ||
+                buildGoogleMapsSearchUrl(item?.nome || place, item?.endereco || item?.local || place),
+        }));
+    }
+
+    const aiSecondaryOptions = await generateAiFallbackOptions(place, 'restaurant', [
+        'groq',
+        'openai',
+        'gemini',
+        'openrouter',
+        'cloudflare',
+    ], {
+        tipoCozinha: cuisine,
+        faixaPreco: priceRange,
+        apiKey,
+    });
+    if (aiSecondaryOptions && aiSecondaryOptions.length > 0) {
+        return aiSecondaryOptions.map((item, idx) => ({
+            placeId: idx + 1,
+            nome: String(item?.nome || place),
+            local: String(item?.local || place),
+            endereco: String(item?.endereco || place),
+            classificacao: Number(item?.classificacao || 4.0),
+            totalAvaliacoes: Number(item?.totalAvaliacoes || 0),
+            telefone: String(item?.telefone || ''),
+            website: String(item?.website || ''),
+            priceLevel: String(item?.priceLevel || '$$'),
+            urlMaps:
+                String(item?.urlMaps || '').trim() ||
+                buildGoogleMapsSearchUrl(item?.nome || place, item?.endereco || item?.local || place),
+        }));
+    }
+
+    if (!apiKey) {
+        throw new Error('GOOGLE_MAPS_API_KEY não configurada e IA sem resultados para restaurantes.');
+    }
 
     for (const query of candidates) {
-        const places = await searchPlacesByType(`restaurantes ${query}`, apiKey, ['restaurant']);
+        const cuisineHint = cuisine ? ` ${cuisine}` : '';
+        const priceHint = priceRange ? ` faixa ${priceRange}` : '';
+        const places = await searchPlacesByType(`restaurantes${cuisineHint} ${query}${priceHint}`, apiKey, ['restaurant']);
         if (places.length > 0) {
             return places.slice(0, 10).map((p, idx) => ({
                 placeId: idx + 1,
@@ -1103,25 +1563,26 @@ async function searchRestaurantOptions(place) {
                 telefone: String(p?.internationalPhoneNumber || ''),
                 website: String(p?.websiteUri || ''),
                 priceLevel: p?.priceLevel ? String(p.priceLevel).replace('PRICE_LEVEL_', '') : '$$',
+                urlMaps: String(p?.googleMapsUri || '').trim() || buildGoogleMapsSearchUrl(p?.displayName?.text || query, p?.formattedAddress || query),
             }));
         }
-    }
 
-    // Nenhum resultado no Google Places — tenta GROQ AI
-    const aiOptions = await generateAiFallbackOptions(place, 'restaurant');
-    if (aiOptions && aiOptions.length > 0) {
-        return aiOptions.map((item, idx) => ({
-            placeId: idx + 1,
-            nome: String(item?.nome || place),
-            local: String(item?.local || place),
-            endereco: String(item?.endereco || place),
-            classificacao: Number(item?.classificacao || 4.0),
-            totalAvaliacoes: Number(item?.totalAvaliacoes || 0),
-            telefone: String(item?.telefone || ''),
-            website: String(item?.website || ''),
-            priceLevel: String(item?.priceLevel || '$$'),
-            fallback: 'ai-groq',
-        }));
+        // Consulta adicional quando a busca já contém o nome do restaurante.
+        const directPlaces = await searchPlacesByType(query, apiKey, ['restaurant']);
+        if (directPlaces.length > 0) {
+            return directPlaces.slice(0, 10).map((p, idx) => ({
+                placeId: idx + 1,
+                nome: String(p?.displayName?.text || query),
+                local: String((p?.formattedAddress || query).split(',')[0] || query),
+                endereco: String(p?.formattedAddress || query),
+                classificacao: Number(p?.rating || 0),
+                totalAvaliacoes: Number(p?.userRatingCount || 0),
+                telefone: String(p?.internationalPhoneNumber || ''),
+                website: String(p?.websiteUri || ''),
+                priceLevel: p?.priceLevel ? String(p.priceLevel).replace('PRICE_LEVEL_', '') : '$$',
+                urlMaps: String(p?.googleMapsUri || '').trim() || buildGoogleMapsSearchUrl(p?.displayName?.text || query, p?.formattedAddress || query),
+            }));
+        }
     }
 
     throw new Error('Sem resultados para restaurantes.');
@@ -1226,6 +1687,7 @@ function buildQuotaFallbackRestaurantOptions(place) {
         telefone: '',
         website: '',
         priceLevel: '$$',
+        urlMaps: buildGoogleMapsSearchUrl(`${baseName} ${city}`, `${city}, Brasil`),
         fallback: true,
     }));
 }
@@ -1809,6 +2271,7 @@ function extrairTextoDoHtml(html) {
 
 // Endpoint para fazer scraping de URLs de operadores (evita CORS no frontend)
 app.post('/api/scrape-url', async (req, res) => {
+    /** @type {import('puppeteer').Browser | null} */
     let browser = null;
 
     try {
@@ -1867,10 +2330,8 @@ app.post('/api/scrape-url', async (req, res) => {
             rawLength: rawHtml.length,
         });
     } catch (error) {
-        if (browser) {
-            await browser.close().catch(() => {});
-            browser = null;
-        }
+        await Promise.resolve(browser?.close()).catch(() => {});
+        browser = null;
         logServerError('Erro ao fazer scraping da URL:', error);
 
         const errorMessage = error instanceof Error ? error.message : 'Não foi possível baixar o conteúdo da URL.';
@@ -2018,18 +2479,18 @@ app.get('/api/place-lodging', async (req, res) => {
 
 app.get('/api/place-restaurants', async (req, res) => {
     const place = normalizePlaceQuery(req.query.place);
-    const apiKey = getGoogleMapsApiKey();
+    const tipoCozinha = normalizePlaceQuery(req.query.cuisine);
+    const faixaPreco = normalizePlaceQuery(req.query.priceRange);
 
     if (!place) {
         return res.status(400).json({ error: 'Parâmetro place é obrigatório.', options: [] });
     }
 
-    if (!apiKey) {
-        return res.status(500).json({ error: 'GOOGLE_MAPS_API_KEY não configurada.', options: [] });
-    }
-
     try {
-        const options = await searchRestaurantOptions(place);
+        const options = await searchRestaurantOptions(place, {
+            tipoCozinha,
+            faixaPreco,
+        });
         const hasFallback = options.some((o) => o.fallback);
         return res.json({
             totalPlaces: options.length,
@@ -3624,7 +4085,13 @@ app.post('/api/financeiro', ensureDb, async (req, res) => {
         } catch (insertError) {
             // Se já existe receita para este orçamento, substitui
             if (insertError.code !== '23505' || !payload.orcamentoId) {
-                throw insertError;
+                if (insertError.code === '23503') {
+                    return res.status(400).json({ error: 'Orçamento selecionado não existe.' });
+                }
+
+                logServerError('Erro ao criar lançamento financeiro:', insertError);
+                const dbError = resolveDatabaseError(insertError);
+                return res.status(dbError.status).json({ error: dbError.message });
             }
 
             if (payload.orcamentoId) {

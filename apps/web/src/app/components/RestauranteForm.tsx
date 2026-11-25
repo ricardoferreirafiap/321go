@@ -1,8 +1,19 @@
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card } from "./ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./ui/alert-dialog";
 import {
   Plus,
   Trash2,
@@ -46,6 +57,7 @@ interface Restaurante {
 interface RestauranteFormProps {
   restaurantes: Restaurante[];
   onRestaurantesChange: (restaurantes: Restaurante[]) => void;
+  destinoInicialBusca?: string;
 }
 
 const tiposCozinha = [
@@ -76,14 +88,65 @@ const tiposCozinha = [
 export default function RestauranteForm({
   restaurantes,
   onRestaurantesChange,
+  destinoInicialBusca,
 }: RestauranteFormProps) {
-  const [busca, setBusca] = useState("");
+  const getMensagemFallbackRestaurante = (fallbackReason?: string) => {
+    switch (String(fallbackReason || '').trim()) {
+      case 'ai-groq':
+      case 'ai-wonderful':
+      case 'ai':
+        return 'Sugestoes geradas por IA para esta busca.';
+      case 'quota-exceeded':
+        return 'Limite da busca externa atingido. Exibindo sugestoes temporarias.';
+      case 'legacy-dataset':
+        return 'Exibindo sugestoes de base local enquanto a busca principal nao responde.';
+      case 'local-fallback':
+      case 'static-fallback':
+        return 'Exibindo sugestoes temporarias de fallback.';
+      default:
+        return 'Resultados temporarios.';
+    }
+  };
+
+  const construirSugestaoRefinamento = (consulta: string, missingInformation?: string[]) => {
+    const normalizedConsulta = String(consulta || "").trim();
+    if (!normalizedConsulta) return "";
+
+    const normalizedMissing = (missingInformation || []).map((item) =>
+      String(item || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase(),
+    );
+
+    const needsRegion = normalizedMissing.some(
+      (item) => item.includes("cidade") || item.includes("regiao") || item.includes("amplo"),
+    );
+    if (!needsRegion) return "";
+
+    const normalizedQuery = normalizedConsulta
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
+    if (normalizedQuery === "paraguai") return "Asuncion, Paraguai";
+    if (normalizedQuery === "argentina") return "Buenos Aires, Argentina";
+    if (normalizedQuery === "chile") return "Santiago, Chile";
+
+    return "";
+  };
+
+  const [busca, setBusca] = useState(() => String(destinoInicialBusca || "").trim());
+  const [filtroCozinha, setFiltroCozinha] = useState("");
+  const [filtroFaixaPreco, setFiltroFaixaPreco] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
   const [resultados, setResultados] = useState<any[]>([]);
   const [avisoTemporario, setAvisoTemporario] = useState("");
+  const [sugestaoRefinamento, setSugestaoRefinamento] = useState("");
   const [buscou, setBuscou] = useState(false);
   const [selecionado, setSelecionado] = useState<any | null>(null);
+  const [restauranteParaExcluir, setRestauranteParaExcluir] = useState<number | null>(null);
   const [mostrarManual, setMostrarManual] = useState(false);
   const [formDetalhes, setFormDetalhes] = useState({
     id: null as number | null,
@@ -111,9 +174,17 @@ export default function RestauranteForm({
   const formManualRef = useRef<HTMLDivElement>(null);
   const [vouchersMinimizado, setVouchersMinimizado] = useState(false);
 
+  useEffect(() => {
+    const destino = String(destinoInicialBusca || "").trim();
+    if (!destino) return;
+    if (!busca.trim()) {
+      setBusca(destino);
+    }
+  }, [destinoInicialBusca, busca]);
+
   const buscarRestaurante = async () => {
     if (!busca.trim()) {
-      setErro("Digite um local para buscar");
+      setErro("Digite local, cidade ou nome do restaurante.");
       return;
     }
 
@@ -123,17 +194,27 @@ export default function RestauranteForm({
     setBuscou(false);
     setMostrarManual(false);
     setAvisoTemporario("");
+    setSugestaoRefinamento("");
 
     try {
-      const resposta = await buscarRestaurantesDestino(busca);
+      const resposta = await buscarRestaurantesDestino(busca, {
+        tipoCozinha: filtroCozinha,
+        faixaPreco: filtroFaixaPreco,
+      });
       const itens = Array.isArray(resposta?.itens) ? resposta.itens : [];
       setResultados(itens);
       if (resposta?.fallback) {
-        setAvisoTemporario("Resultados temporários.");
+        setAvisoTemporario(getMensagemFallbackRestaurante(resposta?.fallbackReason));
       }
 
       if (itens.length === 0) {
-        setErro("Nenhum restaurante encontrado. Adicione manualmente ou tente outra busca.");
+        if (Array.isArray(resposta?.missingInformation) && resposta.missingInformation.length > 0) {
+          setErro(resposta.missingInformation.join(" "));
+          const sugestao = construirSugestaoRefinamento(busca, resposta.missingInformation);
+          setSugestaoRefinamento(sugestao);
+        } else {
+          setErro("Nenhum restaurante encontrado. Adicione manualmente ou tente outra busca.");
+        }
         setMostrarManual(true);
       }
     } catch (err) {
@@ -215,12 +296,10 @@ export default function RestauranteForm({
 
     onRestaurantesChange([...restaurantes, novoRestaurante]);
 
+    // Mantem a lista de resultados para permitir incluir outros restaurantes sem nova busca.
     setSelecionado(null);
     setFormDetalhes({ id: null, data: "", horario: "", qtdPessoas: 2, preco: 0 });
-    setResultados([]);
-    setBusca("");
     setVoucher(null);
-    setBuscou(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -307,6 +386,7 @@ export default function RestauranteForm({
 
   const removerRestaurante = (id: number) => {
     onRestaurantesChange(restaurantes.filter((r) => r.id !== id));
+    setRestauranteParaExcluir(null);
   };
 
   const editarRestaurante = (rest: Restaurante) => {
@@ -443,7 +523,7 @@ export default function RestauranteForm({
             <Label className="text-xs">Local / Cidade / Restaurante</Label>
             <div className="flex gap-2 mt-1">
               <Input
-                placeholder="Ex: Paris, Toscana, Japão..."
+                placeholder="Ex: Paris, Jardins SP ou Fasano"
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
                 onKeyDown={(e) =>
@@ -461,8 +541,54 @@ export default function RestauranteForm({
               </Button>
             </div>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Tipo de Cozinha (filtro)</Label>
+              <select
+                value={filtroCozinha}
+                onChange={(e) => setFiltroCozinha(e.target.value)}
+                className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+              >
+                <option value="">Todas</option>
+                {tiposCozinha.map((tipo) => (
+                  <option key={tipo} value={tipo}>
+                    {tipo}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs">Faixa de Preço (filtro)</Label>
+              <select
+                value={filtroFaixaPreco}
+                onChange={(e) => setFiltroFaixaPreco(e.target.value)}
+                className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+              >
+                <option value="">Todas</option>
+                <option value="$">$ (econômico)</option>
+                <option value="$$">$$ (intermediário)</option>
+                <option value="$$$">$$$ (premium)</option>
+              </select>
+            </div>
+          </div>
           {erro && (
             <p className="text-xs text-red-500">{erro}</p>
+          )}
+          {sugestaoRefinamento && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-xs"
+              onClick={() => {
+                setBusca(sugestaoRefinamento);
+                setErro("");
+                setMostrarManual(false);
+                setSugestaoRefinamento("");
+              }}
+            >
+              Usar sugestao: {sugestaoRefinamento}
+            </Button>
           )}
           {avisoTemporario && (
             <p className="text-xs text-amber-600">{avisoTemporario}</p>
@@ -508,6 +634,13 @@ export default function RestauranteForm({
                       <MapPin className="w-3 h-3 flex-shrink-0" />
                       <span className="truncate">{rest.endereco}</span>
                     </p>
+                    {rest.urlMaps && (
+                      <p className="mt-1 text-xs text-blue-600">
+                        <a href={rest.urlMaps} target="_blank" rel="noopener noreferrer">
+                          Abrir no Google Maps
+                        </a>
+                      </p>
+                    )}
                   </div>
                   <div className="text-right ml-3 flex-shrink-0">
                     {rest.classificacao > 0 && (
@@ -579,7 +712,7 @@ export default function RestauranteForm({
                 </span>
               </div>
             )}
-            {(selecionado.telefone || selecionado.website) && (
+            {(selecionado.telefone || selecionado.website || selecionado.urlMaps) && (
               <div className="mt-2 space-y-0.5">
                 {selecionado.telefone && (
                   <p className="text-xs text-gray-500 flex items-center gap-1">
@@ -596,6 +729,18 @@ export default function RestauranteForm({
                       rel="noopener noreferrer"
                     >
                       {selecionado.website}
+                    </a>
+                  </p>
+                )}
+                {selecionado.urlMaps && (
+                  <p className="text-xs text-blue-500 flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    <a
+                      href={selecionado.urlMaps}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Ver no Google Maps
                     </a>
                   </p>
                 )}
@@ -981,12 +1126,36 @@ export default function RestauranteForm({
                   >
                     <Pencil className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={() => removerRestaurante(rest.id)}
-                    className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
+                  <AlertDialog
+                    open={restauranteParaExcluir === rest.id}
+                    onOpenChange={(open) => !open && setRestauranteParaExcluir(null)}
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                    <AlertDialogTrigger asChild>
+                      <button
+                        onClick={() => setRestauranteParaExcluir(rest.id)}
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Confirmar exclusao</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Deseja realmente excluir o restaurante "{rest.nome || "Sem nome"}"? Esta acao nao pode ser desfeita.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => removerRestaurante(rest.id)}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          Excluir
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
             ))}

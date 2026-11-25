@@ -46,12 +46,51 @@ export interface RestauranteDestinoResultado {
   telefone: string;
   website: string;
   priceLevel: string | number;
+  urlMaps: string;
 }
 
 export interface RestauranteBuscaResponse {
   itens: RestauranteDestinoResultado[];
   fallback: boolean;
   fallbackReason?: string;
+  missingInformation?: string[];
+}
+
+export interface RestauranteBuscaFiltros {
+  tipoCozinha?: string;
+  faixaPreco?: string;
+}
+
+function buildRestauranteFallbackItens(query: string, filtros: RestauranteBuscaFiltros = {}): RestauranteDestinoResultado[] {
+  const normalizedQuery = String(query || '').trim() || 'Destino';
+  const city = (normalizedQuery.split(',')[0] || normalizedQuery).trim();
+  const tipoCozinha = String(filtros?.tipoCozinha || '').trim();
+  const faixaPreco = String(filtros?.faixaPreco || '').trim() || '$$';
+
+  const baseNames = [
+    'Restaurante Sabor da Cidade',
+    'Bistro Panorama',
+    'Cantina Bella Notte',
+    'Casa Gourmet',
+    'Cozinha Raizes',
+  ];
+
+  const buildMapsUrl = (name: string, reference: string) =>
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name} ${reference}`.trim())}`;
+
+  return baseNames.map((baseName, index) => ({
+    placeId: index + 1,
+    nome: `${baseName} ${city}`,
+    local: city,
+    endereco: `${city}, Brasil`,
+    classificacao: 4.2,
+    totalAvaliacoes: 110 + index * 25,
+    telefone: '',
+    website: '',
+    priceLevel: faixaPreco,
+    urlMaps: buildMapsUrl(`${baseName} ${city}`, `${city}, Brasil`),
+    ...(tipoCozinha ? { tipoCozinha } : {}),
+  }));
 }
 
 export interface ExperienciaBuscaResponse {
@@ -338,15 +377,24 @@ export async function buscarExperienciasDestino(query: string): Promise<Experien
   }
 }
 
-export async function buscarRestaurantesDestino(query: string): Promise<RestauranteBuscaResponse> {
+export async function buscarRestaurantesDestino(
+  query: string,
+  filtros: RestauranteBuscaFiltros = {},
+): Promise<RestauranteBuscaResponse> {
   const normalizedQuery = String(query || '').trim();
   if (!normalizedQuery) {
     return { itens: [], fallback: false };
   }
 
+  const cuisine = String(filtros?.tipoCozinha || '').trim();
+  const priceRange = String(filtros?.faixaPreco || '').trim();
+  const params = new URLSearchParams({ place: normalizedQuery });
+  if (cuisine) params.set('cuisine', cuisine);
+  if (priceRange) params.set('priceRange', priceRange);
+
   try {
-    const response = await request<{ options?: RestauranteDestinoResultado[]; fallback?: string }>(
-      `/place-restaurants?place=${encodeURIComponent(normalizedQuery)}`,
+    const response = await request<{ options?: RestauranteDestinoResultado[]; fallback?: string; missingInformation?: string[] }>(
+      `/place-restaurants?${params.toString()}`,
     );
 
     const options = Array.isArray(response?.options) ? response.options : [];
@@ -360,31 +408,24 @@ export async function buscarRestaurantesDestino(query: string): Promise<Restaura
       telefone: String(item?.telefone || ''),
       website: String(item?.website || ''),
       priceLevel: String(item?.priceLevel || ''),
+      urlMaps:
+        String((item as Record<string, unknown>)?.urlMaps || '') ||
+        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${String(item?.nome || normalizedQuery)} ${String(item?.endereco || item?.local || normalizedQuery)}`.trim())}`,
     }));
 
     return {
       itens,
       fallback: typeof response?.fallback === 'string' && response.fallback.length > 0,
       fallbackReason: typeof response?.fallback === 'string' ? response.fallback : undefined,
+      missingInformation: Array.isArray(response?.missingInformation)
+        ? response.missingInformation.map((item) => String(item || '').trim()).filter(Boolean)
+        : undefined,
     };
   } catch {
-    const items = await fetchDestinations(normalizedQuery);
-    const itens = items.slice(0, 10).map((item) => ({
-      placeId: item.id,
-      nome: getString(item.data, ['nome', 'name', 'titulo', 'title']) || normalizedQuery,
-      local: getString(item.data, ['local', 'cidade', 'destino', 'nome', 'name']) || normalizedQuery,
-      endereco: getString(item.data, ['endereco', 'formattedAddress', 'address']) || normalizedQuery,
-      classificacao: getNumber(item.data, ['classificacao', 'rating', 'score']),
-      totalAvaliacoes: getNumber(item.data, ['totalAvaliacoes', 'userRatingCount', 'avaliacoes']),
-      telefone: getString(item.data, ['telefone', 'phone', 'internationalPhoneNumber']),
-      website: getString(item.data, ['website', 'websiteUri', 'url']),
-      priceLevel: getString(item.data, ['priceLevel', 'faixaPreco']) || getNumber(item.data, ['priceLevel', 'price']),
-    }));
-
     return {
-      itens,
+      itens: buildRestauranteFallbackItens(normalizedQuery, filtros),
       fallback: true,
-      fallbackReason: 'legacy-dataset',
+      fallbackReason: 'local-fallback',
     };
   }
 }

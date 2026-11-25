@@ -215,6 +215,32 @@ let AiRepository = class AiRepository {
     buildWonderfulPayload(messages) {
         const userMessages = messages.filter((message) => message.role === 'user').map((message) => message.content);
         const source = userMessages[userMessages.length - 1] || messages[messages.length - 1]?.content || '';
+        const buscaRestaurante = this.extractLineValue(source, /BUSCA_RESTAURANTE\s*:\s*(.+)/i);
+        if (buscaRestaurante) {
+            const tipoCozinha = this.extractLineValue(source, /COZINHA\s*:\s*(.+)/i) || 'nao informada';
+            const faixaPreco = this.extractLineValue(source, /FAIXA_PRECO\s*:\s*(.+)/i) || 'nao informada';
+            const referenciaExplita = this.extractLineValue(source, /REFERENCIA_RESTAURANTE\s*:\s*(.+)/i);
+            const referenciaRestaurante = referenciaExplita || this.extractRestaurantReference(buscaRestaurante) || 'nao informada';
+            const modoBusca = referenciaRestaurante !== 'nao informada' ? 'nome-restaurante' : 'local-cidade';
+            const diasBuscaRaw = this.extractLineValue(source, /\b(\d+)\s*dias?\b|dias?\s*[:=]\s*(\d+)/i, true);
+            const diasBusca = diasBuscaRaw ? Number(diasBuscaRaw) : 1;
+            return {
+                perfil: {
+                    estilo: 'roteiro gastronomico',
+                    orcamento: this.mapPriceRangeToBudget(faixaPreco) || this.detectBudget(source),
+                    viajantes: 'casal',
+                },
+                destino: buscaRestaurante,
+                dias: Number.isFinite(diasBusca) && diasBusca > 0 ? diasBusca : 1,
+                preferencias: {
+                    tipoCozinha,
+                    faixaPreco,
+                    referenciaRestaurante,
+                    modoBusca,
+                    consultaOriginal: buscaRestaurante,
+                },
+            };
+        }
         const destino = this.extractWonderfulDestination(source);
         const diasRaw = this.extractLineValue(source, /\b(\d+)\s*dias?\b|dias?\s*[:=]\s*(\d+)/i, true);
         const dias = diasRaw ? Number(diasRaw) : null;
@@ -230,11 +256,12 @@ let AiRepository = class AiRepository {
         };
     }
     extractWonderfulDestination(source) {
+        const fromRestaurantSearch = this.extractLineValue(source, /BUSCA_RESTAURANTE\s*:\s*(.+)/i);
         const fromPacotes = this.extractLineValue(source, /-\s*Destino\(s\)\s*priorizados\s*dos\s*pacotes[^:]*:\s*(.+)/i);
         const fromPrincipal = this.extractLineValue(source, /-\s*Destino principal:\s*(.+)/i);
         const fromVoos = this.extractLineValue(source, /-\s*Destino\(s\)\s*dos\s*voos:\s*(.+)/i);
         const fromIdaArrow = this.extractLineValue(source, /\bIda:\s*[^\n|]*?->\s*([^\n|]+?)(?:\s+em\s+\d{2}\/\d{2}\/\d{4}|\||$)/i);
-        const candidates = [fromPacotes, fromPrincipal, fromVoos, fromIdaArrow]
+        const candidates = [fromRestaurantSearch, fromPacotes, fromPrincipal, fromVoos, fromIdaArrow]
             .map((item) => this.normalizeDestinationCandidate(item))
             .filter(Boolean);
         return candidates[0] || '';
@@ -298,6 +325,30 @@ let AiRepository = class AiRepository {
         if (normalized.includes('solo'))
             return 'viajante solo';
         return 'nao informado';
+    }
+    mapPriceRangeToBudget(priceRange) {
+        const normalized = String(priceRange || '').trim();
+        if (normalized === '$')
+            return 'economico';
+        if (normalized === '$$$')
+            return 'luxo';
+        if (normalized === '$$')
+            return 'intermediario';
+        return '';
+    }
+    extractRestaurantReference(query) {
+        const normalizedQuery = String(query || '').trim();
+        if (!normalizedQuery)
+            return '';
+        const quoted = normalizedQuery.match(/"([^"]+)"/) || normalizedQuery.match(/'([^']+)'/);
+        if (quoted?.[1]) {
+            return String(quoted[1]).trim();
+        }
+        const prefixed = normalizedQuery.match(/\b(?:restaurante|bistro|bistrô|cantina|churrascaria|pizzaria|bar)\s+([a-zA-ZÀ-ÿ0-9 .&'\-]{3,})/i);
+        if (prefixed?.[1]) {
+            return String(prefixed[1]).trim();
+        }
+        return '';
     }
     normalizeWonderfulSummary(summary) {
         if (!summary)
@@ -372,7 +423,9 @@ let AiRepository = class AiRepository {
         if (Number.isFinite(raw) && raw > 0) {
             return Math.max(1, Math.floor(raw));
         }
-        return Math.max(1, Math.ceil(90000 / intervalMs));
+        const timeoutMsRaw = Number(process.env.WONDERFUL_TIMEOUT_MS || 30000);
+        const timeoutMs = Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0 ? Math.floor(timeoutMsRaw) : 30000;
+        return Math.max(1, Math.ceil(timeoutMs / intervalMs));
     }
     async callGemini(messages) {
         const apiKey = process.env.GEMINI_API_KEY;

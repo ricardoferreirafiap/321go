@@ -21,6 +21,8 @@ export declare class AiRepository {
     private extractBlockValue;
     private detectBudget;
     private detectTravelers;
+    private mapPriceRangeToBudget;
+    private extractRestaurantReference;
     private normalizeWonderfulSummary;
     private normalizeMissingInformation;
     private extractWonderfulFailureReason;
