@@ -26,6 +26,12 @@ let AiService = class AiService {
         }
         catch (error) {
             if (error instanceof ai_repository_1.AiRepositoryError) {
+                if (error.code === 'WONDERFUL_MISSING_INFORMATION') {
+                    return {
+                        reply: this.buildWonderfulMissingInformationReply(error.message),
+                        provider,
+                    };
+                }
                 throw new common_1.HttpException({
                     message: error.message,
                     code: error.code,
@@ -34,16 +40,7 @@ let AiService = class AiService {
             throw new common_1.InternalServerErrorException('Falha ao processar o chat de IA.');
         }
     }
-    resolveProvider(provider) {
-        const value = provider || process.env.AI_PROVIDER || 'wonderful';
-        if (value === 'openai' ||
-            value === 'groq' ||
-            value === 'gemini' ||
-            value === 'openrouter' ||
-            value === 'cloudflare' ||
-            value === 'wonderful') {
-            return value;
-        }
+    resolveProvider(_provider) {
         return 'wonderful';
     }
     normalizeMessages(input) {
@@ -89,6 +86,15 @@ let AiService = class AiService {
         })
             .filter(Boolean);
         return chunks.join(' ').trim();
+    }
+    buildWonderfulMissingInformationReply(message) {
+        const raw = String(message || '').trim();
+        const marker = 'A Wonderful solicitou mais informacoes:';
+        const index = raw.indexOf(marker);
+        const detail = index >= 0 ? raw.slice(index + marker.length).trim() : raw;
+        return detail
+            ? `Para continuar, preciso de mais informacoes: ${detail}`
+            : 'Para continuar, preciso de mais informacoes para concluir sua solicitacao.';
     }
 };
 exports.AiService = AiService;

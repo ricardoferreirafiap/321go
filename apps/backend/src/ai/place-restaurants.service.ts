@@ -44,6 +44,15 @@ export class PlaceRestaurantsService {
       rawReply = await this.aiRepository.generateReply('wonderful', messages);
     } catch (error) {
       if (error instanceof AiRepositoryError) {
+        if (error.code === 'WONDERFUL_MISSING_INFORMATION') {
+          return {
+            totalPlaces: 0,
+            options: [] as RestaurantOption[],
+            fallback: 'wonderful-missing-information',
+            missingInformation: this.extractMissingInformationFromErrorMessage(error.message),
+          };
+        }
+
         if (error.code === 'WONDERFUL_REQUEST_FAILED') {
           const missingInformation = this.extractMissingInformationFromErrorMessage(error.message);
           if (missingInformation.length > 0) {
@@ -101,13 +110,7 @@ export class PlaceRestaurantsService {
 
   private extractMissingInformationFromErrorMessage(message: string): string[] {
     const raw = String(message || '');
-    const marker = 'Detalhe:';
-    const markerIndex = raw.indexOf(marker);
-    if (markerIndex < 0) {
-      return [];
-    }
-
-    const detail = raw.slice(markerIndex + marker.length).trim();
+    const detail = this.extractMissingInformationDetail(raw);
     if (!detail) {
       return [];
     }
@@ -120,10 +123,34 @@ export class PlaceRestaurantsService {
           .filter(Boolean);
       }
     } catch {
-      // Ignore parse failure and return empty.
+      // Ignore parse failure and continue with plain-text strategy.
     }
 
-    return [];
+    return detail
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  private extractMissingInformationDetail(message: string): string {
+    const raw = String(message || '').trim();
+    if (!raw) {
+      return '';
+    }
+
+    const detailMarker = 'Detalhe:';
+    const detailIndex = raw.indexOf(detailMarker);
+    if (detailIndex >= 0) {
+      return raw.slice(detailIndex + detailMarker.length).trim();
+    }
+
+    const infoMarker = 'A Wonderful solicitou mais informacoes:';
+    const infoIndex = raw.indexOf(infoMarker);
+    if (infoIndex >= 0) {
+      return raw.slice(infoIndex + infoMarker.length).trim();
+    }
+
+    return '';
   }
 
   private parseAiFallbackJson(raw: string): unknown {

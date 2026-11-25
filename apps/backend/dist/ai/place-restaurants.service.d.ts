@@ -27,6 +27,7 @@ export declare class PlaceRestaurantsService {
         missingInformation?: undefined;
     }>;
     private extractMissingInformationFromErrorMessage;
+    private extractMissingInformationDetail;
     private parseAiFallbackJson;
     private normalizeRestaurantAiOptions;
     private buildRestaurantOptionsFromStructuredResponse;

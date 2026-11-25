@@ -245,7 +245,7 @@ export default function ExperienciasForm({
   const [documentos, setDocumentos] = useState<DocExperiencia[]>([]);
   const [analisandoIA, setAnalisandoIA] = useState(false);
   const [provedorIA, setProvedorIA] = useState<
-    "automatico" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful"
+    "automatico" | "openai" | "groq" | "gemini" | "openrouter" | "wonderful"
   >("automatico");
   const [logAnalise, setLogAnalise] = useState<string[]>([]);
   const [vouchersMinimizado, setVouchersMinimizado] = useState(false);
@@ -295,11 +295,11 @@ export default function ExperienciasForm({
     setLogAnalise([...logEntries]);
     const addLog = (msg: string) => { logEntries.push(msg); setLogAnalise([...logEntries]); };
 
-    const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful")[] =
-      ["groq", "openai", "gemini", "openrouter", "cloudflare", "wonderful"];
+    const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "wonderful")[] =
+      ["wonderful", "groq", "openai", "gemini", "openrouter"];
     const cap: Record<string, string> = {
       openai: "OpenAI", groq: "Groq", gemini: "Gemini",
-      openrouter: "OpenRouter", cloudflare: "Cloudflare", wonderful: "Wonderful",
+      openrouter: "OpenRouter", wonderful: "Wonderful",
     };
 
     const novasAnalises = await Promise.all(
@@ -358,7 +358,7 @@ Regras:
 - Não invente dados que não estão no documento.
 ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a análise no nome do arquivo." : ""}`;
 
-        const tentar = (p?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful") =>
+        const tentar = (p?: "openai" | "groq" | "gemini" | "openrouter" | "wonderful") =>
           enviarMensagemIA([{ role: "user", content: prompt }], p);
 
         try {
@@ -462,8 +462,8 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
 
   // ─── busca com IA fallback ────────────────────────────────────────────────
   const buscarExperienciaComIA = async (local: string): Promise<any[]> => {
-    const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful")[] =
-      ["groq", "openai", "gemini", "openrouter", "cloudflare", "wonderful"];
+    const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "wonderful")[] =
+      ["wonderful", "groq", "openai", "gemini", "openrouter"];
     const prompt = `Liste 5 experiências turísticas ou atrações em "${local}". Responda SOMENTE com array JSON, sem texto extra. Formato: {"nome":"","local":"","endereco":"","classificacao":0,"totalAvaliacoes":0,"descricao":"","priceLevel":"$$"}`;
     for (const p of provedores) {
       try {
@@ -495,19 +495,19 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
       if (itens.length === 0) {
         const iaItens = await buscarExperienciaComIA(busca);
         if (iaItens.length > 0) {
-          setResultados(iaItens); setAvisoTemporario("Sugestões geradas por IA (GROQ).");
+          setResultados(iaItens); setAvisoTemporario("Sugestões geradas por IA (Wonderful).");
           setCarregando(false); setBuscou(true); return;
         }
       } else {
         setResultados(itens);
-        if (resposta?.fallback) setAvisoTemporario("Sugestões geradas por IA (GROQ).");
+        if (resposta?.fallback) setAvisoTemporario("Sugestões geradas por IA (Wonderful).");
       }
       if (itens.length === 0) { setErro("Nenhuma experiência encontrada. Adicione manualmente ou tente outra busca."); setMostrarManual(true); }
     } catch {
       try {
         const iaItens = await buscarExperienciaComIA(busca);
         if (iaItens.length > 0) {
-          setResultados(iaItens); setAvisoTemporario("Sugestões geradas por IA (GROQ).");
+          setResultados(iaItens); setAvisoTemporario("Sugestões geradas por IA (Wonderful).");
           setCarregando(false); setBuscou(true); return;
         }
       } catch { /* silencioso */ }
@@ -680,6 +680,26 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
 
   const hasRelatorio = documentos.some((d) => d.analise && d.analise.trim());
 
+  const formatPriceLevel = (value: unknown): string => {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) {
+      const priceMap: Record<number, string> = {
+        0: 'Gratis',
+        1: 'Barato',
+        2: 'Moderado',
+        3: 'Caro',
+        4: 'Muito caro',
+      };
+      return priceMap[Math.round(numeric)] || '';
+    }
+
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+
+    return '';
+  };
+
   return (
     <div className="flex flex-col space-y-4">
       {/* ── Busca ─────────────────────────────────────────────────────────── */}
@@ -800,7 +820,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
               <select value={provedorIA}
                 onChange={(e) => {
                   const v = e.target.value;
-                  if (["automatico","openai","groq","gemini","openrouter","cloudflare","wonderful"].includes(v))
+                  if (["automatico","openai","groq","gemini","openrouter","wonderful"].includes(v))
                     setProvedorIA(v as typeof provedorIA);
                 }}
                 disabled={analisandoIA}
@@ -810,7 +830,6 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
                 <option value="openai">OpenAI</option>
                 <option value="gemini">Gemini</option>
                 <option value="openrouter">OpenRouter</option>
-                <option value="cloudflare">Cloudflare</option>
                 <option value="wonderful">Wonderful</option>
               </select>
 
@@ -859,15 +878,18 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
                     </div>
                     <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
                       <MapPin className="w-3 h-3 flex-shrink-0" />
-                      <span className="truncate">{exp.endereco}</span>
+                      <span className="truncate">{exp.endereco || "Endereço não informado"}</span>
                     </p>
                     {exp.descricao && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{exp.descricao}</p>}
+                    {formatPriceLevel(exp.priceLevel) && (
+                      <p className="text-[11px] text-emerald-700 mt-0.5">Faixa de preço: {formatPriceLevel(exp.priceLevel)}</p>
+                    )}
                   </div>
                   <div className="text-right ml-3 flex-shrink-0">
-                    {exp.classificacao > 0 && (
+                    {Number(exp.classificacao) > 0 && (
                       <p className="font-semibold text-indigo-600 text-sm">
-                        <Star className="w-3 h-3 inline-block text-yellow-500" /> {exp.classificacao.toFixed(1)}
-                        {exp.totalAvaliacoes > 0 && <span className="text-xs text-gray-400 font-normal"> ({exp.totalAvaliacoes})</span>}
+                        <Star className="w-3 h-3 inline-block text-yellow-500" /> {Number(exp.classificacao).toFixed(1)}
+                        {Number(exp.totalAvaliacoes) > 0 && <span className="text-xs text-gray-400 font-normal"> ({Number(exp.totalAvaliacoes)})</span>}
                       </p>
                     )}
                   </div>
@@ -904,11 +926,14 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
           </h4>
           <div className="bg-white p-3 rounded mb-3 text-sm">
             <p className="font-medium text-gray-900">{selecionado.local}</p>
-            <p className="text-xs text-gray-500">{selecionado.endereco}</p>
-            {selecionado.classificacao > 0 && (
+            <p className="text-xs text-gray-500">{selecionado.endereco || "Endereço não informado"}</p>
+            {Number(selecionado.classificacao) > 0 && (
               <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded mt-2 inline-block">
-                <Star className="w-3 h-3 inline-block mr-0.5" />{selecionado.classificacao.toFixed(1)}
+                <Star className="w-3 h-3 inline-block mr-0.5" />{Number(selecionado.classificacao).toFixed(1)}
               </span>
+            )}
+            {formatPriceLevel(selecionado.priceLevel) && (
+              <p className="text-xs text-emerald-700 mt-2">Faixa de preço: {formatPriceLevel(selecionado.priceLevel)}</p>
             )}
             {selecionado.descricao && <p className="text-xs text-gray-500 mt-2">{selecionado.descricao}</p>}
           </div>

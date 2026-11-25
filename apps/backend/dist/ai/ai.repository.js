@@ -188,23 +188,19 @@ let AiRepository = class AiRepository {
             const status = String(taskParsed.json?.data?.task?.status || '').toLowerCase();
             if (status === 'completed') {
                 const summary = taskParsed.json?.data?.task?.resolution_summary;
+                const parsedSummary = this.parseWonderfulSummary(summary);
+                if (String(parsedSummary?.status || '').toLowerCase() === 'missing_information') {
+                    const details = this.normalizeMissingInformation(parsedSummary.missing_information);
+                    throw new AiRepositoryError(`A Wonderful solicitou mais informacoes: ${details || 'dados obrigatorios ausentes.'}`, 'WONDERFUL_MISSING_INFORMATION', 400);
+                }
                 const content = this.normalizeWonderfulSummary(summary);
                 if (!content) {
                     throw new AiRepositoryError('Tarefa concluida sem resolution_summary.', 'WONDERFUL_INVALID_RESPONSE', 502);
                 }
                 return content;
             }
-            if (status === 'missing_information') {
-                const missing = taskParsed.json?.data?.task?.missing_information;
-                const details = this.normalizeMissingInformation(missing);
-                throw new AiRepositoryError(`A Wonderful solicitou mais informacoes: ${details || 'dados obrigatorios ausentes.'}`, 'WONDERFUL_MISSING_INFORMATION', 400);
-            }
             if (status === 'failed' || status === 'cancelled' || status === 'error') {
                 const task = taskParsed.json?.data?.task;
-                const missing = this.normalizeMissingInformation(task?.missing_information);
-                if (missing) {
-                    throw new AiRepositoryError(`A Wonderful solicitou mais informacoes: ${missing}`, 'WONDERFUL_MISSING_INFORMATION', 400);
-                }
                 const reason = this.extractWonderfulFailureReason(task);
                 const detail = reason ? ` Detalhe: ${reason}` : '';
                 throw new AiRepositoryError(`A tarefa da Wonderful falhou.${detail}`, 'WONDERFUL_REQUEST_FAILED', 502);
@@ -238,6 +234,24 @@ let AiRepository = class AiRepository {
                     referenciaRestaurante,
                     modoBusca,
                     consultaOriginal: buscaRestaurante,
+                },
+            };
+        }
+        const buscaExperiencias = this.extractLineValue(source, /BUSCA_EXPERIENCIAS?\s*:\s*(.+)/i);
+        if (buscaExperiencias) {
+            const referenciaAtracao = this.extractLineValue(source, /REFERENCIA_ATRACAO\s*:\s*(.+)/i);
+            return {
+                perfil: {
+                    estilo: 'experiencias turisticas',
+                    orcamento: this.detectBudget(source),
+                    viajantes: this.detectTravelers(source),
+                },
+                destino: buscaExperiencias,
+                dias: 1,
+                preferencias: {
+                    modoBusca: 'local-cidade-atracao',
+                    referenciaAtracao: referenciaAtracao || 'nao informada',
+                    consultaOriginal: buscaExperiencias,
                 },
             };
         }
@@ -360,6 +374,27 @@ let AiRepository = class AiRepository {
         }
         catch {
             return String(summary);
+        }
+    }
+    parseWonderfulSummary(summary) {
+        if (!summary)
+            return null;
+        if (typeof summary === 'object') {
+            return summary;
+        }
+        if (typeof summary !== 'string') {
+            return null;
+        }
+        const trimmed = summary.trim();
+        if (!trimmed) {
+            return null;
+        }
+        try {
+            const parsed = JSON.parse(trimmed);
+            return parsed && typeof parsed === 'object' ? parsed : null;
+        }
+        catch {
+            return null;
         }
     }
     normalizeMissingInformation(missing) {

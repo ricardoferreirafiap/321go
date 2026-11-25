@@ -15,6 +15,13 @@ export class AiService {
       return { reply, provider };
     } catch (error) {
       if (error instanceof AiRepositoryError) {
+        if (error.code === 'WONDERFUL_MISSING_INFORMATION') {
+          return {
+            reply: this.buildWonderfulMissingInformationReply(error.message),
+            provider,
+          };
+        }
+
         throw new HttpException(
           {
             message: error.message,
@@ -28,19 +35,8 @@ export class AiService {
     }
   }
 
-  private resolveProvider(provider?: AiProvider): AiProvider {
-    const value = provider || (process.env.AI_PROVIDER as AiProvider | undefined) || 'wonderful';
-    if (
-      value === 'openai' ||
-      value === 'groq' ||
-      value === 'gemini' ||
-      value === 'openrouter' ||
-      value === 'cloudflare' ||
-      value === 'wonderful'
-    ) {
-      return value;
-    }
-
+  private resolveProvider(_provider?: AiProvider): AiProvider {
+    // Wonderful is intentionally the only active provider in backend chat for now.
     return 'wonderful';
   }
 
@@ -99,6 +95,17 @@ export class AiService {
       .filter(Boolean);
 
     return chunks.join(' ').trim();
+  }
+
+  private buildWonderfulMissingInformationReply(message: string): string {
+    const raw = String(message || '').trim();
+    const marker = 'A Wonderful solicitou mais informacoes:';
+    const index = raw.indexOf(marker);
+    const detail = index >= 0 ? raw.slice(index + marker.length).trim() : raw;
+
+    return detail
+      ? `Para continuar, preciso de mais informacoes: ${detail}`
+      : 'Para continuar, preciso de mais informacoes para concluir sua solicitacao.';
   }
 }
 

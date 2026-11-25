@@ -24,6 +24,7 @@ export declare class AiRepository {
     private mapPriceRangeToBudget;
     private extractRestaurantReference;
     private normalizeWonderfulSummary;
+    private parseWonderfulSummary;
     private normalizeMissingInformation;
     private extractWonderfulFailureReason;
     private sleep;

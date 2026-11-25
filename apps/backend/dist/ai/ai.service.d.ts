@@ -10,4 +10,5 @@ export declare class AiService {
     private resolveProvider;
     private normalizeMessages;
     private normalizeMessageContent;
+    private buildWonderfulMissingInformationReply;
 }

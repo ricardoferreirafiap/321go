@@ -739,12 +739,11 @@ export default function Roteiros() {
     }
   }, []);
   const formularioCarregadoRef = useRef(false);
-  const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automatico" | "cloudflare" | "gemini" | "groq" | "openai" | "openrouter" | "wonderful">("wonderful");
+  const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automatico" | "gemini" | "groq" | "openai" | "openrouter" | "wonderful">("wonderful");
   const [iaRoteiroExibida, setIaRoteiroExibida] = useState("Wonderful");
 
   const nomesProvedorIA: Record<typeof provedorRoteiroIA, string> = {
     automatico: "Automático",
-    cloudflare: "Cloudflare",
     gemini: "Gemini",
     groq: "Groq",
     openai: "OpenAI",
@@ -1601,7 +1600,7 @@ export default function Roteiros() {
       let respostaFinal = "";
       const errosProvedores: string[] = [];
 
-      const tentarComProvedor = async (provedor: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful") => {
+      const tentarComProvedor = async (provedor: "openai" | "groq" | "gemini" | "openrouter" | "wonderful") => {
         const data = await enviarMensagemIA(
             [{ role: "user", content: prompt }],
             provedor
@@ -1610,7 +1609,7 @@ export default function Roteiros() {
       };
 
       if (provedorRoteiroIA === "automatico") {
-        const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful")[] = ["wonderful", "groq", "gemini", "openrouter", "cloudflare", "openai"];
+        const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "wonderful")[] = ["wonderful", "groq", "gemini", "openrouter", "openai"];
         for (const provedor of provedores) {
           try {
             respostaFinal = await tentarComProvedor(provedor);
@@ -1922,7 +1921,6 @@ export default function Roteiros() {
                                     disabled={gerandoRoteiro}
                                   >
                                     <option value="automatico">Automático</option>
-                                    <option value="cloudflare">Cloudflare</option>
                                     <option value="gemini">Gemini</option>
                                     <option value="groq">Groq</option>
                                     <option value="openai">OpenAI</option>

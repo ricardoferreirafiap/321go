@@ -29,11 +29,11 @@ export interface ExperienciaDestinoResultado {
   placeId: number;
   nome: string;
   local: string;
-  endereco: string;
-  classificacao: number;
-  totalAvaliacoes: number;
+  endereco: string | null;
+  classificacao: number | null;
+  totalAvaliacoes: number | null;
   descricao: string;
-  priceLevel: string | number;
+  priceLevel: number | string | null;
 }
 
 export interface RestauranteDestinoResultado {
@@ -100,6 +100,7 @@ export interface ExperienciaBuscaResponse {
 }
 
 const API_BASE_URL = API_CONFIG.apiBase;
+const ENABLE_LEGACY_DESTINATIONS_FALLBACK = false;
 
 async function request<T>(path: string): Promise<T> {
   let response: Response;
@@ -179,6 +180,20 @@ function getNumber(data: Record<string, unknown>, keys: string[]): number {
   return 0;
 }
 
+function getNullableNumber(value: unknown): number | null {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function getNullableString(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
 function getStringArray(data: Record<string, unknown>, keys: string[]): string[] {
   for (const key of keys) {
     const value = data[key];
@@ -249,6 +264,30 @@ function buildHospedagemFallbackItens(query: string): HospedagemDestinoResultado
   }));
 }
 
+function buildExperienciaFallbackItens(query: string): ExperienciaDestinoResultado[] {
+  const normalizedQuery = String(query || '').trim() || 'Destino';
+  const city = (normalizedQuery.split(',')[0] || normalizedQuery).trim();
+
+  const baseNames = [
+    'City Tour Historico',
+    'Passeio Cultural Guiado',
+    'Experiencia Gastronomica Local',
+    'Roteiro de Mirantes',
+    'Passeio ao Por do Sol',
+  ];
+
+  return baseNames.map((baseName, index) => ({
+    placeId: index + 1,
+    nome: `${baseName} em ${city}`,
+    local: city,
+    endereco: null,
+    classificacao: null,
+    totalAvaliacoes: null,
+    descricao: `Sugestao de experiencia em ${city}.`,
+    priceLevel: 2,
+  }));
+}
+
 export async function buscarHospedagensDestino(query: string): Promise<HospedagemBuscaResponse> {
   const normalizedQuery = String(query || '').trim();
   if (!normalizedQuery) {
@@ -281,43 +320,45 @@ export async function buscarHospedagensDestino(query: string): Promise<Hospedage
       fallbackReason: typeof response?.fallback === 'string' ? response.fallback : undefined,
     };
   } catch {
-    try {
-      const items = await fetchDestinations(normalizedQuery);
+    if (ENABLE_LEGACY_DESTINATIONS_FALLBACK) {
+      try {
+        const items = await fetchDestinations(normalizedQuery);
 
-      const itens = items.slice(0, 10).map((item) => {
-        const nome = getString(item.data, ['nome', 'name', 'titulo', 'title']) || normalizedQuery;
-        const local = getString(item.data, ['local', 'cidade', 'destino', 'nome', 'name']) || normalizedQuery;
-        const endereco = getString(item.data, ['endereco', 'formattedAddress', 'address']) || local;
-        const classificacao = getNumber(item.data, ['classificacao', 'rating', 'score']);
-        const totalAvaliacoes = getNumber(item.data, ['totalAvaliacoes', 'userRatingCount', 'avaliacoes']);
-        const amenidades = getStringArray(item.data, ['amenidades', 'amenities', 'facilidades']);
-        const precoBase = getNumber(item.data, ['precoBase', 'preco', 'price']) || 150;
-        const tiposQuarto = getStringArray(item.data, ['tiposQuarto', 'roomTypes']);
+        const itens = items.slice(0, 10).map((item) => {
+          const nome = getString(item.data, ['nome', 'name', 'titulo', 'title']) || normalizedQuery;
+          const local = getString(item.data, ['local', 'cidade', 'destino', 'nome', 'name']) || normalizedQuery;
+          const endereco = getString(item.data, ['endereco', 'formattedAddress', 'address']) || local;
+          const classificacao = getNumber(item.data, ['classificacao', 'rating', 'score']);
+          const totalAvaliacoes = getNumber(item.data, ['totalAvaliacoes', 'userRatingCount', 'avaliacoes']);
+          const amenidades = getStringArray(item.data, ['amenidades', 'amenities', 'facilidades']);
+          const precoBase = getNumber(item.data, ['precoBase', 'preco', 'price']) || 150;
+          const tiposQuarto = getStringArray(item.data, ['tiposQuarto', 'roomTypes']);
 
-        return {
-          placeId: item.id,
-          nome,
-          local,
-          endereco,
-          classificacao,
-          totalAvaliacoes,
-          tiposQuarto: tiposQuarto.length ? tiposQuarto : ['Standard', 'Superior', 'Suíte'],
-          amenidades: amenidades.length ? amenidades : ['WiFi Grátis', 'Café da Manhã'],
-          precoBase,
-          photos: null,
-          linkOperadora: getString(item.data, ['linkOperadora', 'website', 'url']),
-        };
-      });
+          return {
+            placeId: item.id,
+            nome,
+            local,
+            endereco,
+            classificacao,
+            totalAvaliacoes,
+            tiposQuarto: tiposQuarto.length ? tiposQuarto : ['Standard', 'Superior', 'Suíte'],
+            amenidades: amenidades.length ? amenidades : ['WiFi Grátis', 'Café da Manhã'],
+            precoBase,
+            photos: null,
+            linkOperadora: getString(item.data, ['linkOperadora', 'website', 'url']),
+          };
+        });
 
-      if (itens.length > 0) {
-        return {
-          itens,
-          fallback: true,
-          fallbackReason: 'legacy-dataset',
-        };
+        if (itens.length > 0) {
+          return {
+            itens,
+            fallback: true,
+            fallbackReason: 'legacy-dataset',
+          };
+        }
+      } catch {
+        // segue para fallback local em memória
       }
-    } catch {
-      // segue para fallback local em memória
     }
 
     return {
@@ -344,11 +385,11 @@ export async function buscarExperienciasDestino(query: string): Promise<Experien
       placeId: Number(item?.placeId) || index + 1,
       nome: String(item?.nome || normalizedQuery),
       local: String(item?.local || normalizedQuery),
-      endereco: String(item?.endereco || normalizedQuery),
-      classificacao: Number(item?.classificacao || 0),
-      totalAvaliacoes: Number(item?.totalAvaliacoes || 0),
+      endereco: getNullableString(item?.endereco),
+      classificacao: getNullableNumber(item?.classificacao),
+      totalAvaliacoes: getNullableNumber(item?.totalAvaliacoes),
       descricao: String(item?.descricao || ''),
-      priceLevel: String(item?.priceLevel || ''),
+      priceLevel: getNullableNumber(item?.priceLevel) ?? getNullableString(item?.priceLevel),
     }));
 
     return {
@@ -357,22 +398,36 @@ export async function buscarExperienciasDestino(query: string): Promise<Experien
       fallbackReason: typeof response?.fallback === 'string' ? response.fallback : undefined,
     };
   } catch {
-    const items = await fetchDestinations(normalizedQuery);
-    const itens = items.slice(0, 10).map((item) => ({
-      placeId: item.id,
-      nome: getString(item.data, ['nome', 'name', 'titulo', 'title']) || normalizedQuery,
-      local: getString(item.data, ['local', 'cidade', 'destino', 'nome', 'name']) || normalizedQuery,
-      endereco: getString(item.data, ['endereco', 'formattedAddress', 'address']) || normalizedQuery,
-      classificacao: getNumber(item.data, ['classificacao', 'rating', 'score']),
-      totalAvaliacoes: getNumber(item.data, ['totalAvaliacoes', 'userRatingCount', 'avaliacoes']),
-      descricao: getString(item.data, ['descricao', 'description', 'resumo']),
-      priceLevel: getString(item.data, ['priceLevel', 'faixaPreco']) || getNumber(item.data, ['priceLevel', 'price']),
-    }));
+    if (ENABLE_LEGACY_DESTINATIONS_FALLBACK) {
+      try {
+        const items = await fetchDestinations(normalizedQuery);
+        const itens = items.slice(0, 10).map((item) => ({
+          placeId: item.id,
+          nome: getString(item.data, ['nome', 'name', 'titulo', 'title']) || normalizedQuery,
+          local: getString(item.data, ['local', 'cidade', 'destino', 'nome', 'name']) || normalizedQuery,
+          endereco: getString(item.data, ['endereco', 'formattedAddress', 'address']) || null,
+          classificacao: getNullableNumber(item.data['classificacao'] ?? item.data['rating'] ?? item.data['score']),
+          totalAvaliacoes: getNullableNumber(item.data['totalAvaliacoes'] ?? item.data['userRatingCount'] ?? item.data['avaliacoes']),
+          descricao: getString(item.data, ['descricao', 'description', 'resumo']),
+          priceLevel:
+            getNullableNumber(item.data['priceLevel'] ?? item.data['price']) ??
+            (getString(item.data, ['priceLevel', 'faixaPreco']) || null),
+        }));
+
+        return {
+          itens,
+          fallback: true,
+          fallbackReason: 'legacy-dataset',
+        };
+      } catch {
+        // segue para fallback local em memória
+      }
+    }
 
     return {
-      itens,
+      itens: buildExperienciaFallbackItens(normalizedQuery),
       fallback: true,
-      fallbackReason: 'legacy-dataset',
+      fallbackReason: 'local-fallback',
     };
   }
 }

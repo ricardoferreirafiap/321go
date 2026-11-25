@@ -55,6 +55,8 @@ function mapAiError(code: string, fallback: string): string {
       return sanitizeProviderFallbackMessage(fallback);
     case "WONDERFUL_TIMEOUT":
       return "A Wonderful demorou para concluir o roteiro. Tente novamente em alguns instantes.";
+    case "AI_BASE_URL_MISSING":
+      return "A URL base do provedor de IA nao esta configurada no backend. Ajuste as variaveis de ambiente do provedor selecionado.";
     case "AI_PROVIDER_UNAVAILABLE":
       return "Nao foi possivel conectar ao provedor de IA. Tente novamente em instantes.";
     default:

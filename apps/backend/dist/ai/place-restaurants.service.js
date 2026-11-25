@@ -39,6 +39,14 @@ let PlaceRestaurantsService = class PlaceRestaurantsService {
         }
         catch (error) {
             if (error instanceof ai_repository_1.AiRepositoryError) {
+                if (error.code === 'WONDERFUL_MISSING_INFORMATION') {
+                    return {
+                        totalPlaces: 0,
+                        options: [],
+                        fallback: 'wonderful-missing-information',
+                        missingInformation: this.extractMissingInformationFromErrorMessage(error.message),
+                    };
+                }
                 if (error.code === 'WONDERFUL_REQUEST_FAILED') {
                     const missingInformation = this.extractMissingInformationFromErrorMessage(error.message);
                     if (missingInformation.length > 0) {
@@ -81,12 +89,7 @@ let PlaceRestaurantsService = class PlaceRestaurantsService {
     }
     extractMissingInformationFromErrorMessage(message) {
         const raw = String(message || '');
-        const marker = 'Detalhe:';
-        const markerIndex = raw.indexOf(marker);
-        if (markerIndex < 0) {
-            return [];
-        }
-        const detail = raw.slice(markerIndex + marker.length).trim();
+        const detail = this.extractMissingInformationDetail(raw);
         if (!detail) {
             return [];
         }
@@ -100,7 +103,27 @@ let PlaceRestaurantsService = class PlaceRestaurantsService {
         }
         catch {
         }
-        return [];
+        return detail
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean);
+    }
+    extractMissingInformationDetail(message) {
+        const raw = String(message || '').trim();
+        if (!raw) {
+            return '';
+        }
+        const detailMarker = 'Detalhe:';
+        const detailIndex = raw.indexOf(detailMarker);
+        if (detailIndex >= 0) {
+            return raw.slice(detailIndex + detailMarker.length).trim();
+        }
+        const infoMarker = 'A Wonderful solicitou mais informacoes:';
+        const infoIndex = raw.indexOf(infoMarker);
+        if (infoIndex >= 0) {
+            return raw.slice(infoIndex + infoMarker.length).trim();
+        }
+        return '';
     }
     parseAiFallbackJson(raw) {
         const parseCandidate = (candidate) => {
