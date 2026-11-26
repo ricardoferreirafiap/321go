@@ -131,10 +131,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 export function enviarMensagemIA(
   messages: AIChatApiMessage[],
-  provedor?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful"
+  provedor?: "openai" | "groq" | "gemini" | "cloudflare" | "wonderful"
 ) {
+  void provedor;
   return request<AIChatResponse>("/ai/chat", {
     method: "POST",
-    body: JSON.stringify({ messages, provedor }),
+    body: JSON.stringify({ messages, provedor: "wonderful" }),
   });
 }

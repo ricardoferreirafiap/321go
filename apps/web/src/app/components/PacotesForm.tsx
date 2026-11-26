@@ -2107,7 +2107,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
   const [atualizando, setAtualizando] = useState<string | null>(null);
   const [salvandoNoBackend, setSalvandoNoBackend] = useState(false);
   const [logAnaliseIA, setLogAnaliseIA] = useState<string[]>([]);
-  const [provedorIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful">("automático");
+  const [provedorIA] = useState<"automático" | "openai" | "groq" | "gemini" | "cloudflare" | "wonderful">("automático");
   const [novaUrlOperador, setNovaUrlOperador] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -2168,7 +2168,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
 
     const prompt = `Você é um assistente de viagens especializado. Preciso do site oficial (URL) do seguinte hotel:\n\nNome: ${nome}${endereco ? `\nEndereço: ${endereco}` : ""}\n\nResponda SOMENTE com a URL completa do site oficial do hotel (ex: https://www.nomehotel.com). Se não encontrar o site oficial, responda com a URL do Booking.com ou Google Maps para este hotel. Não adicione explicações, apenas a URL.`;
 
-    const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful")[] = ["wonderful", "groq", "gemini", "openrouter", "cloudflare"];
+    const provedores: ("openai" | "groq" | "gemini" | "cloudflare" | "wonderful")[] = ["wonderful", "groq", "gemini", "cloudflare"];
     let urlEncontrada: string | null = null;
     const erros: string[] = [];
 
@@ -2218,7 +2218,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
       // Se não tem nome, tenta extrair do link via IA
       if (!termoBusca && link) {
         const prompt = `Dado este link de hotel: ${link}\n\nResponda SOMENTE com o nome completo do hotel (ex: "Hotel Ibis Lisboa"). Sem explicações, apenas o nome.`;
-        const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful")[] = ["wonderful", "groq", "gemini", "openrouter", "cloudflare"];
+        const provedores: ("openai" | "groq" | "gemini" | "cloudflare" | "wonderful")[] = ["wonderful", "groq", "gemini", "cloudflare"];
         for (const provedor of provedores) {
           try {
             const resposta = await enviarMensagemIA([{ role: "user" as const, content: prompt }], provedor);
@@ -3030,20 +3030,19 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
 
         const prompt = criarPromptAnaliseUrl(htmlContent);
 
-        const tentarComProvedor = async (provedor?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful") => {
+        const tentarComProvedor = async (provedor?: "openai" | "groq" | "gemini" | "cloudflare" | "wonderful") => {
           return enviarMensagemIA([{ role: "user" as const, content: prompt }], provedor);
         };
 
         let dataUrl;
-        let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare" | "Wonderful";
-        const provedoresAutomatico: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful")[] = ["wonderful", "groq", "gemini", "openrouter", "cloudflare"];
+        let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "Cloudflare" | "Wonderful";
+        const provedoresAutomatico: ("openai" | "groq" | "gemini" | "cloudflare" | "wonderful")[] = ["wonderful", "groq", "gemini", "cloudflare"];
 
         if (provedorIA === "automático") {
-          const mapaProvedorCapitalizado: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare" | "Wonderful"> = {
+          const mapaProvedorCapitalizado: Record<string, "OpenAI" | "Groq" | "Gemini" | "Cloudflare" | "Wonderful"> = {
             openai: "OpenAI",
             groq: "Groq",
             gemini: "Gemini",
-            openrouter: "OpenRouter",
             cloudflare: "Cloudflare",
             wonderful: "Wonderful",
           };
@@ -3078,11 +3077,10 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
             setVouchersMinimizado(false);
           }
         } else {
-          const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare" | "Wonderful"> = {
+          const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "Cloudflare" | "Wonderful"> = {
             openai: "OpenAI",
             groq: "Groq",
             gemini: "Gemini",
-            openrouter: "OpenRouter",
             cloudflare: "Cloudflare",
             wonderful: "Wonderful",
           };
@@ -3307,7 +3305,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
         }
 
         const prompt = criarPromptAnaliseCompleta(contextoArquivo, temConteudoPdf || contextoArquivo.includes("Conteúdo OCR"));
-        const tentarComProvedor = async (provedor: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful") => {
+        const tentarComProvedor = async (provedor: "openai" | "groq" | "gemini" | "cloudflare" | "wonderful") => {
           const content: AIChatApiMessageContent = provedor === "openai" && imagensParaAnalise.length > 0
             ? [
                 { type: "text", text: prompt },
@@ -3319,16 +3317,15 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
 
         try {
           let data;
-          let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare" | "Wonderful" = "Wonderful";
-          const provedoresAutomatico: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful")[] =
+          let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "Cloudflare" | "Wonderful" = "Wonderful";
+          const provedoresAutomatico: ("openai" | "groq" | "gemini" | "cloudflare" | "wonderful")[] =
             imagensParaAnalise.length > 0
-              ? ["wonderful", "groq", "gemini", "openrouter", "cloudflare"]
-              : ["wonderful", "groq", "gemini", "openrouter", "cloudflare"];
-          const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare" | "Wonderful"> = {
+              ? ["wonderful", "groq", "gemini", "cloudflare"]
+              : ["wonderful", "groq", "gemini", "cloudflare"];
+          const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "Cloudflare" | "Wonderful"> = {
             openai: "OpenAI",
             groq: "Groq",
             gemini: "Gemini",
-            openrouter: "OpenRouter",
             cloudflare: "Cloudflare",
             wonderful: "Wonderful",
           };

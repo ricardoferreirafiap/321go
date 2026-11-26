@@ -100,7 +100,7 @@ export default function TransporteForm({ transportes, onTransportesChange }: Tra
   const [analisandoIA, setAnalisandoIA] = useState(false);
   const [, setLogAnaliseIA] = useState<string[]>([]);
   const [novaUrlOperador, setNovaUrlOperador] = useState("");
-  const [provedorIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
+  const [provedorIA] = useState<"automático" | "openai" | "groq" | "gemini" | "cloudflare" | "wonderful">("automático");
   const [, setEditandoId] = useState<number | null>(null);
   const documentosInputRef = useRef<HTMLInputElement>(null);
 
@@ -461,21 +461,21 @@ Formato JSON esperado:
 
         const prompt = criarPromptAnaliseUrl(htmlContent);
 
-        const tentarComProvedor = async (provedor?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
+        const tentarComProvedor = async (provedor?: "openai" | "groq" | "gemini" | "cloudflare" | "wonderful") => {
           return enviarMensagemIA([{ role: "user", content: prompt }], provedor);
         };
 
         let dataUrl;
-        let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare";
-        const provedoresAutomatico: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
+        let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "Cloudflare" | "Wonderful";
+        const provedoresAutomatico: ("openai" | "groq" | "gemini" | "cloudflare" | "wonderful")[] = ["wonderful", "groq", "openai", "gemini", "cloudflare"];
 
         if (provedorIA === "automático") {
-          const mapaProvedorCapitalizado: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
+          const mapaProvedorCapitalizado: Record<string, "OpenAI" | "Groq" | "Gemini" | "Cloudflare" | "Wonderful"> = {
             openai: "OpenAI",
             groq: "Groq",
             gemini: "Gemini",
-            openrouter: "OpenRouter",
             cloudflare: "Cloudflare",
+            wonderful: "Wonderful",
           };
 
           for (const provedor of provedoresAutomatico) {
@@ -510,12 +510,12 @@ Formato JSON esperado:
             setVouchersMinimizado(true);
           }
         } else {
-          const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
+          const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "Cloudflare" | "Wonderful"> = {
             openai: "OpenAI",
             groq: "Groq",
             gemini: "Gemini",
-            openrouter: "OpenRouter",
             cloudflare: "Cloudflare",
+            wonderful: "Wonderful",
           };
           const provedorCapitalizado = mapaProvedor[provedorIA] || "OpenAI";
           adicionarLog(`Analisando URL com ${provedorCapitalizado}...`);
@@ -636,22 +636,22 @@ Formato JSON esperado:
 
             const prompt = criarPromptAnaliseCompleta(contextoArquivo, temConteudoPdf);
 
-            const tentarComProvedor = async (provedor?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
+            const tentarComProvedor = async (provedor?: "openai" | "groq" | "gemini" | "cloudflare" | "wonderful") => {
               return enviarMensagemIA([{ role: "user", content: prompt }], provedor);
             };
 
             try {
               let data;
-              let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare";
-              const provedoresAutomatico: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
+              let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "Cloudflare" | "Wonderful";
+              const provedoresAutomatico: ("openai" | "groq" | "gemini" | "cloudflare" | "wonderful")[] = ["wonderful", "groq", "openai", "gemini", "cloudflare"];
 
               if (provedorIA === "automático") {
-                const mapaProvedorCapitalizado: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
+                const mapaProvedorCapitalizado: Record<string, "OpenAI" | "Groq" | "Gemini" | "Cloudflare" | "Wonderful"> = {
                   openai: "OpenAI",
                   groq: "Groq",
                   gemini: "Gemini",
-                  openrouter: "OpenRouter",
                   cloudflare: "Cloudflare",
+                  wonderful: "Wonderful",
                 };
 
                 for (const provedor of provedoresAutomatico) {
@@ -673,12 +673,12 @@ Formato JSON esperado:
                   return { ...doc, analise: "Falha na análise com IA: Todos os provedores de IA falharam." };
                 }
               } else {
-                const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
+                const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "Cloudflare" | "Wonderful"> = {
                   openai: "OpenAI",
                   groq: "Groq",
                   gemini: "Gemini",
-                  openrouter: "OpenRouter",
                   cloudflare: "Cloudflare",
+                  wonderful: "Wonderful",
                 };
                 const provedorCapitalizado = mapaProvedor[provedorIA] || "OpenAI";
                 adicionarLog(`Analisando "${doc.nome}" com ${provedorCapitalizado}...`);

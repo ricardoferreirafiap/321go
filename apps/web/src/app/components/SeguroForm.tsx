@@ -147,8 +147,8 @@ export default function SeguroForm({ seguros, onSegurosChange }: SeguroFormProps
     if (!documentos.length) return;
     setAnalisandoIA(true);
     setErroAnaliseIA(null);
-    const provedores: ("openai"|"groq"|"gemini"|"openrouter"|"cloudflare")[] =
-      ["groq","openai","gemini","openrouter","cloudflare"];
+    const provedores: ("openai"|"groq"|"gemini"|"cloudflare"|"wonderful")[] =
+      ["wonderful","groq","openai","gemini","cloudflare"];
 
     try {
       const novasAnalises = await Promise.all(

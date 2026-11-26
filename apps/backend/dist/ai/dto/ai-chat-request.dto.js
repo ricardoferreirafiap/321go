@@ -27,7 +27,7 @@ __decorate([
 ], AiChatRequestDto.prototype, "messages", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsIn)(['openai', 'groq', 'gemini', 'openrouter', 'cloudflare', 'wonderful']),
+    (0, class_validator_1.IsIn)(['wonderful']),
     __metadata("design:type", String)
 ], AiChatRequestDto.prototype, "provedor", void 0);
 //# sourceMappingURL=ai-chat-request.dto.js.map

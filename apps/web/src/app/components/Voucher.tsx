@@ -164,6 +164,7 @@ const categoriasPerfilViagem: CategoriaPerfilViagem[] = [
       "Grupo de amigos",
       "Lua de mel",
       "Viagem solo",
+      "Compras",
       "Pet Friendly",
       "LGBTQIA+",
       "Comunidade Nerd/Gamer",
@@ -739,7 +740,7 @@ export default function Roteiros() {
     }
   }, []);
   const formularioCarregadoRef = useRef(false);
-  const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automatico" | "gemini" | "groq" | "openai" | "openrouter" | "wonderful">("wonderful");
+  const [provedorRoteiroIA, setProvedorRoteiroIA] = useState<"automatico" | "gemini" | "groq" | "openai" | "wonderful">("wonderful");
   const [iaRoteiroExibida, setIaRoteiroExibida] = useState("Wonderful");
 
   const nomesProvedorIA: Record<typeof provedorRoteiroIA, string> = {
@@ -747,7 +748,6 @@ export default function Roteiros() {
     gemini: "Gemini",
     groq: "Groq",
     openai: "OpenAI",
-    openrouter: "OpenRouter",
     wonderful: "Wonderful",
   };
   
@@ -1287,6 +1287,22 @@ export default function Roteiros() {
     }
   }
 
+  async function persistirExclusaoRestaurante(restaurantesAtualizados: any[]) {
+    if (!editando) {
+      return;
+    }
+
+    try {
+      const atualizado = await atualizarOrcamento(editando.id, {
+        restaurante: restaurantesAtualizados,
+      });
+      setEditando(atualizado);
+      setLista((prev) => prev.map((item) => (item.id === atualizado.id ? atualizado : item)));
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "Erro ao excluir restaurante no servidor.");
+    }
+  }
+
   async function salvarPacotesDaSecao(pacotesAtualizados: OrcamentoPayload["pacotes"]) {
     const idSalvo = await salvar(false, pacotesAtualizados);
     if (!idSalvo) {
@@ -1395,212 +1411,369 @@ export default function Roteiros() {
   async function gerarRoteiroComIA() {
     setGerandoRoteiro(true);
 
-    const destinoPrincipal = obterDestinoPrincipalOrcamento(undefined, true);
+    let orcamentoFonte: Partial<Orcamento> = {
+      ...editando,
+      ...form,
+      pacotes,
+      voos,
+      hospedagem,
+      transporte,
+      restaurante,
+      experiencias,
+      perfilViagem: perfilViagemSelecionado,
+    };
 
-    // Coleta dados de voo, hospedagem e perfil da viagem para enriquecer o contexto da IA.
-    const voosResumo = voos
-        .map((voo, index) => {
-          const origem = String(voo?.origem || "").trim();
-          const destino = String(voo?.destino || "").trim();
-          const data = String(voo?.data || "").trim();
-          if (!origem && !destino && !data) return "";
+    if (editando?.id) {
+      try {
+        const completo = await buscarOrcamentoPorId(editando.id);
+        orcamentoFonte = {
+          ...orcamentoFonte,
+          ...completo,
+          pacotes: Array.isArray(completo.pacotes) ? completo.pacotes : pacotes,
+          voos: Array.isArray(completo.voos) ? completo.voos : voos,
+          hospedagem: Array.isArray(completo.hospedagem) ? completo.hospedagem : hospedagem,
+          transporte: Array.isArray(completo.transporte) ? completo.transporte : transporte,
+          restaurante: Array.isArray(completo.restaurante) ? completo.restaurante : restaurante,
+          experiencias: Array.isArray(completo.experiencias) ? completo.experiencias : experiencias,
+          perfilViagem: Array.isArray(completo.perfilViagem) ? completo.perfilViagem : perfilViagemSelecionado,
+        };
 
-          return `${index + 1}) ${origem || "Origem não informada"} -> ${destino || "Destino não informado"}${data ? ` em ${fmtData(data)}` : ""}`;
-        })
-        .filter(Boolean);
+        setPacotes(Array.isArray(orcamentoFonte.pacotes) ? orcamentoFonte.pacotes : []);
+        setVoos(Array.isArray(orcamentoFonte.voos) ? orcamentoFonte.voos as Voo[] : []);
+        setHospedagem(Array.isArray(orcamentoFonte.hospedagem) ? orcamentoFonte.hospedagem : []);
+        setTransporte(Array.isArray(orcamentoFonte.transporte) ? orcamentoFonte.transporte : []);
+        setRestaurante(Array.isArray(orcamentoFonte.restaurante) ? orcamentoFonte.restaurante : []);
+        setExperiencias(Array.isArray(orcamentoFonte.experiencias) ? orcamentoFonte.experiencias : []);
+        setPerfilViagemSelecionado(
+          Array.isArray(orcamentoFonte.perfilViagem)
+            ? orcamentoFonte.perfilViagem.filter((item): item is string => typeof item === "string")
+            : [],
+        );
+      } catch {
+        // Se a atualização falhar, usa os dados já carregados no formulário.
+      }
+    }
 
-    const destinosDosVoos = voos
-        .map((voo) => String(voo?.destino || "").trim())
-        .filter(Boolean);
+    const textoLimpo = (value: unknown) => String(value ?? "").trim();
+    const resumirTexto = (value: unknown, limite = 180) => {
+      const base = textoLimpo(value).replace(/\s+/g, " ");
+      if (!base) return "";
+      return base.length > limite ? `${base.slice(0, limite).trim()}...` : base;
+    };
+    const ehPromptGeradoAutomaticamente = (value: string) => {
+      if (!value) return false;
+      return [
+        "Crie uma sugestão de roteiro de viagem para",
+        "Contexto obrigatório para usar na sugestão",
+        "Formato obrigatório da resposta",
+        "INSTRUÇÕES CRÍTICAS",
+        "Pacotes (resumo):",
+        "Restaurantes (resumo):",
+        "Experiências (resumo):",
+      ].some((trecho) => value.includes(trecho));
+    };
+    const montarSecao = (titulo: string, linhas: string[]) => {
+      const preenchidas = linhas.map((linha) => textoLimpo(linha)).filter(Boolean);
+      if (preenchidas.length === 0) return "";
+      return `${titulo}\n${preenchidas.join("\n")}`;
+    };
+
+    const voosFonte = (Array.isArray(orcamentoFonte.voos) ? orcamentoFonte.voos : []) as Voo[];
+    const pacotesFonte = Array.isArray(orcamentoFonte.pacotes) ? orcamentoFonte.pacotes : [];
+    const hospedagemFonte = Array.isArray(orcamentoFonte.hospedagem) ? orcamentoFonte.hospedagem : [];
+    const transporteFonte = Array.isArray(orcamentoFonte.transporte) ? orcamentoFonte.transporte : [];
+    const restaurantesFonte = Array.isArray(orcamentoFonte.restaurante) ? orcamentoFonte.restaurante : [];
+    const experienciasFonte = Array.isArray(orcamentoFonte.experiencias) ? orcamentoFonte.experiencias : [];
+    const perfilFonte = Array.isArray(orcamentoFonte.perfilViagem)
+      ? orcamentoFonte.perfilViagem.filter((item): item is string => typeof item === "string")
+      : [];
+
+    const destinoPrincipal =
+      voosFonte.find((item) => textoLimpo(item?.destino))?.destino
+      || pacotesFonte.find((item) => textoLimpo(item?.destinoIda))?.destinoIda
+      || pacotesFonte.find((item) => textoLimpo(item?.destino))?.destino
+      || hospedagemFonte.find((item) => textoLimpo(item?.destino))?.destino
+      || transporteFonte.find((item) => textoLimpo(item?.destino))?.destino
+      || textoLimpo(orcamentoFonte.destino)
+      || textoLimpo(form.destino);
+
+    const voosResumo = voosFonte
+      .map((voo, index) => {
+        const origem = textoLimpo(voo?.origem);
+        const destino = textoLimpo(voo?.destino);
+        const data = textoLimpo(voo?.data);
+        const partes: string[] = [];
+
+        if (origem || destino) {
+          partes.push(`Trajeto: ${[origem, destino].filter(Boolean).join(" -> ")}`);
+        }
+        if (data) {
+          partes.push(`Data: ${fmtData(data)}`);
+        }
+        if (partes.length === 0) return "";
+        return `${index + 1}) ${partes.join(" | ")}`;
+      })
+      .filter(Boolean);
+
+    const destinosDosVoos = voosFonte
+      .map((voo) => textoLimpo(voo?.destino))
+      .filter(Boolean);
 
     const destinosDosPacotes = Array.from(
       new Set(
-        pacotes
-          .map((pacote: any) => String(pacote?.destinoIda || pacote?.destino || "").trim())
+        pacotesFonte
+          .map((pacote: any) => textoLimpo(pacote?.destinoIda || pacote?.destino))
           .filter(Boolean),
       ),
     );
 
-    const hospedagemResumo = pacotes
-        .map((item, index) => {
-          const nome = String(item?.hospedagemNome || "").trim();
-          const local = String(item?.hospedagemEndereco || "").trim();
-          const checkin = String(item?.hospedagemCheckin || "").trim();
-          const checkout = String(item?.hospedagemCheckout || "").trim();
+    const hospedagemResumo = pacotesFonte
+      .map((item: any, index: number) => {
+        const partes: string[] = [];
+        if (textoLimpo(item?.hospedagemNome)) partes.push(`Hotel: ${item.hospedagemNome}`);
+        if (textoLimpo(item?.hospedagemEndereco)) partes.push(`Endereço: ${item.hospedagemEndereco}`);
+        if (textoLimpo(item?.hospedagemCheckin)) partes.push(`Check-in: ${fmtData(item.hospedagemCheckin)}`);
+        if (textoLimpo(item?.hospedagemCheckout)) partes.push(`Check-out: ${fmtData(item.hospedagemCheckout)}`);
+        if (partes.length === 0) return "";
+        return `${index + 1}) ${partes.join(" | ")}`;
+      })
+      .filter(Boolean);
 
-          if (!nome && !local && !checkin && !checkout) return "";
+    const pacotesVooResumo = pacotesFonte
+      .map((pacote: any, index: number) => {
+        const partes: string[] = [];
+        if (textoLimpo(pacote?.operador)) partes.push(`Operador: ${pacote.operador}`);
+        if (textoLimpo(pacote?.ciaAerea)) partes.push(`Cia aérea: ${pacote.ciaAerea}`);
+        if (textoLimpo(pacote?.reserva)) partes.push(`Reserva: ${pacote.reserva}`);
 
-          const periodo = checkin || checkout
-              ? ` (${checkin ? fmtData(checkin) : "data não informada"} a ${checkout ? fmtData(checkout) : "data não informada"})`
-              : "";
+        const origemIda = textoLimpo(pacote?.origemIda || pacote?.origem);
+        const destinoIda = textoLimpo(pacote?.destinoIda || pacote?.destino);
+        if (origemIda || destinoIda) {
+          const idaPartes = [`Ida: ${[origemIda, destinoIda].filter(Boolean).join(" -> ")}`];
+          if (textoLimpo(pacote?.dataIda)) idaPartes.push(`Data: ${fmtData(pacote.dataIda)}`);
+          if (textoLimpo(pacote?.duracaoIda)) idaPartes.push(`Duração: ${pacote.duracaoIda}`);
+          partes.push(idaPartes.join(" | "));
+        }
 
-          return `${index + 1}) ${nome || "Hospedagem sem nome"}${local ? ` - ${local}` : ""}${periodo}`;
-        })
-        .filter(Boolean);
+        const origemVolta = textoLimpo(pacote?.origemVolta);
+        const destinoVolta = textoLimpo(pacote?.destinoVolta);
+        if (origemVolta || destinoVolta) {
+          const voltaPartes = [`Volta: ${[origemVolta, destinoVolta].filter(Boolean).join(" -> ")}`];
+          if (textoLimpo(pacote?.dataVolta)) voltaPartes.push(`Data: ${fmtData(pacote.dataVolta)}`);
+          if (textoLimpo(pacote?.duracaoVolta)) voltaPartes.push(`Duração: ${pacote.duracaoVolta}`);
+          partes.push(voltaPartes.join(" | "));
+        }
 
-    // Coleta os detalhes de Voo, Hospedagem, Traslado e Ingresso informados nas telas de Pacotes.
-    const pacotesVooResumo = pacotes
-        .map((pacote: any, index: number) => {
-          const partes: string[] = [];
-          if (pacote?.operador) partes.push(`Operador: ${pacote.operador}`);
-          if (pacote?.ciaAerea) partes.push(`Cia aérea: ${pacote.ciaAerea}`);
-          if (pacote?.reserva) partes.push(`Reserva: ${pacote.reserva}`);
+        if (textoLimpo(pacote?.passageiros)) partes.push(`Passageiros: ${pacote.passageiros}`);
+        if (textoLimpo(pacote?.politicaAlteracoesCancelamentos)) {
+          partes.push(`Política: ${resumirTexto(pacote.politicaAlteracoesCancelamentos)}`);
+        }
 
-          const origemIda = String(pacote?.origemIda || pacote?.origem || "").trim();
-          const destinoIda = String(pacote?.destinoIda || pacote?.destino || "").trim();
-          if (origemIda || destinoIda || pacote?.dataIda) {
-            partes.push(
-                `Ida: ${origemIda || "origem não informada"} -> ${destinoIda || "destino não informado"}` +
-                `${pacote?.dataIda ? ` em ${fmtData(pacote.dataIda)}` : ""}${pacote?.duracaoIda ? ` (${pacote.duracaoIda})` : ""}`
-            );
-          }
+        if (partes.length === 0) return "";
+        return `${index + 1}) ${partes.join(" | ")}`;
+      })
+      .filter(Boolean);
 
-          const origemVolta = String(pacote?.origemVolta || "").trim();
-          const destinoVolta = String(pacote?.destinoVolta || "").trim();
-          if (origemVolta || destinoVolta || pacote?.dataVolta) {
-            partes.push(
-                `Volta: ${origemVolta || "origem não informada"} -> ${destinoVolta || "destino não informado"}` +
-                `${pacote?.dataVolta ? ` em ${fmtData(pacote.dataVolta)}` : ""}${pacote?.duracaoVolta ? ` (${pacote.duracaoVolta})` : ""}`
-            );
-          }
+    const pacotesHospedagemResumo = pacotesFonte
+      .map((pacote: any, index: number) => {
+        const partes: string[] = [];
+        if (textoLimpo(pacote?.hospedagemNome)) partes.push(`Hotel: ${pacote.hospedagemNome}`);
+        if (textoLimpo(pacote?.hospedagemEndereco)) partes.push(`Endereço: ${pacote.hospedagemEndereco}`);
+        if (textoLimpo(pacote?.hospedagemCheckin)) partes.push(`Check-in: ${fmtData(pacote.hospedagemCheckin)}`);
+        if (textoLimpo(pacote?.hospedagemCheckout)) partes.push(`Check-out: ${fmtData(pacote.hospedagemCheckout)}`);
+        if (textoLimpo(pacote?.hospedagemNoites)) partes.push(`Noites: ${pacote.hospedagemNoites}`);
+        if (textoLimpo(pacote?.hospedagemTipoQuarto)) partes.push(`Quarto: ${pacote.hospedagemTipoQuarto}`);
+        if (textoLimpo(pacote?.hospedagemRegime)) partes.push(`Regime: ${pacote.hospedagemRegime}`);
+        if (textoLimpo(pacote?.hospedagemComodidades)) partes.push(`Comodidades: ${resumirTexto(pacote.hospedagemComodidades, 120)}`);
+        if (textoLimpo(pacote?.hospedagemPoliticasCondicoesInformacoesEspeciais)) {
+          partes.push(`Políticas: ${resumirTexto(pacote.hospedagemPoliticasCondicoesInformacoesEspeciais)}`);
+        }
 
-          if (pacote?.passageiros) partes.push(`Passageiros: ${pacote.passageiros}`);
-          if (pacote?.politicaAlteracoesCancelamentos) partes.push(`Política de alterações/cancelamentos: ${pacote.politicaAlteracoesCancelamentos}`);
+        if (partes.length === 0) return "";
+        return `${index + 1}) ${partes.join(" | ")}`;
+      })
+      .filter(Boolean);
 
-          if (partes.length === 0) return "";
-          return `${index + 1}) ${partes.join(" | ")}`;
-        })
-        .filter(Boolean);
+    const pacotesTrasladoResumo = pacotesFonte
+      .map((pacote: any, index: number) => {
+        const partes: string[] = [];
+        if (textoLimpo(pacote?.trasladoTipo)) partes.push(`Tipo: ${pacote.trasladoTipo}`);
+        const localPartida = textoLimpo(pacote?.trasladoLocalPartida);
+        const localChegada = textoLimpo(pacote?.trasladoLocalChegada);
+        if (localPartida || localChegada) {
+          partes.push(`Trajeto: ${[localPartida, localChegada].filter(Boolean).join(" -> ")}`);
+        }
+        const dataTraslado = textoLimpo(pacote?.trasladoData);
+        const horarioTraslado = textoLimpo(pacote?.trasladoHorario);
+        if (dataTraslado || horarioTraslado) {
+          partes.push(`Data/Horário: ${[dataTraslado ? fmtData(dataTraslado) : "", horarioTraslado].filter(Boolean).join(" ")}`);
+        }
+        if (textoLimpo(pacote?.trasladoVeiculoEmpresa)) partes.push(`Veículo/Empresa: ${pacote.trasladoVeiculoEmpresa}`);
+        if (textoLimpo(pacote?.trasladoObservacoes)) partes.push(`Observações: ${resumirTexto(pacote.trasladoObservacoes, 120)}`);
 
-    const pacotesHospedagemResumo = pacotes
-        .map((pacote: any, index: number) => {
-          const partes: string[] = [];
-          if (pacote?.hospedagemNome) partes.push(`Hotel: ${pacote.hospedagemNome}`);
-          if (pacote?.hospedagemEndereco) partes.push(`Endereço: ${pacote.hospedagemEndereco}`);
-          if (pacote?.hospedagemCheckin || pacote?.hospedagemCheckout) {
-            partes.push(`Check-in/Check-out: ${pacote?.hospedagemCheckin ? fmtData(pacote.hospedagemCheckin) : "não informado"} a ${pacote?.hospedagemCheckout ? fmtData(pacote.hospedagemCheckout) : "não informado"}`);
-          }
-          if (pacote?.hospedagemNoites) partes.push(`Noites: ${pacote.hospedagemNoites}`);
-          if (pacote?.hospedagemTipoQuarto) partes.push(`Tipo de quarto: ${pacote.hospedagemTipoQuarto}`);
-          if (pacote?.hospedagemRegime) partes.push(`Regime: ${pacote.hospedagemRegime}`);
-          if (pacote?.hospedagemComodidades) partes.push(`Comodidades: ${pacote.hospedagemComodidades}`);
-          if (pacote?.hospedagemPoliticasCondicoesInformacoesEspeciais) {
-            partes.push(`Políticas/informações especiais: ${pacote.hospedagemPoliticasCondicoesInformacoesEspeciais}`);
-          }
+        if (partes.length === 0) return "";
+        return `${index + 1}) ${partes.join(" | ")}`;
+      })
+      .filter(Boolean);
 
-          if (partes.length === 0) return "";
-          return `${index + 1}) ${partes.join(" | ")}`;
-        })
-        .filter(Boolean);
+    const pacotesIngressoResumo = pacotesFonte
+      .map((pacote: any, index: number) => {
+        const partes: string[] = [];
+        if (textoLimpo(pacote?.ingressoNomeAtracao)) partes.push(`Atração/Ingresso: ${pacote.ingressoNomeAtracao}`);
+        const dataIngresso = textoLimpo(pacote?.ingressoData);
+        const horarioIngresso = textoLimpo(pacote?.ingressoHorario);
+        if (dataIngresso || horarioIngresso) {
+          partes.push(`Data/Horário: ${[dataIngresso ? fmtData(dataIngresso) : "", horarioIngresso].filter(Boolean).join(" ")}`);
+        }
+        if (textoLimpo(pacote?.ingressoQuantidade)) partes.push(`Quantidade: ${pacote.ingressoQuantidade}`);
+        if (textoLimpo(pacote?.ingressoObservacoes)) partes.push(`Observações: ${resumirTexto(pacote.ingressoObservacoes, 120)}`);
 
-    const pacotesTrasladoResumo = pacotes
-        .map((pacote: any, index: number) => {
-          const partes: string[] = [];
-          if (pacote?.trasladoTipo) partes.push(`Tipo: ${pacote.trasladoTipo}`);
-          if (pacote?.trasladoLocalPartida || pacote?.trasladoLocalChegada) {
-            partes.push(`Trajeto: ${pacote?.trasladoLocalPartida || "local de partida não informado"} -> ${pacote?.trasladoLocalChegada || "local de chegada não informado"}`);
-          }
-          if (pacote?.trasladoData || pacote?.trasladoHorario) {
-            partes.push(`Data/Horário: ${[pacote?.trasladoData ? fmtData(pacote.trasladoData) : "", pacote?.trasladoHorario].filter(Boolean).join(" ")}`);
-          }
-          if (pacote?.trasladoVeiculoEmpresa) partes.push(`Veículo/Empresa: ${pacote.trasladoVeiculoEmpresa}`);
-          if (pacote?.trasladoObservacoes) partes.push(`Observações: ${pacote.trasladoObservacoes}`);
+        if (partes.length === 0) return "";
+        return `${index + 1}) ${partes.join(" | ")}`;
+      })
+      .filter(Boolean);
 
-          if (partes.length === 0) return "";
-          return `${index + 1}) ${partes.join(" | ")}`;
-        })
-        .filter(Boolean);
+    const vouchersPacotesResumo = pacotesFonte
+      .map((pacote: any, index: number) => {
+        const docs = Array.isArray(pacote?.documentos) ? pacote.documentos : [];
+        const nomesDocs = docs
+          .map((doc: any) => textoLimpo(doc?.nome || doc?.filename || doc?.fileName))
+          .filter(Boolean);
+        if (nomesDocs.length === 0) return "";
+        return `${index + 1}) ${nomesDocs.join(", ")}`;
+      })
+      .filter(Boolean);
 
-    const pacotesIngressoResumo = pacotes
-        .map((pacote: any, index: number) => {
-          const partes: string[] = [];
-          if (pacote?.ingressoNomeAtracao) partes.push(`Atração/Ingresso: ${pacote.ingressoNomeAtracao}`);
-          if (pacote?.ingressoData || pacote?.ingressoHorario) {
-            partes.push(`Data/Horário: ${[pacote?.ingressoData ? fmtData(pacote.ingressoData) : "", pacote?.ingressoHorario].filter(Boolean).join(" ")}`);
-          }
-          if (pacote?.ingressoQuantidade) partes.push(`Quantidade: ${pacote.ingressoQuantidade}`);
-          if (pacote?.ingressoObservacoes) partes.push(`Observações: ${pacote.ingressoObservacoes}`);
+    const restauranteResumo = restaurantesFonte
+      .map((item: any, index: number) => {
+        const partes: string[] = [];
+        if (textoLimpo(item?.nome)) partes.push(`Nome: ${item.nome}`);
+        if (textoLimpo(item?.local)) partes.push(`Local: ${item.local}`);
+        if (textoLimpo(item?.tipoCozinha)) partes.push(`Cozinha: ${item.tipoCozinha}`);
+        if (textoLimpo(item?.data)) partes.push(`Data: ${fmtData(item.data)}`);
+        if (textoLimpo(item?.horario)) partes.push(`Horário: ${item.horario}`);
+        if (Number(item?.qtdPessoas) > 0) partes.push(`Pessoas: ${item.qtdPessoas}`);
+        if (textoLimpo(item?.voucherNome)) partes.push(`Voucher: ${item.voucherNome}`);
+        if (partes.length === 0) return "";
+        return `${index + 1}) ${partes.join(" | ")}`;
+      })
+      .filter(Boolean);
 
-          if (partes.length === 0) return "";
-          return `${index + 1}) ${partes.join(" | ")}`;
-        })
-        .filter(Boolean);
+    const experienciasResumo = experienciasFonte
+      .map((item: any, index: number) => {
+        const partes: string[] = [];
+        if (textoLimpo(item?.nome)) partes.push(`Nome: ${item.nome}`);
+        if (textoLimpo(item?.local)) partes.push(`Local: ${item.local}`);
+        if (textoLimpo(item?.tipo)) partes.push(`Tipo: ${item.tipo}`);
+        if (textoLimpo(item?.data)) partes.push(`Data: ${fmtData(item.data)}`);
+        if (textoLimpo(item?.horario)) partes.push(`Horário: ${item.horario}`);
+        if (textoLimpo(item?.duracao)) partes.push(`Duração: ${item.duracao}`);
+        if (textoLimpo(item?.inclui)) partes.push(`Inclui: ${item.inclui}`);
+        if (textoLimpo(item?.nReserva)) partes.push(`Reserva: ${item.nReserva}`);
+        if (textoLimpo(item?.pontoEncontro)) partes.push(`Ponto de encontro: ${item.pontoEncontro}`);
+        if (textoLimpo(item?.voucherNome)) partes.push(`Voucher: ${item.voucherNome}`);
+        if (partes.length === 0) return "";
+        return `${index + 1}) ${partes.join(" | ")}`;
+      })
+      .filter(Boolean);
 
-    const perfilViagemResumo = perfilViagemSelecionado
-        .map((item) => {
-          const partes = String(item || "").split("::");
-          if (partes.length === 2) {
-            return `${partes[0]}: ${partes[1]}`;
-          }
-          return String(item || "").trim();
-        })
-        .filter(Boolean);
+    const perfilViagemResumo = perfilFonte
+      .map((item) => {
+        const partes = textoLimpo(item).split("::");
+        if (partes.length === 2) {
+          const categoria = textoLimpo(partes[0]);
+          const opcao = textoLimpo(partes[1]);
+          return categoria && opcao ? `${categoria}: ${opcao}` : "";
+        }
+        return textoLimpo(item);
+      })
+      .filter(Boolean);
 
-    const passageirosResumo = (form.passageiros || [])
-        .map((nome) => String(nome || "").trim())
-        .filter(Boolean);
+    const passageirosResumo = (Array.isArray(orcamentoFonte.passageiros) ? orcamentoFonte.passageiros : form.passageiros || [])
+      .map((nome) => textoLimpo(nome))
+      .filter(Boolean);
 
     const promptPerfilViagemLimpo = promptPerfilViagemIA.trim();
     const promptRoteiroLimpo = promptRoteiroIA.trim();
+    const promptRoteiroUsuario = ehPromptGeradoAutomaticamente(promptRoteiroLimpo) ? "" : promptRoteiroLimpo;
 
-    const destinosTexto = destinosDosVoos.length > 0
-        ? destinosDosVoos.join(", ")
-        : (destinoPrincipal || "Destino não informado");
+    const resumoBasicoParaCampo = [
+      montarSecao("Pacotes (resumo):", [
+        ...pacotesVooResumo.slice(0, 2),
+        ...pacotesHospedagemResumo.slice(0, 2),
+        ...pacotesIngressoResumo.slice(0, 2),
+      ]),
+      montarSecao("Restaurantes (resumo):", restauranteResumo.slice(0, 3)),
+      montarSecao("Experiências (resumo):", experienciasResumo.slice(0, 3)),
+    ]
+      .filter(Boolean)
+      .join("\n\n");
 
-    const destinosPacotesTexto = destinosDosPacotes.length > 0
-      ? destinosDosPacotes.join(", ")
-      : "Nenhum destino de pacote informado";
+    const promptParaCampo = [promptRoteiroUsuario, resumoBasicoParaCampo].filter(Boolean).join("\n\n");
+    if (promptParaCampo && promptParaCampo !== promptRoteiroIA) {
+      setPromptRoteiroIA(promptParaCampo);
+    }
 
-    // Combina ambos os prompts: primeiro a personalização do roteiro, depois o perfil da viagem
-    const diretrizesAdicionais = [promptRoteiroLimpo, promptPerfilViagemLimpo]
-        .filter(Boolean)
-        .join("\n- ");
+    const destinosTexto = destinosDosVoos.length > 0 ? destinosDosVoos.join(", ") : "";
+    const destinosPacotesTexto = destinosDosPacotes.length > 0 ? destinosDosPacotes.join(", ") : "";
 
-    const prompt = `Crie uma sugestão de roteiro de viagem para ${form.cliente || "cliente"}.
+    const diretrizesAdicionais = [promptRoteiroUsuario, promptPerfilViagemLimpo]
+      .filter(Boolean)
+      .join("\n\n");
 
-  Contexto obrigatório para usar na sugestão:
-  - Destino principal: ${destinoPrincipal || "não informado"}
-  - Destino(s) priorizados dos pacotes (usar como referência principal quando houver): ${destinosPacotesTexto}
-  - Destino(s) dos voos: ${destinosTexto}
-  - Voos informados:
-  ${voosResumo.length > 0 ? voosResumo.join("\n") : "Nenhum voo informado"}
-  - Hospedagem informada:
-  ${hospedagemResumo.length > 0 ? hospedagemResumo.join("\n") : "Nenhuma hospedagem informada"}
-  - Detalhes do Voo (Pacotes):
-  ${pacotesVooResumo.length > 0 ? pacotesVooResumo.join("\n") : "Nenhum detalhe de voo informado nos pacotes"}
-  - Detalhes da Hospedagem (Pacotes):
-  ${pacotesHospedagemResumo.length > 0 ? pacotesHospedagemResumo.join("\n") : "Nenhum detalhe de hospedagem informado nos pacotes"}
-  - Detalhes do Traslado (Pacotes):
-  ${pacotesTrasladoResumo.length > 0 ? pacotesTrasladoResumo.join("\n") : "Nenhum detalhe de traslado informado nos pacotes"}
-  - Detalhes do Ingresso (Pacotes):
-  ${pacotesIngressoResumo.length > 0 ? pacotesIngressoResumo.join("\n") : "Nenhum detalhe de ingresso informado nos pacotes"}
-  - Passageiros:
-  ${passageirosResumo.length > 0 ? passageirosResumo.join(", ") : "Nenhum passageiro adicional informado"}
-  - Perfil da viagem selecionado:
-  ${perfilViagemResumo.length > 0 ? perfilViagemResumo.join("\n") : "Nenhum perfil selecionado"}
-  - Diretrizes adicionais para personalizar o roteiro:
-  ${diretrizesAdicionais || "Nenhuma diretriz adicional informada"}
+    const contextoPrompt = [
+      destinoPrincipal ? `- Destino principal: ${destinoPrincipal}` : "",
+      destinosPacotesTexto
+        ? `- Destino(s) priorizados dos pacotes (usar como referência principal quando houver): ${destinosPacotesTexto}`
+        : "",
+      destinosTexto ? `- Destino(s) dos voos: ${destinosTexto}` : "",
+      montarSecao("- Voos informados:", voosResumo),
+      montarSecao("- Hospedagem informada:", hospedagemResumo),
+      montarSecao("- Detalhes do Voo (Pacotes):", pacotesVooResumo),
+      montarSecao("- Detalhes da Hospedagem (Pacotes):", pacotesHospedagemResumo),
+      montarSecao("- Detalhes do Traslado (Pacotes):", pacotesTrasladoResumo),
+      montarSecao("- Detalhes do Ingresso (Pacotes):", pacotesIngressoResumo),
+      montarSecao("- Vouchers dos Pacotes:", vouchersPacotesResumo),
+      montarSecao("- Restaurantes:", restauranteResumo),
+      montarSecao("- Experiências:", experienciasResumo),
+      passageirosResumo.length > 0 ? `- Passageiros: ${passageirosResumo.join(", ")}` : "",
+      montarSecao("- Perfil da viagem selecionado:", perfilViagemResumo),
+      diretrizesAdicionais ? `- Diretrizes adicionais para personalizar o roteiro:\n${diretrizesAdicionais}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
 
-  Formato obrigatório da resposta:
-  1) Título elegante do roteiro.
-  2) Resumo inspirador em 1 parágrafo.
-  3) Bloco "Dia a dia sugerido" com subtítulos por dia (ex: "Dia 1 - ...") e atividades em bullets.
-  4) Bloco "Destaques imperdíveis" com 5 a 8 itens.
-  5) Bloco "Dicas práticas" (transporte, horários, segurança e clima).
+    const prompt = `Você é um consultor de viagens e deve criar um roteiro personalizado para ${form.cliente || "cliente"}.
 
-  INSTRUÇÕES CRÍTICAS:
-  - Escreva APENAS em português do Brasil. ZERO palavras em inglês.
-  - Traduza todos os termos para português: check-in → entrada no hotel, check-out → saída do hotel, tour → passeio, guide → guia, booking → reserva, ticket → ingresso, airport → aeroporto, flight → voo, restaurant → restaurante, museum → museu, beach → praia, park → parque, city → cidade, street → rua, taxi → táxi, bus → ônibus, subway → metrô, train → trem, breakfast → café da manhã, lunch → almoço, dinner → jantar, weather → clima, temperature → temperatura, sunny → ensolarado, rainy → chuvoso, cold → frio, hot → quente, morning → manhã, afternoon → tarde, evening → noite, today → hoje, tomorrow → amanhã, week → semana, month → mês, year → ano, hour → hora, minute → minuto, price → preço, expensive → caro, cheap → barato, free → gratuito, paid → pago, open → aberto, closed → fechado, available → disponível, famous → famoso, beautiful → bonito, amazing → incrível, wonderful → maravilhoso, excellent → excelente, great → ótimo, good → bom, bad → ruim, important → importante, necessary → necessário, optional → opcional, mandatory → obrigatório, include → incluir, exclude → excluir, visit → visitar, see → ver, enjoy → aproveitar, discover → descobrir, explore → explorar, learn → aprender, know → saber, understand → entender.
-  - Escreva com tom profissional, bonito e claro para apresentar ao cliente final brasileiro.
-  - Deixe os subtítulos de cada dia bem claros e organizados para fácil leitura.
-  - Nao utilize Markdown e nao use simbolos de formatacao como **, __, # ou listas com asterisco.
-  - A sugestão deve respeitar explicitamente os dados de voo, hospedagem, traslado, ingressos, passageiros e perfil da viagem fornecidos acima.`;
+Contexto da viagem:
+${contextoPrompt}
+
+Regras:
+- Use somente os dados do contexto.
+- Não invente hotéis, voos, horários, atrações ou reservas que não estejam informados.
+- Escreva apenas em português do Brasil.
+- Se algum dado não existir, siga o roteiro sem citar ausência de dados.
+
+Formato da resposta (texto simples):
+Título do roteiro:
+Resumo da viagem:
+Dia a dia sugerido:
+Dia 1 - ...
+Dia 2 - ...
+Destaques imperdíveis:
+1) ...
+2) ...
+Dicas práticas:
+Transporte:
+Horários:
+Segurança:
+Clima:`;
 
     try {
       let respostaFinal = "";
       const errosProvedores: string[] = [];
 
-      const tentarComProvedor = async (provedor: "openai" | "groq" | "gemini" | "openrouter" | "wonderful") => {
+      const tentarComProvedor = async (provedor: "openai" | "groq" | "gemini" | "wonderful") => {
         const data = await enviarMensagemIA(
             [{ role: "user", content: prompt }],
             provedor
@@ -1609,7 +1782,7 @@ export default function Roteiros() {
       };
 
       if (provedorRoteiroIA === "automatico") {
-        const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "wonderful")[] = ["wonderful", "groq", "gemini", "openrouter", "openai"];
+        const provedores: ("openai" | "groq" | "gemini" | "wonderful")[] = ["wonderful", "groq", "gemini", "openai"];
         for (const provedor of provedores) {
           try {
             respostaFinal = await tentarComProvedor(provedor);
@@ -1635,7 +1808,7 @@ export default function Roteiros() {
 
       const destinosPacotes = Array.from(
         new Set(
-          pacotes
+          pacotesFonte
             .map((pacote: any) => String(pacote?.destinoIda || pacote?.destino || '').trim())
             .filter(Boolean),
         ),
@@ -1658,8 +1831,8 @@ export default function Roteiros() {
         setDayByDay(dayByDayGerado);
       }
       
-      // Salvar o prompt no banco de dados
-      setPromptRoteiroIA(prompt);
+      // Salva para o usuário apenas o prompt base preenchido com os dados do formulário.
+      setPromptRoteiroIA(promptParaCampo || prompt);
     } catch (error) {
       console.error("Falha ao gerar roteiro com IA:", error);
       // Exibe mensagem de erro detalhada com todos os provedores que falharam
@@ -1924,7 +2097,6 @@ export default function Roteiros() {
                                     <option value="gemini">Gemini</option>
                                     <option value="groq">Groq</option>
                                     <option value="openai">OpenAI</option>
-                                    <option value="openrouter">OpenRouter</option>
                                     <option value="wonderful">Wonderful</option>
                                   </select>
                                   <Button
@@ -1955,6 +2127,7 @@ export default function Roteiros() {
                             <RestauranteForm
                               restaurantes={restaurante}
                               onRestaurantesChange={setRestaurante}
+                              onRestauranteDelete={persistirExclusaoRestaurante}
                               destinoInicialBusca={obterDestinoPrincipalOrcamento(undefined, true)}
                             />
                         )}

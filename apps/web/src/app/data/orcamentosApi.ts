@@ -173,7 +173,7 @@ export function criarOrcamento(payload: OrcamentoPayload) {
   });
 }
 
-export function atualizarOrcamento(id: number, payload: OrcamentoPayload) {
+export function atualizarOrcamento(id: number, payload: Partial<OrcamentoPayload>) {
   return request<Orcamento>(`/orcamentos/${id}`, {
     method: 'PUT',
     body: JSON.stringify(payload),

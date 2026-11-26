@@ -58,6 +58,7 @@ interface RestauranteFormProps {
   restaurantes: Restaurante[];
   onRestaurantesChange: (restaurantes: Restaurante[]) => void;
   destinoInicialBusca?: string;
+  onRestauranteDelete?: (restaurantes: Restaurante[]) => Promise<void> | void;
 }
 
 const tiposCozinha = [
@@ -89,6 +90,7 @@ export default function RestauranteForm({
   restaurantes,
   onRestaurantesChange,
   destinoInicialBusca,
+  onRestauranteDelete,
 }: RestauranteFormProps) {
   const getMensagemFallbackRestaurante = (fallbackReason?: string) => {
     switch (String(fallbackReason || '').trim()) {
@@ -147,6 +149,8 @@ export default function RestauranteForm({
   const [buscou, setBuscou] = useState(false);
   const [selecionado, setSelecionado] = useState<any | null>(null);
   const [restauranteParaExcluir, setRestauranteParaExcluir] = useState<number | null>(null);
+  const [excluindoRestaurante, setExcluindoRestaurante] = useState(false);
+  const [erroExclusaoRestaurante, setErroExclusaoRestaurante] = useState("");
   const [mostrarManual, setMostrarManual] = useState(false);
   const [formDetalhes, setFormDetalhes] = useState({
     id: null as number | null,
@@ -384,9 +388,28 @@ export default function RestauranteForm({
     }
   };
 
-  const removerRestaurante = (id: number) => {
-    onRestaurantesChange(restaurantes.filter((r) => r.id !== id));
+  const removerRestaurante = async (indice: number) => {
+    const restaurantesAtualizados = restaurantes.filter((_, idx) => idx !== indice);
+
+    onRestaurantesChange(restaurantesAtualizados);
     setRestauranteParaExcluir(null);
+
+    if (!onRestauranteDelete) {
+      return;
+    }
+
+    setErroExclusaoRestaurante("");
+    setExcluindoRestaurante(true);
+
+    try {
+      await onRestauranteDelete(restaurantesAtualizados);
+    } catch (error) {
+      // Reverte a exclusao local quando a persistencia remota falha.
+      onRestaurantesChange(restaurantes);
+      setErroExclusaoRestaurante(error instanceof Error ? error.message : "Erro ao excluir restaurante no servidor.");
+    } finally {
+      setExcluindoRestaurante(false);
+    }
   };
 
   const editarRestaurante = (rest: Restaurante) => {
@@ -1047,10 +1070,13 @@ export default function RestauranteForm({
             <Utensils className="w-4 h-4 inline-block mr-1 text-green-500" />
             Restaurantes Adicionados ({restaurantes.length})
           </h4>
+          {erroExclusaoRestaurante && (
+            <p className="mb-3 text-xs text-red-500">{erroExclusaoRestaurante}</p>
+          )}
           <div className="space-y-2">
-            {restaurantes.map((rest) => (
+            {restaurantes.map((rest, index) => (
               <div
-                key={rest.id}
+                key={`${rest.id}-${index}`}
                 className="flex items-start justify-between p-3 bg-gray-50 rounded-lg"
               >
                 <div className="flex-1 min-w-0">
@@ -1127,12 +1153,12 @@ export default function RestauranteForm({
                     <Pencil className="w-4 h-4" />
                   </button>
                   <AlertDialog
-                    open={restauranteParaExcluir === rest.id}
+                    open={restauranteParaExcluir === index}
                     onOpenChange={(open) => !open && setRestauranteParaExcluir(null)}
                   >
                     <AlertDialogTrigger asChild>
                       <button
-                        onClick={() => setRestauranteParaExcluir(rest.id)}
+                        onClick={() => setRestauranteParaExcluir(index)}
                         className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -1148,10 +1174,11 @@ export default function RestauranteForm({
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
                         <AlertDialogAction
-                          onClick={() => removerRestaurante(rest.id)}
+                          onClick={() => removerRestaurante(index)}
+                          disabled={excluindoRestaurante}
                           className="bg-red-600 hover:bg-red-700"
                         >
-                          Excluir
+                          {excluindoRestaurante ? "Excluindo..." : "Excluir"}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>

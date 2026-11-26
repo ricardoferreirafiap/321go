@@ -41,11 +41,8 @@ let AiService = class AiService {
         }
     }
     resolveProvider(provider) {
-        const requestedProvider = provider || 'wonderful';
-        if (requestedProvider === 'openai' && !(process.env.OPENAI_API_KEY || '').trim()) {
-            return 'wonderful';
-        }
-        return requestedProvider;
+        void provider;
+        return 'wonderful';
     }
     normalizeMessages(input) {
         const normalized = input.map((message, index) => {

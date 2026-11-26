@@ -36,15 +36,8 @@ export class AiService {
   }
 
   private resolveProvider(provider?: AiProvider): AiProvider {
-    // Keep Wonderful as default, but allow explicit provider selection for fallback flows.
-    const requestedProvider = provider || 'wonderful';
-
-    // Avoid OPENAI_INVALID_KEY for environments that intentionally do not use OpenAI.
-    if (requestedProvider === 'openai' && !(process.env.OPENAI_API_KEY || '').trim()) {
-      return 'wonderful';
-    }
-
-    return requestedProvider;
+    void provider;
+    return 'wonderful';
   }
 
   private normalizeMessages(input: Array<{ role: 'user' | 'assistant'; content: unknown }>) {

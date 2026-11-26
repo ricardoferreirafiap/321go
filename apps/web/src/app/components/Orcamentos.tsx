@@ -174,6 +174,7 @@ const categoriasPerfilViagem: CategoriaPerfilViagem[] = [
       "Grupo de amigos",
       "Lua de mel",
       "Viagem solo",
+      "Compras",
       "Pet Friendly",
       "LGBTQIA+",
       "Comunidade Nerd/Gamer",

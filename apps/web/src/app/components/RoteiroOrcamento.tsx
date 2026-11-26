@@ -304,7 +304,7 @@ function ehMensagemTecnicaProvedor(texto?: string | null): boolean {
     /incorrect api key/,
     /api key (?:provided|invalid|missing)/,
     /\b(?:401|403|429)\b.{0,80}\b(?:api|status|unauthorized|forbidden|quota|rate limit|no body)\b/,
-    /\b(?:groq|openai|gemini|openrouter|cloudflare)\s*:.{0,120}\b(?:erro|error|status|resposta sem|api key)\b/,
+    /\b(?:groq|openai|gemini|cloudflare|wonderful)\s*:.{0,120}\b(?:erro|error|status|resposta sem|api key)\b/,
     /^\s*\{?"?error"?\s*:/,
   ].some((padrao) => padrao.test(valor));
 }
@@ -2360,8 +2360,81 @@ export default function RoteiroOrcamento() {
           <div className="p-4 space-y-3">
             {orc.experiencias.map((e: any, idx: number) => (
               <div key={idx} className="p-3 bg-gray-50 rounded-lg">
-                <p className="font-medium text-gray-900">{e.nome}</p>
-                <p className="text-sm text-gray-600">{e.descricao}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-gray-900 text-sm">{sanitizarTextoPublico(e.nome) || `Experiência ${idx + 1}`}</p>
+                  {sanitizarTextoPublico(e.tipo) && (
+                    <span className="text-xs bg-pink-100 text-pink-700 px-2 py-0.5 rounded">{sanitizarTextoPublico(e.tipo)}</span>
+                  )}
+                  {sanitizarTextoPublico(e.operador) && (
+                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">{sanitizarTextoPublico(e.operador)}</span>
+                  )}
+                </div>
+
+                {sanitizarTextoPublico(e.local) && <p className="text-sm text-gray-600 mt-1">{sanitizarTextoPublico(e.local)}</p>}
+                {sanitizarTextoPublico(e.endereco) && <p className="text-xs text-gray-500 mt-0.5">{sanitizarTextoPublico(e.endereco)}</p>}
+
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                  {e.data && <span>Data: <span className="font-medium text-gray-700">{formatarDataCurta(e.data)}</span></span>}
+                  {sanitizarTextoPublico(e.horario) && <span>Horário: <span className="font-medium text-gray-700">{sanitizarTextoPublico(e.horario)}</span></span>}
+                  {sanitizarTextoPublico(e.duracao) && <span>Duração: <span className="font-medium text-gray-700">{sanitizarTextoPublico(e.duracao)}</span></span>}
+                  {Number(e.qtdPessoas) > 0 && <span><span className="font-medium text-gray-700">{Number(e.qtdPessoas)}</span> pessoa(s)</span>}
+                  {Number(e.preco) > 0 && <span className="font-semibold text-indigo-600">{formatarMoeda(Number(e.preco))}</span>}
+                </div>
+
+                {sanitizarTextoPublico(e.pontoEncontro) && (
+                  <p className="text-xs text-gray-500 mt-1"><span className="font-medium text-gray-700">Ponto de encontro:</span> {sanitizarTextoPublico(e.pontoEncontro)}</p>
+                )}
+                {sanitizarTextoPublico(e.nReserva) && (
+                  <p className="text-xs text-gray-500 mt-0.5"><span className="font-medium text-gray-700">Reserva:</span> {sanitizarTextoPublico(e.nReserva)}</p>
+                )}
+                {sanitizarTextoPublico(e.nomeGuia) && (
+                  <p className="text-xs text-gray-500 mt-0.5"><span className="font-medium text-gray-700">Guia:</span> {sanitizarTextoPublico(e.nomeGuia)}</p>
+                )}
+                {sanitizarTextoPublico(e.telefoneOperador) && (
+                  <p className="text-xs text-gray-500 mt-0.5"><span className="font-medium text-gray-700">Telefone:</span> {sanitizarTextoPublico(e.telefoneOperador)}</p>
+                )}
+                {sanitizarTextoPublico(e.inclui) && (
+                  <p className="text-xs text-gray-500 mt-1"><span className="font-medium text-gray-700">Inclui:</span> {sanitizarTextoPublico(e.inclui)}</p>
+                )}
+                {sanitizarTextoPublico(e.descricao) && (
+                  <p className="text-xs text-gray-500 mt-1"><span className="font-medium text-gray-700">Descrição:</span> {sanitizarTextoPublico(e.descricao)}</p>
+                )}
+                {sanitizarTextoPublico(e.observacoes) && (
+                  <p className="text-xs text-gray-500 mt-1 italic"><span className="font-medium text-gray-700 not-italic">Observações:</span> {sanitizarTextoPublico(e.observacoes)}</p>
+                )}
+                {sanitizarTextoPublico(e.politicaCancelamento) && (
+                  <p className="text-xs text-orange-700 mt-1"><span className="font-medium">Política de cancelamento:</span> {sanitizarTextoPublico(e.politicaCancelamento)}</p>
+                )}
+
+                <div className="mt-2 flex flex-col items-start gap-1.5 text-xs">
+                  {obterLinkExternoSeguro(e.linkIngresso) && (
+                    <a
+                      href={obterLinkExternoSeguro(e.linkIngresso)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline flex items-center gap-1.5"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Link do ingresso
+                    </a>
+                  )}
+                  {e.voucher && (
+                    <button
+                      onClick={() => {
+                        const win = window.open("");
+                        if (win && e.voucher) {
+                          win.document.body.innerHTML =
+                            e.voucherTipo === "pdf"
+                              ? `<iframe src="${e.voucher}" style="width:100%;height:100%;border:none;"></iframe>`
+                              : `<img src="${e.voucher}" alt="Voucher" style="max-width:100%;max-height:100vh;display:block;margin:auto;" />`;
+                        }
+                      }}
+                      className="text-indigo-600 hover:text-indigo-800 underline"
+                    >
+                      {sanitizarTextoPublico(e.voucherNome) ? `Ver voucher (${sanitizarTextoPublico(e.voucherNome)})` : "Ver voucher"}
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>

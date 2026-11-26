@@ -26,50 +26,8 @@ let AiRepository = class AiRepository {
         'Ajude com produtividade, atendimento comercial, vendas e suporte.',
     ].join(' ');
     async generateReply(provider, messages) {
-        switch (provider) {
-            case 'openai':
-                return this.callOpenAiCompatible({
-                    provider,
-                    apiKey: process.env.OPENAI_API_KEY,
-                    model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-                    baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-                }, messages);
-            case 'groq':
-                return this.callOpenAiCompatible({
-                    provider,
-                    apiKey: process.env.GROQ_API_KEY,
-                    model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
-                    baseUrl: process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
-                }, messages);
-            case 'openrouter':
-                return this.callOpenAiCompatible({
-                    provider,
-                    apiKey: process.env.OPENROUTER_API_KEY,
-                    model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
-                    baseUrl: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
-                }, messages);
-            case 'cloudflare':
-                return this.callOpenAiCompatible({
-                    provider,
-                    apiKey: process.env.CLOUDFLARE_API_KEY,
-                    model: process.env.CLOUDFLARE_MODEL || '@cf/meta/llama-3.1-8b-instruct',
-                    baseUrl: process.env.CLOUDFLARE_BASE_URL ||
-                        (process.env.CLOUDFLARE_ACCOUNT_ID
-                            ? `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/ai/v1`
-                            : ''),
-                }, messages);
-            case 'wonderful':
-                return this.callWonderfulAgent(messages);
-            case 'gemini':
-                return this.callGemini(messages);
-            default:
-                return this.callOpenAiCompatible({
-                    provider: 'openai',
-                    apiKey: process.env.OPENAI_API_KEY,
-                    model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-                    baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-                }, messages);
-        }
+        void provider;
+        return this.callWonderfulAgent(messages);
     }
     async callOpenAiCompatible(config, messages) {
         const providerKey = config.provider.toUpperCase();

@@ -224,10 +224,103 @@ export default function ExperienciasForm({
   experiencias,
   onExperienciasChange,
 }: ExperienciasFormProps) {
+  const normalizarTextoBusca = (valor: unknown): string =>
+    String(valor || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+
+  const filtrarResultadosNaoGenericos = (lista: any[]) => {
+    const buscaNormalizada = normalizarTextoBusca(busca);
+    const tokensIgnorados = new Set([
+      "de", "da", "do", "das", "dos", "em", "no", "na", "nos", "nas", "para", "por", "com", "e", "a", "o",
+    ]);
+    const termosBusca = buscaNormalizada
+      .split(/\s+/)
+      .map((token) => token.trim())
+      .filter((token) => token.length > 2 && !tokensIgnorados.has(token));
+
+    const palavrasCompras = [
+      "compr", "loja", "shopping", "outlet", "eletron", "perfume", "galeria", "importado", "duty", "free", "centro comercial",
+    ];
+    const termoIntencao = new Set(palavrasCompras);
+    const consultaCompras = palavrasCompras.some((token) => buscaNormalizada.includes(token));
+    const termosIntencaoBusca = termosBusca.filter((token) => Array.from(termoIntencao).some((base) => token.includes(base) || base.includes(token)));
+    const termosLocalBusca = termosBusca.filter((token) => !termosIntencaoBusca.includes(token));
+    const exigeCombinacaoIntencaoELocal = termosBusca.length >= 2 && termosIntencaoBusca.length > 0 && termosLocalBusca.length > 0;
+
+    const vistos = new Set<string>();
+
+    return (Array.isArray(lista) ? lista : []).filter((item) => {
+      const nome = String(item?.nome || "").trim();
+      const endereco = String(item?.endereco || "").trim();
+      const descricao = String(item?.descricao || "").trim();
+      const local = String(item?.local || "").trim();
+
+      const nomeNormalizado = normalizarTextoBusca(nome);
+      const enderecoNormalizado = normalizarTextoBusca(endereco);
+      const descricaoNormalizada = normalizarTextoBusca(descricao);
+      const localNormalizado = normalizarTextoBusca(local);
+      const textoCombinado = [nomeNormalizado, enderecoNormalizado, descricaoNormalizada, localNormalizado]
+        .filter(Boolean)
+        .join(" ");
+
+      // Remove placeholders genéricos usados como fallback antigo.
+      if (descricaoNormalizada.startsWith("sugestao de experiencia em")) {
+        return false;
+      }
+
+      const nomesGenericos = [
+        "city tour historico em",
+        "passeio cultural guiado em",
+        "experiencia gastronomica local em",
+        "roteiro de mirantes em",
+        "passeio ao por do sol em",
+      ];
+
+      if (nomesGenericos.some((padrao) => nomeNormalizado.startsWith(padrao))) {
+        return false;
+      }
+
+      if (consultaCompras) {
+        const itemTemContextoCompras = palavrasCompras.some((token) => textoCombinado.includes(token));
+        if (!itemTemContextoCompras) {
+          return false;
+        }
+      }
+
+      if (exigeCombinacaoIntencaoELocal) {
+        const itemTemIntencao = termosIntencaoBusca.some((termo) => textoCombinado.includes(termo));
+        const itemTemLocal = termosLocalBusca.some((termo) => textoCombinado.includes(termo));
+        if (!itemTemIntencao || !itemTemLocal) {
+          return false;
+        }
+      }
+
+      if (termosBusca.length > 0) {
+        const aderenciaConsulta = termosBusca.some((termo) => textoCombinado.includes(termo));
+        if (!aderenciaConsulta) {
+          return false;
+        }
+      }
+
+      // Remove duplicados por nome + endereço (ou só nome quando endereço não existir).
+      const chave = `${nomeNormalizado}::${enderecoNormalizado || "sem-endereco"}`;
+      if (vistos.has(chave)) {
+        return false;
+      }
+      vistos.add(chave);
+
+      return Boolean(nomeNormalizado);
+    });
+  };
+
   const [busca, setBusca] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
   const [resultados, setResultados] = useState<any[]>([]);
+  const [paginaResultados, setPaginaResultados] = useState(1);
   const [avisoTemporario, setAvisoTemporario] = useState("");
   const [buscou, setBuscou] = useState(false);
   const [selecionado, setSelecionado] = useState<any | null>(null);
@@ -245,7 +338,7 @@ export default function ExperienciasForm({
   const [documentos, setDocumentos] = useState<DocExperiencia[]>([]);
   const [analisandoIA, setAnalisandoIA] = useState(false);
   const [provedorIA, setProvedorIA] = useState<
-    "automatico" | "openai" | "groq" | "gemini" | "openrouter" | "wonderful"
+    "automatico" | "openai" | "groq" | "gemini" | "wonderful"
   >("automatico");
   const [logAnalise, setLogAnalise] = useState<string[]>([]);
   const [vouchersMinimizado, setVouchersMinimizado] = useState(false);
@@ -295,11 +388,11 @@ export default function ExperienciasForm({
     setLogAnalise([...logEntries]);
     const addLog = (msg: string) => { logEntries.push(msg); setLogAnalise([...logEntries]); };
 
-    const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "wonderful")[] =
-      ["wonderful", "groq", "openai", "gemini", "openrouter"];
+    const provedores: ("openai" | "groq" | "gemini" | "wonderful")[] =
+      ["wonderful", "groq", "openai", "gemini"];
     const cap: Record<string, string> = {
       openai: "OpenAI", groq: "Groq", gemini: "Gemini",
-      openrouter: "OpenRouter", wonderful: "Wonderful",
+      wonderful: "Wonderful",
     };
 
     const novasAnalises = await Promise.all(
@@ -358,7 +451,7 @@ Regras:
 - Não invente dados que não estão no documento.
 ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a análise no nome do arquivo." : ""}`;
 
-        const tentar = (p?: "openai" | "groq" | "gemini" | "openrouter" | "wonderful") =>
+        const tentar = (p?: "openai" | "groq" | "gemini" | "wonderful") =>
           enviarMensagemIA([{ role: "user", content: prompt }], p);
 
         try {
@@ -461,10 +554,27 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
   }
 
   // ─── busca com IA fallback ────────────────────────────────────────────────
+  const consultaIndicaCompras = (consulta: string): boolean => {
+    const texto = String(consulta || "").toLowerCase();
+    return ["compr", "shopping", "outlet", "loja", "paraguai", "ciudad del este"].some((termo) => texto.includes(termo));
+  };
+
   const buscarExperienciaComIA = async (local: string): Promise<any[]> => {
-    const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "wonderful")[] =
-      ["wonderful", "groq", "openai", "gemini", "openrouter"];
-    const prompt = `Liste 5 experiências turísticas ou atrações em "${local}". Responda SOMENTE com array JSON, sem texto extra. Formato: {"nome":"","local":"","endereco":"","classificacao":0,"totalAvaliacoes":0,"descricao":"","priceLevel":"$$"}`;
+    const provedores: ("openai" | "groq" | "gemini" | "wonderful")[] =
+      ["wonderful", "groq", "openai", "gemini"];
+    const focoCompras = consultaIndicaCompras(local);
+    const prompt = `Liste 10 opções reais e relevantes para a busca "${local}".
+
+Regras:
+- Se a busca indicar compras (ex: compras, shopping, outlet, Paraguai), priorize lojas, shoppings, galerias e centros comerciais.
+- Não invente locais genéricos sem relação com a consulta.
+- Traga endereço completo e link do Google Maps sempre que possível.
+- Responda SOMENTE com array JSON, sem texto extra.
+
+Formato de cada item:
+{"nome":"","local":"","endereco":"","classificacao":0,"totalAvaliacoes":0,"descricao":"","priceLevel":"$$","urlMaps":""}
+
+Observação: ${focoCompras ? "o foco desta consulta é COMPRAS." : "mantenha foco total no termo pesquisado."}`;
     for (const p of provedores) {
       try {
         const data = await enviarMensagemIA([{ role: "user", content: prompt }], p);
@@ -472,13 +582,14 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
         const clean = data.reply.replace(/^```json\s*/i,"").replace(/^```\s*/i,"").replace(/```\s*$/i,"").trim();
         const parsed = JSON.parse(clean);
         if (Array.isArray(parsed) && parsed.length > 0)
-          return parsed.map((it: any, idx: number) => ({
+          return parsed.slice(0, 10).map((it: any, idx: number) => ({
             placeId: idx + 1,
             nome: String(it?.nome || local), local: String(it?.local || local),
             endereco: String(it?.endereco || local),
             classificacao: Number(it?.classificacao || 4.5),
             totalAvaliacoes: Number(it?.totalAvaliacoes || 0),
             descricao: String(it?.descricao || ""), priceLevel: String(it?.priceLevel || "$$"),
+            urlMaps: String(it?.urlMaps || "").trim(),
           }));
       } catch { /* tenta próximo */ }
     }
@@ -487,11 +598,24 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
 
   const buscarExperiencia = async () => {
     if (!busca.trim()) { setErro("Digite um local para buscar"); return; }
+    const focoCompras = consultaIndicaCompras(busca);
+    setPaginaResultados(1);
     setCarregando(true); setErro(""); setResultados([]); setBuscou(false);
     setMostrarManual(false); setAvisoTemporario("");
     try {
       const resposta = await buscarExperienciasDestino(busca);
       let itens = Array.isArray(resposta?.itens) ? resposta.itens : [];
+
+      // Para busca de compras, prioriza sugestões do Wonderful mais aderentes ao termo.
+      if (focoCompras) {
+        const iaItensCompras = await buscarExperienciaComIA(busca);
+        if (iaItensCompras.length > 0) {
+          setResultados(iaItensCompras);
+          setAvisoTemporario("Sugestões geradas por IA (Wonderful). Busca focada em compras.");
+          setCarregando(false); setBuscou(true); return;
+        }
+      }
+
       if (itens.length === 0) {
         const iaItens = await buscarExperienciaComIA(busca);
         if (iaItens.length > 0) {
@@ -535,7 +659,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
   const abrirDetalhes = (exp: any) => { setSelecionado(exp); setErro(""); };
 
   const adicionarExperiencia = () => {
-    if (!selecionado || !formDetalhes.data) { setErro("Preencha todos os campos obrigatórios."); return; }
+    if (!selecionado) { setErro("Selecione uma experiência da busca."); return; }
     onExperienciasChange([...experiencias, {
       id: Date.now(),
       nome: selecionado.nome, local: selecionado.local, endereco: selecionado.endereco,
@@ -547,8 +671,8 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
       telefoneOperador: "", linkIngresso: "", politicaCancelamento: "",
       voucher: voucher?.base64 || null, voucherTipo: voucher?.tipo || null, voucherNome: voucher?.nome || "",
     }]);
-    setSelecionado(null); setFormDetalhes(formDetalhesVazio); setResultados([]);
-    setBusca(""); setVoucher(null); setBuscou(false);
+    setSelecionado(null); setFormDetalhes(formDetalhesVazio);
+    setVoucher(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -557,7 +681,6 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
     if (!formManual.nome.trim() || !formManual.local.trim()) {
       setErro("Preencha os campos obrigatórios: Nome e Local."); return;
     }
-    if (!formDetalhes.data) { setErro("Preencha a data da experiência."); return; }
 
     if (editandoId !== null) {
       // Atualizar experiência existente
@@ -700,6 +823,21 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
     return '';
   };
 
+  const resultadosRender = filtrarResultadosNaoGenericos(resultados);
+  const itensPorPagina = 10;
+  const totalPaginasResultados = Math.max(1, Math.ceil(resultadosRender.length / itensPorPagina));
+  const inicioPaginaResultados = (paginaResultados - 1) * itensPorPagina;
+  const resultadosPagina = resultadosRender.slice(inicioPaginaResultados, inicioPaginaResultados + itensPorPagina);
+  const resultadoSelecionadoChave = selecionado
+    ? `${String(selecionado?.placeId || "")}-${String(selecionado?.nome || "").trim()}`
+    : "";
+
+  useEffect(() => {
+    if (paginaResultados > totalPaginasResultados) {
+      setPaginaResultados(totalPaginasResultados);
+    }
+  }, [paginaResultados, totalPaginasResultados]);
+
   return (
     <div className="flex flex-col space-y-4">
       {/* ── Busca ─────────────────────────────────────────────────────────── */}
@@ -820,7 +958,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
               <select value={provedorIA}
                 onChange={(e) => {
                   const v = e.target.value;
-                  if (["automatico","openai","groq","gemini","openrouter","wonderful"].includes(v))
+                  if (["automatico","openai","groq","gemini","wonderful"].includes(v))
                     setProvedorIA(v as typeof provedorIA);
                 }}
                 disabled={analisandoIA}
@@ -829,7 +967,6 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
                 <option value="groq">Groq</option>
                 <option value="openai">OpenAI</option>
                 <option value="gemini">Gemini</option>
-                <option value="openrouter">OpenRouter</option>
                 <option value="wonderful">Wonderful</option>
               </select>
 
@@ -853,12 +990,12 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
       </Card>
 
       {/* ── Resultados da busca ──────────────────────────────────────────── */}
-      {resultados.length > 0 && !selecionado && (
+      {resultadosRender.length > 0 && (
         <Card className="p-4 bg-blue-50 border border-blue-200">
           <div className="flex items-center justify-between mb-3">
             <h4 className="font-semibold text-gray-900">
               <Globe className="w-4 h-4 inline-block mr-1 text-blue-500" />
-              Experiências Encontradas ({resultados.length})
+              Experiências Encontradas ({resultadosRender.length})
               {avisoTemporario && (
                 <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
                   IA
@@ -867,9 +1004,16 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
             </h4>
           </div>
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {resultados.map((exp, idx) => (
+            {resultadosPagina.map((exp, idx) => {
+              const chaveAtual = `${String(exp?.placeId || "")}-${String(exp?.nome || "").trim()}`;
+              const selecionadoNaLista = resultadoSelecionadoChave !== "" && chaveAtual === resultadoSelecionadoChave;
+              return (
               <button key={exp.placeId || idx} onClick={() => abrirDetalhes(exp)}
-                className="w-full text-left p-3 border rounded-lg hover:bg-white hover:border-blue-500 transition-all">
+                className={`w-full text-left p-3 border rounded-lg transition-all ${
+                  selecionadoNaLista
+                    ? "bg-white border-indigo-500 ring-2 ring-indigo-200"
+                    : "hover:bg-white hover:border-blue-500"
+                }`}>
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -880,6 +1024,13 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
                       <MapPin className="w-3 h-3 flex-shrink-0" />
                       <span className="truncate">{exp.endereco || "Endereço não informado"}</span>
                     </p>
+                    {exp.urlMaps && (
+                      <p className="mt-1 text-xs text-blue-600">
+                        <a href={exp.urlMaps} target="_blank" rel="noopener noreferrer">
+                          Abrir no Google Maps
+                        </a>
+                      </p>
+                    )}
                     {exp.descricao && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{exp.descricao}</p>}
                     {formatPriceLevel(exp.priceLevel) && (
                       <p className="text-[11px] text-emerald-700 mt-0.5">Faixa de preço: {formatPriceLevel(exp.priceLevel)}</p>
@@ -895,8 +1046,34 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
                   </div>
                 </div>
               </button>
-            ))}
+              );
+            })}
           </div>
+          {totalPaginasResultados > 1 && (
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPaginaResultados((prev) => Math.max(1, prev - 1))}
+                disabled={paginaResultados === 1}
+              >
+                Anterior
+              </Button>
+              <span className="text-xs text-gray-600">
+                Página {paginaResultados} de {totalPaginasResultados}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPaginaResultados((prev) => Math.min(totalPaginasResultados, prev + 1))}
+                disabled={paginaResultados === totalPaginasResultados}
+              >
+                Próxima
+              </Button>
+            </div>
+          )}
           <div className="mt-3 pt-3 border-t border-blue-200">
             <Button variant="ghost" size="sm"
               onClick={abrirFormManual}
@@ -908,7 +1085,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
       )}
 
       {/* ── Sem resultados ───────────────────────────────────────────────── */}
-      {buscou && resultados.length === 0 && !selecionado && !mostrarManual && (
+      {buscou && resultadosRender.length === 0 && !mostrarManual && (
         <Card className="p-6 text-center">
           <Sparkles className="w-10 h-10 mx-auto mb-2 text-gray-300" />
           <p className="text-sm text-gray-500 mb-3">Nenhuma experiência encontrada para "{busca}".</p>
@@ -935,6 +1112,13 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
             {formatPriceLevel(selecionado.priceLevel) && (
               <p className="text-xs text-emerald-700 mt-2">Faixa de preço: {formatPriceLevel(selecionado.priceLevel)}</p>
             )}
+            {selecionado.urlMaps && (
+              <p className="mt-1 text-xs text-blue-600">
+                <a href={selecionado.urlMaps} target="_blank" rel="noopener noreferrer">
+                  Abrir no Google Maps
+                </a>
+              </p>
+            )}
             {selecionado.descricao && <p className="text-xs text-gray-500 mt-2">{selecionado.descricao}</p>}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
@@ -948,7 +1132,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
               </select>
             </div>
             <div>
-              <Label className="text-xs">Data <span className="text-red-500">*</span></Label>
+              <Label className="text-xs">Data</Label>
               <Input type="date" value={formDetalhes.data}
                 onChange={(e) => setFormDetalhes({ ...formDetalhes, data: e.target.value })} className="mt-1" />
             </div>
@@ -1072,7 +1256,7 @@ ${!temConteudo ? "- O conteúdo do arquivo não pôde ser lido; baseie a anális
                   </select>
                 </div>
                 <div>
-                  <Label className="text-xs">Data <span className="text-red-500">*</span></Label>
+                  <Label className="text-xs">Data</Label>
                   <Input type="date" value={formDetalhes.data}
                     onChange={(e) => setFormDetalhes({ ...formDetalhes, data: e.target.value })} className={`mt-1 ${!formDetalhes.data ? 'bg-yellow-50' : 'bg-white'}`} />
                 </div>

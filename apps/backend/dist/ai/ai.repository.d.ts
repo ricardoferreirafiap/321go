@@ -1,4 +1,4 @@
-export type AiProvider = 'openai' | 'groq' | 'gemini' | 'openrouter' | 'cloudflare' | 'wonderful';
+export type AiProvider = 'openai' | 'groq' | 'gemini' | 'cloudflare' | 'wonderful';
 export type AiMessage = {
     role: 'user' | 'assistant';
     content: string;
