@@ -329,6 +329,14 @@ export class AiRepository {
     const userMessages = messages.filter((message) => message.role === 'user').map((message) => message.content);
     const source = userMessages[userMessages.length - 1] || messages[messages.length - 1]?.content || '';
 
+    if (this.isVoucherAnalysisPrompt(source)) {
+      return {
+        tipoSolicitacao: 'analise_voucher',
+        formatoResposta: 'json',
+        prompt: source,
+      };
+    }
+
     const buscaRestaurante = this.extractLineValue(source, /BUSCA_RESTAURANTE\s*:\s*(.+)/i);
     if (buscaRestaurante) {
       const tipoCozinha = this.extractLineValue(source, /COZINHA\s*:\s*(.+)/i) || 'nao informada';
@@ -391,6 +399,20 @@ export class AiRepository {
       destino: destino || 'nao informado',
       dias: Number.isFinite(dias) && (dias as number) > 0 ? dias : 3,
     };
+  }
+
+  private isVoucherAnalysisPrompt(source: string): boolean {
+    const normalized = String(source || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+    return (
+      normalized.includes('formato json esperado') ||
+      normalized.includes('retorne apenas o objeto json') ||
+      normalized.includes('analise o contexto de um arquivo') ||
+      normalized.includes('extraia todas as informacoes disponiveis no documento')
+    );
   }
 
   private extractWonderfulDestination(source: string): string {

@@ -15,6 +15,7 @@ export declare class AiRepository {
     private buildAuthHeaderValue;
     private callWonderfulAgent;
     private buildWonderfulPayload;
+    private isVoucherAnalysisPrompt;
     private extractWonderfulDestination;
     private normalizeDestinationCandidate;
     private extractLineValue;

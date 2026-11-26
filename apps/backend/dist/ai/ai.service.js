@@ -40,8 +40,12 @@ let AiService = class AiService {
             throw new common_1.InternalServerErrorException('Falha ao processar o chat de IA.');
         }
     }
-    resolveProvider(_provider) {
-        return 'wonderful';
+    resolveProvider(provider) {
+        const requestedProvider = provider || 'wonderful';
+        if (requestedProvider === 'openai' && !(process.env.OPENAI_API_KEY || '').trim()) {
+            return 'wonderful';
+        }
+        return requestedProvider;
     }
     normalizeMessages(input) {
         const normalized = input.map((message, index) => {

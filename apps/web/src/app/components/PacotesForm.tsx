@@ -1039,6 +1039,43 @@ function textoMaisCompleto(...valores: (string | null | undefined)[]): string {
       .sort((a, b) => b.length - a.length)[0] || "";
 }
 
+function extrairJsonDaRespostaIA(resposta: string): Record<string, unknown> {
+  const normalizada = String(resposta || "")
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```$/i, "")
+    .trim();
+
+  const parseObjeto = (valor: string): Record<string, unknown> | null => {
+    if (!valor) return null;
+    try {
+      const parsed = JSON.parse(valor) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+      if (Array.isArray(parsed) && parsed[0] && typeof parsed[0] === "object") {
+        return parsed[0] as Record<string, unknown>;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const parsedDireto = parseObjeto(normalizada);
+  if (parsedDireto) return parsedDireto;
+
+  const inicioObjeto = normalizada.indexOf("{");
+  const fimObjeto = normalizada.lastIndexOf("}");
+  if (inicioObjeto >= 0 && fimObjeto > inicioObjeto) {
+    const candidato = normalizada.slice(inicioObjeto, fimObjeto + 1);
+    const parsedCandidato = parseObjeto(candidato);
+    if (parsedCandidato) return parsedCandidato;
+  }
+
+  throw new Error("A IA nao retornou um JSON valido para preenchimento do voucher.");
+}
+
 function extrairDadosIADeAnalise(analise: string): DadosIAExtraidos {
   // Captura sempre o último grupo da regex (o valor real), ignorando grupos opcionais anteriores
   const extrair = (regex: RegExp) => {
@@ -2070,7 +2107,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
   const [atualizando, setAtualizando] = useState<string | null>(null);
   const [salvandoNoBackend, setSalvandoNoBackend] = useState(false);
   const [logAnaliseIA, setLogAnaliseIA] = useState<string[]>([]);
-  const [provedorIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare">("automático");
+  const [provedorIA] = useState<"automático" | "openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful">("automático");
   const [novaUrlOperador, setNovaUrlOperador] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -2131,7 +2168,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
 
     const prompt = `Você é um assistente de viagens especializado. Preciso do site oficial (URL) do seguinte hotel:\n\nNome: ${nome}${endereco ? `\nEndereço: ${endereco}` : ""}\n\nResponda SOMENTE com a URL completa do site oficial do hotel (ex: https://www.nomehotel.com). Se não encontrar o site oficial, responda com a URL do Booking.com ou Google Maps para este hotel. Não adicione explicações, apenas a URL.`;
 
-    const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
+    const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful")[] = ["wonderful", "groq", "gemini", "openrouter", "cloudflare"];
     let urlEncontrada: string | null = null;
     const erros: string[] = [];
 
@@ -2181,7 +2218,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
       // Se não tem nome, tenta extrair do link via IA
       if (!termoBusca && link) {
         const prompt = `Dado este link de hotel: ${link}\n\nResponda SOMENTE com o nome completo do hotel (ex: "Hotel Ibis Lisboa"). Sem explicações, apenas o nome.`;
-        const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
+        const provedores: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful")[] = ["wonderful", "groq", "gemini", "openrouter", "cloudflare"];
         for (const provedor of provedores) {
           try {
             const resposta = await enviarMensagemIA([{ role: "user" as const, content: prompt }], provedor);
@@ -2993,21 +3030,22 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
 
         const prompt = criarPromptAnaliseUrl(htmlContent);
 
-        const tentarComProvedor = async (provedor?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
+        const tentarComProvedor = async (provedor?: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful") => {
           return enviarMensagemIA([{ role: "user" as const, content: prompt }], provedor);
         };
 
         let dataUrl;
-        let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare";
-        const provedoresAutomatico: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] = ["groq", "openai", "gemini", "openrouter", "cloudflare"];
+        let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare" | "Wonderful";
+        const provedoresAutomatico: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful")[] = ["wonderful", "groq", "gemini", "openrouter", "cloudflare"];
 
         if (provedorIA === "automático") {
-          const mapaProvedorCapitalizado: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
+          const mapaProvedorCapitalizado: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare" | "Wonderful"> = {
             openai: "OpenAI",
             groq: "Groq",
             gemini: "Gemini",
             openrouter: "OpenRouter",
             cloudflare: "Cloudflare",
+            wonderful: "Wonderful",
           };
 
           for (const provedor of provedoresAutomatico) {
@@ -3040,12 +3078,13 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
             setVouchersMinimizado(false);
           }
         } else {
-          const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
+          const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare" | "Wonderful"> = {
             openai: "OpenAI",
             groq: "Groq",
             gemini: "Gemini",
             openrouter: "OpenRouter",
             cloudflare: "Cloudflare",
+            wonderful: "Wonderful",
           };
           const provedorCapitalizado = mapaProvedor[provedorIA] || "OpenAI";
           adicionarLog(`Analisando URL com ${provedorCapitalizado}...`);
@@ -3071,16 +3110,8 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
 
         if (dataUrl) {
           adicionarLog(`Resposta recebida da IA.`);
-          const respostaLimpa = dataUrl.reply.replace(/^```json\s*/, "").replace(/```$/, "").trim();
-
-          // Verificar se a resposta parece ser JSON válido
-          if (!respostaLimpa.startsWith('{') && !respostaLimpa.startsWith('[')) {
-            adicionarLog(`Resposta não é JSON válido. Resposta: ${respostaLimpa.substring(0, 100)}...`);
-            continue;
-          }
-
           adicionarLog(`Parseando resposta JSON...`);
-          const respostaJson = JSON.parse(respostaLimpa);
+          const respostaJson = extrairJsonDaRespostaIA(dataUrl.reply);
 
           adicionarLog(`Dados extraídos do JSON: ${JSON.stringify(respostaJson).substring(0, 200)}...`);
 
@@ -3276,7 +3307,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
         }
 
         const prompt = criarPromptAnaliseCompleta(contextoArquivo, temConteudoPdf || contextoArquivo.includes("Conteúdo OCR"));
-        const tentarComProvedor = async (provedor: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare") => {
+        const tentarComProvedor = async (provedor: "openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful") => {
           const content: AIChatApiMessageContent = provedor === "openai" && imagensParaAnalise.length > 0
             ? [
                 { type: "text", text: prompt },
@@ -3288,17 +3319,18 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
 
         try {
           let data;
-          let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare" = "OpenAI";
-          const provedoresAutomatico: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare")[] =
+          let provedorUsado: "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare" | "Wonderful" = "Wonderful";
+          const provedoresAutomatico: ("openai" | "groq" | "gemini" | "openrouter" | "cloudflare" | "wonderful")[] =
             imagensParaAnalise.length > 0
-              ? ["openai", "groq", "gemini", "openrouter", "cloudflare"]
-              : ["groq", "openai", "gemini", "openrouter", "cloudflare"];
-          const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare"> = {
+              ? ["wonderful", "groq", "gemini", "openrouter", "cloudflare"]
+              : ["wonderful", "groq", "gemini", "openrouter", "cloudflare"];
+          const mapaProvedor: Record<string, "OpenAI" | "Groq" | "Gemini" | "OpenRouter" | "Cloudflare" | "Wonderful"> = {
             openai: "OpenAI",
             groq: "Groq",
             gemini: "Gemini",
             openrouter: "OpenRouter",
             cloudflare: "Cloudflare",
+            wonderful: "Wonderful",
           };
 
           if (provedorIA === "automático") {
@@ -3325,14 +3357,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
             data = await tentarComProvedor(provedorIA);
           }
 
-          const respostaLimpa = data.reply.replace(/^```json\s*/, "").replace(/```$/, "").trim();
-          const respostaJson: unknown = JSON.parse(respostaLimpa);
-          if (!respostaJson || typeof respostaJson !== "object" || Array.isArray(respostaJson)) {
-            adicionarLog("A IA retornou um JSON inválido.");
-            continue;
-          }
-
-          const respostaObjeto = respostaJson as Record<string, unknown>;
+          const respostaObjeto = extrairJsonDaRespostaIA(data.reply);
           const politicaResposta = typeof respostaObjeto.politicaAlteracoesCancelamentos === "string"
             ? respostaObjeto.politicaAlteracoesCancelamentos
             : "";
@@ -3359,7 +3384,7 @@ export default function PacotesForm({ pacotes, onPacotesChange, onSalvarPacotes 
           });
         } catch (error) {
           console.error(`Erro ao analisar "${doc.nome}":`, error);
-          const mensagemErro = "Não foi possível analisar o documento. Tente novamente mais tarde.";
+          const mensagemErro = error instanceof Error ? error.message : "Nao foi possivel analisar o documento.";
           adicionarLog(`Falha ao analisar "${doc.nome}": ${mensagemErro}`);
           novasAnalises.push({ ...doc, analise: `Falha na análise com IA: ${mensagemErro}` });
         }

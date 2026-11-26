@@ -35,9 +35,16 @@ export class AiService {
     }
   }
 
-  private resolveProvider(_provider?: AiProvider): AiProvider {
-    // Wonderful is intentionally the only active provider in backend chat for now.
-    return 'wonderful';
+  private resolveProvider(provider?: AiProvider): AiProvider {
+    // Keep Wonderful as default, but allow explicit provider selection for fallback flows.
+    const requestedProvider = provider || 'wonderful';
+
+    // Avoid OPENAI_INVALID_KEY for environments that intentionally do not use OpenAI.
+    if (requestedProvider === 'openai' && !(process.env.OPENAI_API_KEY || '').trim()) {
+      return 'wonderful';
+    }
+
+    return requestedProvider;
   }
 
   private normalizeMessages(input: Array<{ role: 'user' | 'assistant'; content: unknown }>) {

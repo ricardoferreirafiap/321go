@@ -211,6 +211,13 @@ let AiRepository = class AiRepository {
     buildWonderfulPayload(messages) {
         const userMessages = messages.filter((message) => message.role === 'user').map((message) => message.content);
         const source = userMessages[userMessages.length - 1] || messages[messages.length - 1]?.content || '';
+        if (this.isVoucherAnalysisPrompt(source)) {
+            return {
+                tipoSolicitacao: 'analise_voucher',
+                formatoResposta: 'json',
+                prompt: source,
+            };
+        }
         const buscaRestaurante = this.extractLineValue(source, /BUSCA_RESTAURANTE\s*:\s*(.+)/i);
         if (buscaRestaurante) {
             const tipoCozinha = this.extractLineValue(source, /COZINHA\s*:\s*(.+)/i) || 'nao informada';
@@ -268,6 +275,16 @@ let AiRepository = class AiRepository {
             destino: destino || 'nao informado',
             dias: Number.isFinite(dias) && dias > 0 ? dias : 3,
         };
+    }
+    isVoucherAnalysisPrompt(source) {
+        const normalized = String(source || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
+        return (normalized.includes('formato json esperado') ||
+            normalized.includes('retorne apenas o objeto json') ||
+            normalized.includes('analise o contexto de um arquivo') ||
+            normalized.includes('extraia todas as informacoes disponiveis no documento'));
     }
     extractWonderfulDestination(source) {
         const fromRestaurantSearch = this.extractLineValue(source, /BUSCA_RESTAURANTE\s*:\s*(.+)/i);
